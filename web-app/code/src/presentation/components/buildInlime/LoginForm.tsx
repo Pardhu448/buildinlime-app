@@ -18,6 +18,7 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [showSignupPrompt, setShowSignupPrompt] = useState(false);
 
   const router = useRouter();
 
@@ -26,6 +27,7 @@ export function LoginForm() {
     setLoading(true);
     setError("");
     setSuccessMessage("");
+    setShowSignupPrompt(false);
     try {
       if (isSignup) {
         const { exists } = await trpc.users.checkEmail.query({ email });
@@ -38,6 +40,7 @@ export function LoginForm() {
         const { exists } = await trpc.users.checkEmail.query({ email });
         if (!exists) {
           setError("No account found for this email. Please sign up first.");
+          setShowSignupPrompt(true);
           return;
         }
       }
@@ -140,8 +143,21 @@ export function LoginForm() {
 
         {/* Error */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-[10px]">
-            <p className="font-['Instrument_Sans',sans-serif] text-[14px] text-red-600">{error}</p>
+          <div className="mb-4">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-[10px]">
+              <p className="font-['Instrument_Sans',sans-serif] text-[14px] text-red-600">{error}</p>
+            </div>
+            {showSignupPrompt && (
+              <button
+                type="button"
+                onClick={() => router.navigate({ to: '/login', search: { mode: 'signup', returnTo } })}
+                className="mt-2 w-full bg-white hover:bg-[#fdf8f2] border border-[#976623] text-[#976623] rounded-[10px] h-[44px] font-['Instrument_Sans',sans-serif] font-medium text-[15px] flex items-center justify-center gap-2 transition-colors"
+                style={{ fontVariationSettings: "'wdth' 100" }}
+              >
+                <User className="w-4 h-4" />
+                Create an account
+              </button>
+            )}
           </div>
         )}
 
