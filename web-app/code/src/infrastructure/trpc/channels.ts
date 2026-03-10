@@ -63,13 +63,16 @@ export const channelsRouter = router({
   addMember: authedProcedure
     .input(z.object({ channelId: z.string(), userId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Fetch channel to get buildunit_id
+      // Fetch channel to get buildunit_id and owner_id
       const [channel] = await ctx.db
-        .select({ buildunit_id: channelsTable.buildunit_id })
+        .select({ buildunit_id: channelsTable.buildunit_id, owner_id: channelsTable.owner_id })
         .from(channelsTable)
         .where(eq(channelsTable.id, input.channelId))
       if (!channel) {
         throw new TRPCError({ code: `NOT_FOUND`, message: `Channel not found` })
+      }
+      if (channel.owner_id !== ctx.session.user.id) {
+        throw new TRPCError({ code: `FORBIDDEN`, message: `Only the channel owner can add members` })
       }
 
       // Fetch build unit to get project_id
@@ -129,6 +132,16 @@ export const channelsRouter = router({
   removeMember: authedProcedure
     .input(z.object({ channelId: z.string(), userId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      const [channel] = await ctx.db
+        .select({ owner_id: channelsTable.owner_id })
+        .from(channelsTable)
+        .where(eq(channelsTable.id, input.channelId))
+      if (!channel) {
+        throw new TRPCError({ code: `NOT_FOUND`, message: `Channel not found` })
+      }
+      if (channel.owner_id !== ctx.session.user.id) {
+        throw new TRPCError({ code: `FORBIDDEN`, message: `Only the channel owner can remove members` })
+      }
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
         await tx

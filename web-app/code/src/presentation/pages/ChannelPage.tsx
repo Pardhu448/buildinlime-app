@@ -161,6 +161,7 @@ export function ChannelPage({
   };
 
   const channelOwnerId = channelData?.[0]?.owner_id;
+  const isOwner = session?.user?.id === channelOwnerId;
 
   return (
     <>
@@ -207,7 +208,7 @@ export function ChannelPage({
             <div className="relative">
               <AddTaskButton
                 onClick={() => setTaskFormOpen(true)}
-                onAddPeople={() => setAddPeopleOpen((v) => !v)}
+                onAddPeople={isOwner ? () => setAddPeopleOpen((v) => !v) : undefined}
               />
               {addPeopleOpen && (
                 <>
@@ -359,7 +360,7 @@ export function ChannelPage({
                           </div>
                           <span className="text-sm text-[#1e1e1e] truncate">{u.name || u.email}</span>
                         </div>
-                        {u.id !== channelOwnerId && (
+                        {isOwner && u.id !== channelOwnerId && (
                           <button
                             onClick={() => { setRemovingMember({ id: u.id, name: u.name || u.email || u.id }); setConfirmStep(1); }}
                             className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs transition-opacity"
