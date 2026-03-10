@@ -1,0 +1,474 @@
+import { useState } from "react";
+import type { FormEvent } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useLiveQuery, eq } from "@tanstack/react-db";
+import {
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  X,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Sidebar,
+  ChannelHeader,
+  PropertiesInline,
+  AddTaskButton,
+  ResourceDisplay,
+  CommentsSection,
+  TasksRightPanel,
+  PageTopBar,
+} from "../components/buildInlime";
+import { PropertiesPanel } from "../components/buildInlime/PropertiesPanel";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "../components/ui/alert-dialog";
+import { tasksCollection, channelsCollection, usersCollection, membershipsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
+import { trpc } from "%/infrastructure/trpc/lib/trpc-client";
+import { useSession } from "%/infrastructure/auth/client";
+import type { ActivityItem, Task } from "../components/buildInlime";
+import type { Property } from "%/infrastructure/database/schema/admin-schema";
+
+interface ChannelPageProps {
+  projectId: string;
+  projectName: string;
+  buildUnitName: string;
+  buildUnitId: string;
+  channelName: string;
+  channelId: string;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  properties: Property[];
+  buildUnitProperties: Property[];
+}
+
+export function ChannelPage({
+  projectId,
+  projectName,
+  buildUnitName,
+  buildUnitId,
+  channelName,
+  channelId,
+  icon,
+  title,
+  description,
+  properties,
+  buildUnitProperties,
+}: ChannelPageProps) {
+  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [propertiesOpen, setPropertiesOpen] = useState(true);
+  const [channelPropsOpen, setChannelPropsOpen] = useState(true);
+  const [buildUnitPropsOpen, setBuildUnitPropsOpen] = useState(true);
+  const [taskFormOpen, setTaskFormOpen] = useState(false);
+  const [resourcesOpen, setResourcesOpen] = useState(true);
+  const [taskName, setTaskName] = useState("");
+  const [taskDesc, setTaskDesc] = useState("");
+  const [isSubmittingTask, setIsSubmittingTask] = useState(false);
+  const [addPeopleOpen, setAddPeopleOpen] = useState(false);
+  const [isAddingMember, setIsAddingMember] = useState(false);
+  const [removingMember, setRemovingMember] = useState<{ id: string; name: string } | null>(null);
+  const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
+  const [alreadyMemberName, setAlreadyMemberName] = useState<string | null>(null);
+  const { data: session } = useSession();
+  const navigate = useNavigate();
+
+  const { data: channelData } = useLiveQuery(
+    (q) => q.from({ channelsCollection }).where(({ channelsCollection: c }) => eq(c.id, channelId)),
+    [channelId]
+  );
+
+  const { data: allUsers } = useLiveQuery((q) => q.from({ usersCollection }), []);
+
+  // Derive channel members from the membershipsCollection (all channel members, not just current user)
+  const { data: channelMemberships } = useLiveQuery(
+    (q) => q.from({ membershipsCollection }).where(({ membershipsCollection: m }) => eq(m.channel_id, channelId)),
+    [channelId]
+  );
+  const channelMemberIds = (channelMemberships ?? []).map(m => m.user_id);
+  const channelMembers = (allUsers ?? []).filter(u => channelMemberIds.includes(u.id));
+  const nonMembers = (allUsers ?? []).filter(u => !channelMemberIds.includes(u.id));
+
+  const handleAddMember = async (userId: string) => {
+    const user = allUsers?.find(u => u.id === userId);
+    setIsAddingMember(true);
+    try {
+      await trpc.channels.addMember.mutate({ channelId, userId });
+      setAddPeopleOpen(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("ALREADY_MEMBER")) {
+        setAlreadyMemberName(user?.name || user?.email || userId);
+        setAddPeopleOpen(false);
+      }
+    } finally {
+      setIsAddingMember(false);
+    }
+  };
+
+  const handleRemoveMember = async () => {
+    if (!removingMember) return;
+    try {
+      await trpc.channels.removeMember.mutate({ channelId, userId: removingMember.id });
+    } finally {
+      setRemovingMember(null);
+      setConfirmStep(1);
+    }
+  };
+
+  const { data: dbTasks } = useLiveQuery(
+    (q) => q.from({ tasksCollection }).where(({ tasksCollection: t }) => eq(t.channel_id, channelId)),
+    [channelId]
+  );
+
+  if (dbTasks === undefined) return null
+
+  const tasks: Task[] = dbTasks.map((t) => ({
+    id: t.id,
+    name: t.name,
+    completed: t.completed,
+  }));
+
+  const handleAddTask = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!session?.user || !channelId || !buildUnitId || !taskName.trim()) return;
+    setIsSubmittingTask(true);
+    try {
+      await tasksCollection.insert({
+        id: crypto.randomUUID(),
+        name: taskName.trim(),
+        description: taskDesc.trim(),
+        completed: false,
+        opened_at: new Date(),
+        closed_at: new Date(),
+        channel_id: channelId,
+        buildunit_id: buildUnitId,
+        createdby_id: session.user.id,
+        assignee_id: null,
+      });
+      setTaskName("");
+      setTaskDesc("");
+      setTaskFormOpen(false);
+    } finally {
+      setIsSubmittingTask(false);
+    }
+  };
+
+  const channelOwnerId = channelData?.[0]?.owner_id;
+
+  return (
+    <>
+    <div className="flex h-screen bg-white font-['Instrument_Sans',sans-serif]">
+      {/* Sidebar */}
+      <Sidebar projectId={projectId} />
+
+      {/* Main content */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <PageTopBar
+          onToggleRightPanel={() => setRightPanelOpen(!rightPanelOpen)}
+          breadcrumbs={
+            <>
+              <Link
+                to="/projects/$projectId"
+                params={{ projectId }}
+                className="hover:text-[#1e1e1e] transition-colors"
+              >
+                {projectName}
+              </Link>
+              <ChevronRight className="w-4 h-4" />
+              <Link
+                to="/projects/$projectId/$buildUnitName"
+                params={{ projectId, buildUnitName }}
+                className="hover:text-[#1e1e1e] transition-colors"
+              >
+                {buildUnitName}
+              </Link>
+              <ChevronRight className="w-4 h-4" />
+              <span className="text-[#1e1e1e]">{channelName}</span>
+            </>
+          }
+        />
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Content area */}
+          <div className="flex-1 overflow-y-auto bg-white px-8 py-8">
+            <ChannelHeader icon={icon} title={title} description={description} />
+
+            {/* Properties inline */}
+            <PropertiesInline properties={properties} buildUnitId={channelId} entity="channel" />
+
+            {/* Add Task + Add People */}
+            <div className="relative">
+              <AddTaskButton
+                onClick={() => setTaskFormOpen(true)}
+                onAddPeople={() => setAddPeopleOpen((v) => !v)}
+              />
+              {addPeopleOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setAddPeopleOpen(false)}
+                  />
+                  <div className="absolute left-24 top-0 z-20 bg-white border border-[#e5d4c1] rounded-lg shadow-lg min-w-[220px]">
+                    <p className="px-3 py-2 text-xs font-medium text-[#717182] border-b border-[#e5d4c1]">
+                      Add to channel
+                    </p>
+                    {nonMembers.length === 0 ? (
+                      <p className="px-3 py-3 text-xs text-[#717182]">All users are already members.</p>
+                    ) : (
+                      <div className="py-1 max-h-48 overflow-y-auto">
+                        {nonMembers.map((u) => (
+                          <button
+                            key={u.id}
+                            onClick={() => handleAddMember(u.id)}
+                            disabled={isAddingMember}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1e1e1e] hover:bg-[#fdf8f2] transition-colors disabled:opacity-50"
+                          >
+                            <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                              {((u.name || u.email || "?")[0] ?? "?").toUpperCase()}
+                            </div>
+                            <span className="truncate">{u.name || u.email}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Resources */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-[#717182]">Resources</h3>
+                <button
+                  onClick={() => setResourcesOpen(!resourcesOpen)}
+                  className="flex items-center gap-1 text-xs text-[#717182] hover:text-[#976623] transition-colors"
+                >
+                  {resourcesOpen ? (
+                    <>Hide <ChevronUp className="w-3.5 h-3.5" /></>
+                  ) : (
+                    <>Show <ChevronDown className="w-3.5 h-3.5" /></>
+                  )}
+                </button>
+              </div>
+              {resourcesOpen && (
+                <ResourceDisplay
+                  channelId={channelId}
+                  buildunitId={buildUnitId}
+                />
+              )}
+            </div>
+
+            {/* Comments section */}
+            <div className="mt-8">
+              <CommentsSection
+                channelId={channelId}
+                buildunitId={buildUnitId}
+                projectId={projectId}
+                currentUserId={session?.user?.id ?? ""}
+                memberIds={session?.user ? [session.user.id] : []}
+              />
+            </div>
+          </div>
+
+          {/* Right panel */}
+          {rightPanelOpen && (
+            <aside className="w-72 bg-[#fdf8f2] border-l border-[#e5d4c1] overflow-y-auto p-6 space-y-8">
+              {/* Properties */}
+              <div>
+                <button
+                  onClick={() => setPropertiesOpen(!propertiesOpen)}
+                  className="flex items-center justify-between w-full mb-4"
+                >
+                  <h3 className="text-sm font-medium text-[#717182]">Properties</h3>
+                  {propertiesOpen
+                    ? <ChevronDown className="w-4 h-4 text-[#717182]" />
+                    : <ChevronRight className="w-4 h-4 text-[#717182]" />
+                  }
+                </button>
+                {propertiesOpen && (
+                  <div className="space-y-6">
+                    {/* Channel sub-section */}
+                    <div>
+                      <button
+                        onClick={() => setChannelPropsOpen(!channelPropsOpen)}
+                        className="flex items-center justify-between w-full mb-3"
+                      >
+                        <p className="text-xs text-[#ac7f5e]">Channel</p>
+                        {channelPropsOpen
+                          ? <ChevronDown className="w-3 h-3 text-[#ac7f5e]" />
+                          : <ChevronRight className="w-3 h-3 text-[#ac7f5e]" />
+                        }
+                      </button>
+                      {channelPropsOpen && (
+                        <PropertiesPanel properties={properties} buildUnitId={channelId} hideLabel />
+                      )}
+                    </div>
+                    {/* Build Unit sub-section */}
+                    <div>
+                      <button
+                        onClick={() => setBuildUnitPropsOpen(!buildUnitPropsOpen)}
+                        className="flex items-center justify-between w-full mb-3"
+                      >
+                        <p className="text-xs text-[#ac7f5e]">Build Unit</p>
+                        {buildUnitPropsOpen
+                          ? <ChevronDown className="w-3 h-3 text-[#ac7f5e]" />
+                          : <ChevronRight className="w-3 h-3 text-[#ac7f5e]" />
+                        }
+                      </button>
+                      {buildUnitPropsOpen && (
+                        <PropertiesPanel properties={buildUnitProperties} buildUnitId={buildUnitId} hideAddButton label={buildUnitName} />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Tasks */}
+              <TasksRightPanel
+                tasks={tasks}
+                onTaskClick={(taskId) => {
+                  const task = dbTasks.find((t) => t.id === taskId);
+                  if (!task) return;
+                  navigate({
+                    to: '/projects/$projectId/$buildUnitName/$channelName/$taskName',
+                    params: { projectId, buildUnitName, channelName, taskName: task.name },
+                  });
+                }}
+              />
+
+              {/* Members */}
+              <div>
+                <p className="text-xs font-semibold text-[#ac7f5e] uppercase tracking-wider mb-3">Members</p>
+                {channelMembers.length === 0 ? (
+                  <p className="text-xs text-[#717182]">No members yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {channelMembers.map((u) => (
+                      <div key={u.id} className="flex items-center justify-between group">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                            {((u.name || u.email || "?")[0] ?? "?").toUpperCase()}
+                          </div>
+                          <span className="text-sm text-[#1e1e1e] truncate">{u.name || u.email}</span>
+                        </div>
+                        {u.id !== channelOwnerId && (
+                          <button
+                            onClick={() => { setRemovingMember({ id: u.id, name: u.name || u.email || u.id }); setConfirmStep(1); }}
+                            className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs transition-opacity"
+                            title="Remove member"
+                          >✕</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </aside>
+          )}
+        </div>
+      </main>
+    </div>
+
+      {/* Add Task modal */}
+      {taskFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setTaskFormOpen(false)} />
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
+            <button
+              onClick={() => { setTaskFormOpen(false); setTaskName(""); setTaskDesc(""); }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-xl font-semibold text-gray-800 mb-6">Add Task</h2>
+            <form onSubmit={handleAddTask} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
+                <input
+                  type="text"
+                  value={taskName}
+                  onChange={(e) => setTaskName(e.target.value)}
+                  placeholder="Enter task name"
+                  required
+                  autoFocus
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={taskDesc}
+                  onChange={(e) => setTaskDesc(e.target.value)}
+                  placeholder="Enter a short description"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isSubmittingTask || !taskName.trim()}
+                className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                {isSubmittingTask ? "Adding…" : "Add Task"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Remove member: Step 1 confirm */}
+      <AlertDialog open={!!removingMember && confirmStep === 1} onOpenChange={(open) => { if (!open) setRemovingMember(null); }}>
+        <AlertDialogContent>
+          <AlertDialogTitle>Remove member?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Remove {removingMember?.name} from this channel?
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRemovingMember(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => setConfirmStep(2)}>Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Remove member: Step 2 confirm */}
+      <AlertDialog open={!!removingMember && confirmStep === 2} onOpenChange={(open) => { if (!open) { setRemovingMember(null); setConfirmStep(1); } }}>
+        <AlertDialogContent>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {removingMember?.name} will lose access to all messages, tasks, and files in this channel.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setRemovingMember(null); setConfirmStep(1); }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleRemoveMember}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Already a member dialog */}
+      <AlertDialog open={!!alreadyMemberName} onOpenChange={(open) => { if (!open) setAlreadyMemberName(null); }}>
+        <AlertDialogContent>
+          <AlertDialogTitle>Already a member</AlertDialogTitle>
+          <AlertDialogDescription>
+            {alreadyMemberName} is already a member of this channel.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setAlreadyMemberName(null)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}

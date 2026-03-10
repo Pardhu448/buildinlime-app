@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+     viewBox="0 0 800 200" width="800" height="200">
+  
+  <defs>
+    <!-- Laterite stone texture pattern -->
+    <pattern id="lateriteTexture" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+      <image xlink:href="Red-Laterite-Stone..jpeg" x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice"/>
+    </pattern>
+    
+    <!-- Pencil sketch filter for rough edges -->
+    <filter id="pencilSketch" x="-20%" y="-20%" width="140%" height="140%">
+      <!-- Turbulence for rough texture -->
+      <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+      <!-- Add slight blur for sketch effect -->
+      <feGaussianBlur stdDeviation="0.3"/>
+    </filter>
+    
+    <!-- Shadow for depth -->
+    <filter id="dropShadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="2" dy="2" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Pencil stroke gradient for outline -->
+    <linearGradient id="pencilStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2C2C2C;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#1A1A1A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2C2C2C;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="800" height="200" fill="#FFFFF8"/>
+  
+  <!-- Main text with laterite texture fill -->
+  <g filter="url(#dropShadow)">
+    <!-- Text with laterite stone fill -->
+    <text x="400" y="130" 
+          font-family="Georgia, serif" 
+          font-size="85" 
+          font-weight="bold"
+          text-anchor="middle"
+          fill="url(#lateriteTexture)"
+          stroke="url(#pencilStroke)" 
+          stroke-width="2.5"
+          filter="url(#pencilSketch)">
+      BuildInLime
+    </text>
+    
+    <!-- Additional sketch outline for hand-drawn effect -->
+    <text x="400.5" y="130.5" 
+          font-family="Georgia, serif" 
+          font-size="85" 
+          font-weight="bold"
+          text-anchor="middle"
+          fill="none"
+          stroke="#3D3D3D" 
+          stroke-width="1.5"
+          opacity="0.6"
+          filter="url(#pencilSketch)">
+      BuildInLime
+    </text>
+    
+    <!-- Lighter inner sketch line -->
+    <text x="399.5" y="129.5" 
+          font-family="Georgia, serif" 
+          font-size="85" 
+          font-weight="bold"
+          text-anchor="middle"
+          fill="none"
+          stroke="#666666" 
+          stroke-width="1"
+          opacity="0.4"
+          filter="url(#pencilSketch)">
+      BuildInLime
+    </text>
+  </g>
+  
+  <!-- Subtle tagline or decorative element (optional) -->
+  <text x="400" y="170" 
+        font-family="Arial, sans-serif" 
+        font-size="12" 
+        font-style="italic"
+        text-anchor="middle"
+        fill="#666666"
+        opacity="0.7">
+    Traditional Building with Natural Materials
+  </text>
+  
+</svg>

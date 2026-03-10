@@ -1,0 +1,13 @@
+{
+  "name": "buildinlime",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "web": "pnpm --filter buildinlime dev",
+    "mobile": "pnpm --filter buildinlimemobile start"
+  },
+  "engines": {
+    "node": ">=20.19.0 || >=22.12.0",
+    "pnpm": ">=9"
+  }
+}

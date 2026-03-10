@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="750" height="900" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <!-- Create 3 columns and 6 rows of the brickJali image -->
+  <!-- Row 1 -->
+  <image xlink:href="buildInLime-brickJhali.svg" x="0" y="0" width="250" height="150" />
+  <image xlink:href="buildInLime-brickJhali.svg" x="250" y="0" width="250" height="150" />
+  <image xlink:href="buildInLime-brickJhali.svg" x="500" y="0" width="250" height="150" />
+  
+  <!-- Row 2 -->
+  <image xlink:href="buildInLime-brickJhali.svg" x="0" y="150" width="250" height="150" />
+  <image xlink:href="buildInLime-brickJhali.svg" x="250" y="150" width="250" height="150" />
+  <image xlink:href="buildInLime-brickJhali.svg" x="500" y="150" width="250" height="150" />
+  
+  <!-- Row 3 -->
+  <image xlink:href="buildInLime-brickJhali.svg" x="0" y="300" width="250" height="150" />
+  <image xlink:href="buildInLime-brickJhali.svg" x="250" y="300" width="250" height="150" />
+  <image xlink:href="buildInLime-brickJhali.svg" x="500" y="300" width="250" height="150" />
+  
+  <!-- Row 4 -->
+  <image xlink:href="buildInLime-brickJhali.svg" x="0" y="450" width="250" height="150" />
+  <image xlink:href="buildInLime-brickJhali.svg" x="250" y="450" width="250" height="150" />
+  <image xlink:href="buildInLime-brickJhali.svg" x="500" y="450" width="250" height="150" />
+  
+  <!-- Row 5 -->
+  <image xlink:href="buildInLime-brickJhali.svg" x="0" y="600" width="250" height="150" />
+  <image xlink:href="buildInLime-brickJhali.svg" x="250" y="600" width="250" height="150" />
+  <image xlink:href="buildInLime-brickJhali.svg" x="500" y="600" width="250" height="150" />
+  
+  <!-- Row 6 -->
+  <image xlink:href="buildInLime-brickJhali.svg" x="0" y="750" width="250" height="150" />
+  <image xlink:href="buildInLime-brickJhali.svg" x="250" y="750" width="250" height="150" />
+  <image xlink:href="buildInLime-brickJhali.svg" x="500" y="750" width="250" height="150" />
+</svg>

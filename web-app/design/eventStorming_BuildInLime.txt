@@ -1,0 +1,185 @@
+Event modeling for the single use case : Build a Cob Oven
+
+::Commands::
+*there are not many commands in this application as it is a platform for communication and documentation primarily, there is no one-to-one modeling of 
+*physical processes or objects to software entities, there is no orchestration of physical entities in the software system  
+
+Create BuildUnit
+Update BuildUnit
+Close BuildUnit
+Create Team
+Update Team
+Close Team
+Create Channel
+Update Channel
+Close Channel
+Add Member
+Remove Member
+Create Artifact
+Update Artifact
+Sign-Off Artifact
+
+::Events::
+BuildUnit created
+BuildUnit updated
+BuildUnit closed
+Team created
+Team updated
+Team closed
+Channel created
+Channel updated
+Channel closed
+Member Added
+Member Removed
+Artifact created
+Artifact updated
+Artifact signed-off
+Artifact closed
+
+::Queries::
+fetch total expenditure
+fetch material expenditure
+fetch labor expenditure
+fetch total time taken per sub component
+fetch total man hours taken
+
+fetch sample observation data
+fetch information on research done for materials
+fetch total cost of experimentation
+
+fetch information on local issues
+fetch information on climatic conditions
+fetch information on the labor issues
+fetch summary of sampling 
+fetch summary of execution
+
+fetch final requirement document
+fetch final design document
+fetch summary of requirement and design
+
+::Entities/Aggregate Roots::
+*For now we have below aggregate roots, we will have granular entities as we get into details of the implementation
+
+BuildUnit
+   |Channel|Member
+     |Artifact
+Client
+Architect
+Supervisor
+HeadMason
+
+::Value Objects::
+Messages
+
+::Bounded Contexts::
+Admin
+Organization
+Communication-Channel
+AI-Support
+
+::Events simulation for the single use case::
+#Create a Unit to be built:[pic of the sample Cob Oven to be built]
+Client creates Unit(COB Oven, status - Open)
+Client updates Unit(with new description, timeline - 7 days, automatically status is updated to onTrack, backLog or delayed based on timeline, elapsed time and status of constituent tasks)
+Client creates Team(COB Oven Team) for the Unit 
+Client updates Team(with new members)
+Client creates Channels(Requirement, Design, Finance, Experimentation, Materials, Execution) for the Team
+Client updates Channels(by adding specific members to each channel)
+
+#Create a requirement document:[document with the requirement specs]
+Client opens Task(make initial requirement doc, status - Open) in Channel(Requirement)
+Client updates Task(by assigning himself and architect to it, , timeline - 2 days, automatically status is updated to onTrack, backLog or delayed based on timeline and elapsed time)
+Client updates Task(by adding requirements doc, asking for feedback from architect)
+Architect updates Task(by adding his feedback)
+Client updates Task(by accommodating architects feedback)
+Architect signs-off Task
+Client signs-off Task 
+Client closes Task(automatically status - Closed)
+
+#Create a design document:[document with design specs]
+Architect opens Task(make initial design doc, status - Open) in Channel(Design)
+Architect updates Task(by assigning himself, supervisor and client to it, timeline - 2 days, automatically status is updated to onTrack, backLog or delayed based on timeline and elapsed time)
+Architect updates Task(by adding design doc, asking for feedback from client and supervisor)
+Client updates Task(by adding his feedback)
+Supervisor updates Task(by adding his feedback)
+Architect updates Task(by accommodating feedback from client and supervisor)
+Client signs-off Task
+Supervisor signs-off Task 
+Architect closes Task(automatically status - Closed)
+
+#Make Soil Samples for cob oven:[table of soil sample observations, pics of sample block of soil]
+Supervisor opens Task(make four soil samples spread across three different temperature ranges, status - Open) in Channel(Experimentation)
+Supervisor updates Task(by assigning architect and head mason to it, timeline - 2 days)
+Supervisor updates Task(by adding a table of data form the observations, asks for feedback from architect)
+Architect updates Task(by adding his feedback and next steps to be taken)
+Supervisor updates Task(by accommodating the feedback)
+Architect signs-off Task
+Supervisor signs-off Task
+Supervisor closes Task(automatically status - Closed)
+
+#Make a budget for Cob oven:[table with budget allocation and expected costs]
+Client opens Task(make a table with budget allocation, status - Open) in Channel(Finance)
+Client updates Task(by assigning himself and architect to it, , timeline - 1 day, automatically status is updated to onTrack, backLog or delayed based on timeline and elapsed time)
+Client updates Task(by adding more information based on vendor research, asks for feedback from architect)
+Architect updates Task(by adding his feedback)
+Client updates Task(by accommodating architects feedback)
+
+#Procure Materials Required with a bill for the same:[table of materials procured, bills and pic]
+Supervisor opens Task(fetch all the materials required for cob oven, status - Open) in Channel(Materials)
+Supervisor updates Task(by assigning architect and Client to it, timeline - 2 days)
+Supervisor updates Task(by adding a table of data specifying the materials required, asks for feedback from architect, Client)
+Architect updates Task(by adding his feedback)
+Client updates Task(by adding his notes on materials required)
+Supervisor updates Task(by accommodating the feedback and fetching the material)
+Architect signs-off Task
+Supervisor signs-off Task
+Client signs-off Task
+Supervisor closes Task(automatically status - Closed)
+
+#Make Cob Oven and Share the pictures or video:[pic and/or video of the cob oven from the site]
+Supervisor opens Task(make cob oven based on the design, status - Open) in Channel(Execution)
+Supervisor updates Task(by assigning architect, Client and Head mason to it, timeline - 2 days)
+Supervisor updates Task(by adding pics of the cob oven built, asks for feedback from architect and Client)
+Architect updates Task(by adding his feedback and next steps to be taken)
+Client updates Task(by providing his feedback)
+Supervisor updates Task(by accommodating the feedback and sharing the new pics)
+Architect signs-off Task
+Client signs-off Task
+Supervisor signs-off Task
+Supervisor closes Task(automatically status - Closed)
+
+#Make a budget for Cob oven:[table with budget allocation and expected costs]
+Client updates Task(by adding actual expenses based on inputs from supervisor)
+Architect signs-off Task
+Client signs-off Task 
+Client closes Task(automatically status - Closed)
+
+#Create a Unit to be built:[pic and/or of the Cob Oven being built from the site]
+Client closes Channels(General, Design, Finance, Experimentation, Materials, Execution, statuses - closed)
+Client closes Team(COB Oven Team, status - closed) for the Unit
+Client closes Unit(COB Oven, status - closed)
+
+#To fetch information about the expenses incurred:[table of data with the expenses by item]
+fetch total expenditure on cob oven
+fetch material expenditure on cob oven
+fetch labor expenditure on cob oven
+fetch total time taken per sub component of cob oven
+fetch total man hours taken for cob oven
+
+#To fetch information about the sampling and research done:[document with details of sampling and research on materials]
+fetch sample observation data
+fetch information on research done for materials
+fetch total cost of experimentation
+
+#To fetch information on the execution:[document with details of the nuances of the execution of the project]
+fetch information on local issues while constructing
+fetch information on climatic conditions of the day of construction
+fetch information on the labor issues
+fetch information about differences between sample and actual execution
+
+#To fetch information about requirement and design:[document with details of requirement, design incorporating the conversations around the same]
+fetch final requirement document
+fetch final design document
+fetch summary of requirement and design with info on conversation around the same
+
+

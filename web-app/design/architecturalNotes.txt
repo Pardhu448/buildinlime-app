@@ -1,0 +1,114 @@
+@6th Feb, 2026 ::
+ - Bounded context:
+    - It is to allow different parts of the application which are different from business/culture/data point of view to evolve independently
+    - Based on the current observation and understanding of the domain, these are some of them - 
+      1) Admin - deals with stakeholders involved; their identity, privacy and security
+                 Example relevant queries:
+		  - what is my profile picture?
+		  - what are all the projects I am involved in?
+		  - who can see my profile ?
+                  - who are my team mates ?
+		  - who are my project mates ?
+		  - where can I download all my personal data ?
+		  - how can I download all my projects ?
+		  - Do I allow data of my interaction in application for the analytics ?
+      2) Organization - deals with different entities and their organization/relationship in the system
+                  Example relevant queries:
+		   - how many build-units are in this project ?
+		   - how many com-channels are there in this build-unit ?
+		   - how many teams are involved in this project ?
+		   - how many man-hours are used for this build-unit ?
+		   - how much time was spent to build this build-unit ?
+		   - how was the time spent across different comm-channels for this build-unit ?
+      3) Comm-Channel - deals with communication between stakeholders (primarily chat) in a particular domain of construction like Finance, Execution,
+                        Experimentation, Design, Requirements, Materials, Tools
+			Example relevant queries:
+			 - how frequently was the conversation going on for execution of this build-unit ?
+			 - can you provide the summary of decisions taken during the designing of this build-unit?
+			 - can you provide the final picture of the build-unit after construction?
+      4) AI-Support - deals with all the AI assistance required for comm-channels
+                        Example relevant queries:
+			 - summarize the communication happened while execution of this build-unit ?
+			 - can you check if the walls are sufficiently wet for lime plastering based on the pictures in exection comm-channel of a particular build-unit?
+			 - Can you provide the summary of expenses for this build-unit?
+			 - Can you provide the table of experimentation done for cob-oven build-unit ?
+ - User Story based on the bounded contexts defined above:
+    *note on convention: Bounded Context involved are specified in small braces, Artifacts involved are specified in square braces
+    - Build a basement for our Project:
+      1) Create profiles of people involved in construction (#Admin)
+         - Sign-up with BuildInLime application as a client
+	 - create a project and populate its properties like overview, timeline, location, category(commercial, household, institution, farmhouse etc), 
+	   type(stone, brick, mixed, mud etc)
+	 - add a team of individuals to the project
+      2) Create a build-unit and relevant comm-channels for the basement (#Organization | #Comm-Channel)
+         - create a build-unit (Basement in this case)
+	 - add members (architect, supervisor, head-mason etc ) involved in this build-unit, picked from the project team 
+	 - create all the relevant comm-channels of this build-unit (Finance, Design, Execution, Requirements, Materials, Tools)
+	 - assign members to comm-channels
+	 - populate high level properties of the build-unit like timeline, priority, status, overview, type(stone, brick, cement etc) 
+      3) Update requirements (#Comm-Channel | #AI-Support)[requirement document]
+         - client discusses about basement (based on his own research) with architect (to align with overall house design) and supervisor (to align with current local conditions)
+	 - client finalizes the requirement in a doc and asks for sign-off by architect
+	 - architect signs-off after reviewing the doc
+	 - client signs-off the document
+	 - Requirements phase is marked complete/green
+      4) Update design (#Comm-Channel)[Design document]
+         - architect updates the initial design doc based on the house plan
+	 - discusses with client and supervisor (regarding local conditions) on any issues
+	 - client signs-off the design
+	 - architect marks it complete/green
+      5) Update Materials (#Comm-Channel | #AI-Support)[document of market options, procurement schedule, final material inventory details]
+         - supervisor updates the list of materials required in text/audio format and also relevant notes on market research
+	 - generates excel sheet with the help of AI-Assistant
+	 - assigns client and architect to review the same
+	 - client discusses available market options (with details of quality and cost) with supervisor/architect
+	 - once discussion is complete, supervisor generates the final sheet with details of procurement
+	 - client and architect reviews the same and signs-off the procurement schedule
+	 - supervisor starts procurement and once the procurement is complete, generates final sheet with actual details of 
+	   materials in inventory(quality, quantity, cost and special notes) with the help of AI-Assistant
+	 - supervisor marks the procurement phase complete/green
+	 5.1) Update Finance (#Comm-Channel | #AI-Support)[document with updated expenditure on materials and inventory details]
+              - client updates the overall budget with expenditure information from Materials channel
+      6) Update execution (#Comm-Channel | #AI-Support)[document with details of work hours, man hours, local issues]
+         - supervisor adds head mason to the channel
+	 - supervisor updates details of expected duration, labor involved and any local issues in text/audio
+	 - any specifics are discussed in the channel with client and architect
+	 - daily progress info is shared as audio/image/video
+	 - updates are annotated with stars (on a scale of 5 to qualify their importance)
+	 - important updates which need to be highlighted are annotated with 'important' symbol
+	 - supervisor updates final pic or video of the basement constructed
+	 - supervisor updates actual details of duration, labor(man-hours), material usage in text/audio/video format
+	 - supervisor generates summary doc with execution details with AI-Assistant
+	 - client/architect reviews the doc and signs-off
+	 - supervisor marks the execution complete/green
+         6.1) Update Finance (#Comm-Channel | #AI-Support)[document with details of expenditure on labor and man-hours]
+	      - client updates the expenditure on labor
+      7) Update build-unit (#Organization | #AI-Support)[summary document of the build unit with details requirement, design, materials and execution]
+         - client generates the summary of build-unit with AI-Assistant
+	 - client marks the build-unit complete/green
+
+@23rd Feb, 2026: Notes from discussion with Amulya on the functionality 
+    - need to have a seperate channel to accommodate 'Modifications/Rework', any work related to modifications and rework need to be discussed in this channel
+    - POC will need to have atleast three e2e user workflows implemented and in production ready condition
+    - Revisit the naming of different entities to reflect domain language
+    - need to add an easy way to ask for additional features as it is going to be an iterative process
+    - Final web content: need to rewrite the landing page and other content information
+@6th Mar, 2026: Notes on uploading and accessing large data files
+    
+    I need to handle onAddResource in file:                                                      │
+  src/presentation/components/buildInlime/ResourcesSection.tsx as below:                       │
+  1) on click, there should be a form input to take Resource Name, Resource Description and    │
+  an attachment symbol and a submit button                                                     │
+  2) on clicking attachment symbol, user should be able to upload any of these from the local  │
+  file system - document, image, video or audio                                                │
+  3) on submit let the Resource be visible in Resources section with its name and a small      │
+  bracket with syncing symbol (with upload animation)                                          │
+  4) also update the file_location of resourcesTable with actual file location path of the     │
+  localstorage                                                                                 │
+  5)After this, in the background, let the client create a new entry into a table:             │
+  resourcesRawTable send data as large object (a postgres api to deal with large data          │
+  objects), with syncing symbol animation on till the data is sent. Once the data is           │
+  succefully uploaded to database, make the upload symbol solid                                │
+  5) 
+    
+    

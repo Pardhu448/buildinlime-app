@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+.output/
+.vinxi/
+.vercel/
+.expo/
+build/
+
+# Testing
+coverage/
+
+# Environment files — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Package manager artifacts
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+*.pem
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# TypeScript
+*.tsbuildinfo
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# ElectricSQL
+.electric/
+
+# Turbo
+.turbo
+
+# Uploads (user-generated content — store in object storage, not git)
+uploads/
+
+# React Native / Expo
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+android/
+ios/

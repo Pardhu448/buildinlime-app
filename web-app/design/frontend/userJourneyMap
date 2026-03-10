@@ -1,0 +1,87 @@
+# Stages of Journey:
+ # Different parts of the application: 
+ 1) Three Live BuildUnits - 
+    status of choosen three buildunits in terms of the following:
+    proportion of work completed; proportion of days worked compared to 
+    alloted number of days; proportion of budget money used
+
+ 2) All BuildUnits -
+    collage of different buildUnits - planned, current, completed
+
+ 3) Profile - 
+    Personal details
+
+ 4) Messages - 
+    all direct messages across different domain channels with a link to the conversation; 
+    direct messages not linked to any channel;
+
+ 5) Organization - 
+    start project, buildunit, channels, teams, members etc
+ 
+ 6) Three Live Channels -
+    status of choosen domain channels in terms of the following:
+    any outstanding item from me; latest message in the channel;
+    current outstanding item of the channel; time spent in this channel;
+
+ 7) All domain Channels -
+    collage of domain channels - across all domains
+
+ 7) BuildUnit -
+    all domain channels; current outstanding item details;
+    all the metrics from live buildunit widget
+
+ 8) Channel - 
+    chat history, list of participants in the channel with an option to send direct message,
+    all the metrics from live channel widget
+
+ 9) Three Live Projects:
+    status of choosen three projects in terms of the following:
+    proportion of work completed in buildunits, days worked;
+
+10) All Projects: 
+    Collage of different projects - across regions
+
+11) Project: 
+    collage of all BuildUnits, all the metrics from live project widget
+
+12) Landing Page:
+    has a navigation bar with logo, About Us, Resources, Pricing, Login and Signup;
+    has hero section divided into two parts - a short video to illustrate how application works 
+    and a carousel to diplay important features of the application;
+    has a footer section with logo, Product Features, Resources, Connect
+
+13) Signup: 
+    two options - (email and password) or (social media - gmail) 
+
+14) login:
+    either with (email and password) or with (otp to email or mobile) or with social media (gmail) 
+
+# Client journey on a typical day:
+  Three Live BuildUnits ---> BuildUnit
+                                  --> current outstanding item
+				  --> different domain channel ---> Channel
+
+# Architect journey on a typical day:
+  Three Live Projects ---> Project
+                               --> different BuildUnits ---> BuildUnit
+			                                          --> current outstanding item
+								  --> different domain channels ---> Channel
+# Supervisor journey on a typical day:
+  Three Live Channels ---> Channel ---> Chat
+  
+# HeadMason journey on a typical day:
+  Channel ---> Chat
+
+# Login with otp to email:
+  landing Page ---> login
+                      --> with email and password
+                      --> with otp
+                            --> to email ---> initialLoginPage
+			    --> to mobile 
+                      --> with social media (gmail)
+
+                       
+  
+				  
+    
+
