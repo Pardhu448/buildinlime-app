@@ -62,6 +62,7 @@ export function Sidebar({ projectId }: SidebarProps) {
     [projectId]
   );
   const projectName = currentProject?.[0]?.name ?? "";
+  const isProjectOwner = !!currentUserId && currentProject?.[0]?.owner_id === currentUserId;
 
   const getChannelsForBuildUnit = (buildUnitId: string) =>
     (allChannels ?? []).filter((c) => c.buildunit_id === buildUnitId);
@@ -84,7 +85,7 @@ export function Sidebar({ projectId }: SidebarProps) {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!teamName.trim() || !currentUserId) return;
+    if (!teamName.trim() || !currentUserId || !projectId) return;
     setIsSubmitting(true);
     const memberIds = selectedMemberIds.includes(currentUserId)
       ? selectedMemberIds
@@ -94,6 +95,9 @@ export function Sidebar({ projectId }: SidebarProps) {
         id: crypto.randomUUID(),
         name: teamName.trim(),
         description: teamDesc.trim() || null,
+        owner_id: currentUserId,
+        project_id: projectId,
+        member_ids: memberIds,
         created_at: new Date(),
       });
       setCreateOpen(false);
@@ -265,8 +269,8 @@ export function Sidebar({ projectId }: SidebarProps) {
             </div>
           )}
 
-          {/* Teams — only when inside a project */}
-          {projectId && <div className="mb-4">
+          {/* Teams — only when inside a project and user is the project owner */}
+          {projectId && isProjectOwner && <div className="mb-4">
             <div className="flex items-center gap-1 px-2 py-1 mb-1">
               <button
                 onClick={() => setExpandedTeams(!expandedTeams)}
@@ -293,14 +297,19 @@ export function Sidebar({ projectId }: SidebarProps) {
                 {(allTeams ?? []).length === 0 ? (
                   <p className="px-3 py-1 text-xs text-[#717182]">No teams yet</p>
                 ) : (
-                  (allTeams ?? []).map((team) => (
-                    <TeamSection
-                      key={team.id}
-                      name={team.name}
-                      description={team.description}
-                      members={[]}
-                    />
-                  ))
+                  (allTeams ?? []).map((team) => {
+                    const members = (allUsers ?? [])
+                      .filter((u) => team.member_ids.includes(u.id))
+                      .map((u) => ({ id: u.id, name: u.name ?? "", email: u.email }));
+                    return (
+                      <TeamSection
+                        key={team.id}
+                        name={team.name}
+                        description={team.description}
+                        members={members}
+                      />
+                    );
+                  })
                 )}
               </div>
             )}

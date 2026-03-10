@@ -1,9 +1,10 @@
 import { router, authedProcedure, generateTxId } from "./lib/trpc"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
-import { eq } from "drizzle-orm"
+import { eq, and } from "drizzle-orm"
 import {
   teamsTable,
+  projectsTable,
   createTeamSchema,
   updateTeamSchema,
 } from "../database/schema/admin-schema"
@@ -12,11 +13,23 @@ export const teamsRouter = router({
   create: authedProcedure
     .input(createTeamSchema)
     .mutation(async ({ ctx, input }) => {
+      // Only project owners can create teams
+      const [project] = await ctx.db
+        .select({ owner_id: projectsTable.owner_id })
+        .from(projectsTable)
+        .where(eq(projectsTable.id, input.project_id))
+      if (!project) {
+        throw new TRPCError({ code: `NOT_FOUND`, message: `Project not found` })
+      }
+      if (project.owner_id !== ctx.session.user.id) {
+        throw new TRPCError({ code: `FORBIDDEN`, message: `Only project owners can create teams` })
+      }
+
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
         const [newItem] = await tx
           .insert(teamsTable)
-          .values(input)
+          .values({ ...input, owner_id: ctx.session.user.id })
           .returning()
         return { item: newItem, txid }
       })
