@@ -3,7 +3,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useLiveQuery, eq } from "@tanstack/react-db";
 import { useSession } from "%/infrastructure/auth/client";
-import { channelsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
+import { channelsCollection, buildUnitsCollection, projectsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 
 interface NewChannelFormData {
   name: "Finance" | "Requirements" | "Design" | "Materials" | "Tools" | "Execution" | "Experimentation";
@@ -29,6 +29,21 @@ export function NewChannelButton({ buildUnitId }: { buildUnitId: string }) {
     description: "",
   });
   const { data: session } = useSession();
+
+  const { data: buildUnitData } = useLiveQuery(
+    (q) => q.from({ buildUnitsCollection }).where(({ buildUnitsCollection: bu }) => eq(bu.id, buildUnitId)),
+    [buildUnitId]
+  );
+  const projectId = buildUnitData?.[0]?.project_id;
+
+  const { data: projectData } = useLiveQuery(
+    (q) =>
+      projectId
+        ? q.from({ projectsCollection }).where(({ projectsCollection: p }) => eq(p.id, projectId))
+        : q.from({ projectsCollection }).where(({ projectsCollection: p }) => eq(p.id, `__none__`)),
+    [projectId]
+  );
+  const isProjectOwner = !!session?.user?.id && projectData?.[0]?.owner_id === session.user.id;
 
   const { data: existingChannels } = useLiveQuery(
     (q) =>
@@ -85,6 +100,8 @@ export function NewChannelButton({ buildUnitId }: { buildUnitId: string }) {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
+
+  if (!isProjectOwner) return null;
 
   return (
     <>

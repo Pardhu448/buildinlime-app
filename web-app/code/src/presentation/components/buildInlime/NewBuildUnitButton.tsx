@@ -2,8 +2,9 @@ import { Plus, X } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useParams } from "@tanstack/react-router";
+import { useLiveQuery, eq } from "@tanstack/react-db";
 import { useSession } from "%/infrastructure/auth/client";
-import { buildUnitsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
+import { buildUnitsCollection, projectsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 
 interface NewBuildUnitFormData {
   name: string;
@@ -19,6 +20,15 @@ export function NewBuildUnitButton() {
   });
   const { data: session } = useSession();
   const { projectId } = useParams({ strict: false });
+
+  const { data: projectData } = useLiveQuery(
+    (q) =>
+      projectId
+        ? q.from({ projectsCollection }).where(({ projectsCollection: p }) => eq(p.id, projectId))
+        : q.from({ projectsCollection }).where(({ projectsCollection: p }) => eq(p.id, `__none__`)),
+    [projectId]
+  );
+  const isProjectOwner = !!session?.user?.id && projectData?.[0]?.owner_id === session.user.id;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -47,6 +57,8 @@ export function NewBuildUnitButton() {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
+  if (!isProjectOwner) return null;
 
   return (
     <>

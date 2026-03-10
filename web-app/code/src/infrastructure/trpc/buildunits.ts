@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server"
 import { eq, and } from "drizzle-orm"
 import {
   buildUnitsTable,
+  projectsTable,
   createBuildUnitSchema,
   updateBuildUnitSchema,
 } from "../database/schema/admin-schema"
@@ -12,6 +13,18 @@ export const buildUnitsRouter = router({
   create: authedProcedure
     .input(createBuildUnitSchema)
     .mutation(async ({ ctx, input }) => {
+      // Only project owners can create build units
+      const [project] = await ctx.db
+        .select({ owner_id: projectsTable.owner_id })
+        .from(projectsTable)
+        .where(eq(projectsTable.id, input.project_id))
+      if (!project) {
+        throw new TRPCError({ code: `NOT_FOUND`, message: `Project not found` })
+      }
+      if (project.owner_id !== ctx.session.user.id) {
+        throw new TRPCError({ code: `FORBIDDEN`, message: `Only project owners can create build units` })
+      }
+
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
         const [newItem] = await tx

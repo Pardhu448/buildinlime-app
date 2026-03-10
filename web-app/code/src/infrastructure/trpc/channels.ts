@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm"
 import {
   channelsTable,
   buildUnitsTable,
+  projectsTable,
   membershipTable,
   createChannelSchema,
   updateChannelSchema,
@@ -14,6 +15,25 @@ export const channelsRouter = router({
   create: authedProcedure
     .input(createChannelSchema)
     .mutation(async ({ ctx, input }) => {
+      // Only project owners can create channels — walk buildUnit → project
+      const [buildUnit] = await ctx.db
+        .select({ project_id: buildUnitsTable.project_id })
+        .from(buildUnitsTable)
+        .where(eq(buildUnitsTable.id, input.buildunit_id))
+      if (!buildUnit) {
+        throw new TRPCError({ code: `NOT_FOUND`, message: `Build unit not found` })
+      }
+      const [project] = await ctx.db
+        .select({ owner_id: projectsTable.owner_id })
+        .from(projectsTable)
+        .where(eq(projectsTable.id, buildUnit.project_id))
+      if (!project) {
+        throw new TRPCError({ code: `NOT_FOUND`, message: `Project not found` })
+      }
+      if (project.owner_id !== ctx.session.user.id) {
+        throw new TRPCError({ code: `FORBIDDEN`, message: `Only project owners can create channels` })
+      }
+
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
         const [newItem] = await tx
