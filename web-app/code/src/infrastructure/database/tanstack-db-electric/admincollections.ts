@@ -386,6 +386,13 @@ export const propertiesCollection = createCollection(
   })
 )
 
+const electricTeamSchema = selectTeamSchema.extend({
+  member_ids: z.preprocess(
+    (v) => (typeof v === "string" ? JSON.parse(v) : v),
+    z.array(z.string()).default([])
+  ),
+})
+
 export const teamsCollection = createCollection(
   electricCollectionOptions({
     id: `teams`,
@@ -396,7 +403,7 @@ export const teamsCollection = createCollection(
         timestamptz: (date: string) => new Date(date),
       },
     },
-    schema: selectTeamSchema,
+    schema: electricTeamSchema,
     getKey: (item) => item.id,
     onInsert: async ({ transaction }) => {
       const { modified: newTeam } = transaction.mutations[0]
@@ -404,6 +411,9 @@ export const teamsCollection = createCollection(
         id: newTeam.id,
         name: newTeam.name,
         description: newTeam.description,
+        owner_id: newTeam.owner_id,
+        project_id: newTeam.project_id,
+        member_ids: newTeam.member_ids ?? [],
       })
       return { txid: result.txid }
     },

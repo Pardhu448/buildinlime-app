@@ -33,6 +33,13 @@ export const teamsTable = pgTable('teams', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   description: text('description'),
+  owner_id: text('owner_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  project_id: text('project_id')
+    .notNull()
+    .references(() => projectsTable.id, { onDelete: 'cascade' }),
+  member_ids: text('member_ids').array().notNull(),
   created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -165,11 +172,13 @@ export const resourcesRawTable = pgTable(`resources_raw`, {
 
 export const selectTeamSchema = createSelectSchema(teamsTable).extend({
   description: z.string().nullish(),
+  member_ids: z.array(z.string()).default([]),
 })
 export const createTeamSchema = createInsertSchema(teamsTable).omit({
   created_at: true,
 }).extend({
   description: z.string().nullish(),
+  member_ids: z.array(z.string()).default([]),
 })
 export const updateTeamSchema = createUpdateSchema(teamsTable)
 

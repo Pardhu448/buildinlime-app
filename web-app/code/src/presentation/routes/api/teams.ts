@@ -13,6 +13,7 @@ const serve = async ({ request }: { request: Request }) => {
 
   const originUrl = prepareElectricUrl(request.url)
   originUrl.searchParams.set("table", "teams")
+  originUrl.searchParams.set("where", `owner_id = '${session.user.id}'`)
 
   return proxyElectricRequest(originUrl)
 }
