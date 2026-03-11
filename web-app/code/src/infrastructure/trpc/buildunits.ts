@@ -1,7 +1,7 @@
 import { router, authedProcedure, generateTxId } from "./lib/trpc"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
-import { eq, and } from "drizzle-orm"
+import { eq, and, ilike } from "drizzle-orm"
 import {
   buildUnitsTable,
   projectsTable,
@@ -23,6 +23,18 @@ export const buildUnitsRouter = router({
       }
       if (project.owner_id !== ctx.session.user.id) {
         throw new TRPCError({ code: `FORBIDDEN`, message: `Only project owners can create build units` })
+      }
+
+      // Prevent duplicate build unit names within the same project (case-insensitive)
+      const [duplicate] = await ctx.db
+        .select({ id: buildUnitsTable.id })
+        .from(buildUnitsTable)
+        .where(and(
+          eq(buildUnitsTable.project_id, input.project_id),
+          ilike(buildUnitsTable.name, input.name),
+        ))
+      if (duplicate) {
+        throw new TRPCError({ code: `CONFLICT`, message: `A build unit named "${input.name}" already exists in this project` })
       }
 
       const result = await ctx.db.transaction(async (tx) => {

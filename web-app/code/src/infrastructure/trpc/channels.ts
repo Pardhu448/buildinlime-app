@@ -1,7 +1,7 @@
 import { router, authedProcedure, generateTxId } from "./lib/trpc"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
-import { eq, and } from "drizzle-orm"
+import { eq, and, sql } from "drizzle-orm"
 import {
   channelsTable,
   buildUnitsTable,
@@ -34,12 +34,36 @@ export const channelsRouter = router({
         throw new TRPCError({ code: `FORBIDDEN`, message: `Only project owners can create channels` })
       }
 
+      // Prevent duplicate channel names within the same build unit
+      const [duplicate] = await ctx.db
+        .select({ id: channelsTable.id })
+        .from(channelsTable)
+        .where(and(
+          eq(channelsTable.buildunit_id, input.buildunit_id),
+          sql`CAST(${channelsTable.name} AS text) = ${JSON.stringify(input.name)}`
+        ))
+      if (duplicate) {
+        throw new TRPCError({ code: `CONFLICT`, message: `A ${input.name} channel already exists in this build unit` })
+      }
+
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
         const [newItem] = await tx
           .insert(channelsTable)
           .values(input)
           .returning()
+
+        // Auto-add the channel owner as a member with role 'owner'
+        await tx.insert(membershipTable).values({
+          id: crypto.randomUUID(),
+          user_id: ctx.session.user.id,
+          channel_id: newItem.id,
+          buildunit_id: input.buildunit_id,
+          project_id: buildUnit.project_id,
+          member_flag: true,
+          role: `owner`,
+        })
+
         return { item: newItem, txid }
       })
 
@@ -125,7 +149,7 @@ export const channelsRouter = router({
           // Re-activate removed membership
           const [updated] = await tx
             .update(membershipTable)
-            .set({ member_flag: true })
+            .set({ member_flag: true, role: `viewer` })
             .where(eq(membershipTable.id, existing.id))
             .returning()
           return { item: updated, txid }
@@ -141,6 +165,7 @@ export const channelsRouter = router({
             buildunit_id: channel.buildunit_id,
             project_id: buildUnit.project_id,
             member_flag: true,
+            role: `viewer`,
           })
           .returning()
         return { item: inserted, txid }

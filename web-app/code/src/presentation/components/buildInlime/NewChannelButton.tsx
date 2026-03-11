@@ -3,7 +3,8 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useLiveQuery, eq } from "@tanstack/react-db";
 import { useSession } from "%/infrastructure/auth/client";
-import { channelsCollection, buildUnitsCollection, projectsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
+import { buildUnitsCollection, channelsCollection, projectsCollection, registerChannelInsertCallback } from "%/infrastructure/database/tanstack-db-electric/admincollections";
+import type { PendingItem } from "%/presentation/hooks/use-pending-items";
 
 interface NewChannelFormData {
   name: "Finance" | "Requirements" | "Design" | "Materials" | "Tools" | "Execution" | "Experimentation";
@@ -20,9 +21,15 @@ const CHANNEL_TYPES = [
   { value: "Experimentation", label: "Experimentation" },
 ] as const;
 
-export function NewChannelButton({ buildUnitId }: { buildUnitId: string }) {
+interface NewChannelButtonProps {
+  buildUnitId: string;
+  addPending: (item: PendingItem) => void;
+  removePending: (id: string) => void;
+  onTrpcComplete: (id: string) => void;
+}
+
+export function NewChannelButton({ buildUnitId, addPending, removePending, onTrpcComplete }: NewChannelButtonProps) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [duplicateError, setDuplicateError] = useState(false);
   const [formData, setFormData] = useState<NewChannelFormData>({
     name: "Requirements",
@@ -45,48 +52,35 @@ export function NewChannelButton({ buildUnitId }: { buildUnitId: string }) {
   );
   const isProjectOwner = !!session?.user?.id && projectData?.[0]?.owner_id === session.user.id;
 
-  const { data: existingChannels } = useLiveQuery(
-    (q) =>
-      q
-        .from({ channelsCollection })
-        .where(({ channelsCollection: c }) => eq(c.buildunit_id, buildUnitId)),
-    [buildUnitId]
-  );
-
-  // Electric returns jsonb columns as JSON-encoded strings e.g. '"Requirements"'.
-  // Unwrap before comparing against the plain formData.name value.
-  const existingNames = new Set(
-    (existingChannels ?? []).map((c) => {
-      const raw = c.name as unknown as string
-      return raw.startsWith('"') ? JSON.parse(raw) : raw
-    })
-  );
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!session?.user || !buildUnitId) return;
 
-    if (existingNames.has(formData.name)) {
-      setDuplicateError(true);
-      return;
-    }
+    const payload = {
+      id: crypto.randomUUID(),
+      name: formData.name,
+      description: formData.description,
+      buildunit_id: buildUnitId,
+      owner_id: session.user.id,
+      created_at: new Date(),
+    };
 
-    setIsSubmitting(true);
-    try {
-      await channelsCollection.insert({
-        id: crypto.randomUUID(),
-        name: formData.name,
-        description: formData.description,
-        buildunit_id: buildUnitId,
-        owner_id: session.user.id,
-        created_at: new Date(),
-      });
-      setFormData({ name: "Requirements", description: "" });
-      setDuplicateError(false);
-      setIsPopupOpen(false);
-    } finally {
-      setIsSubmitting(false);
-    }
+    setFormData({ name: "Requirements", description: "" });
+    setDuplicateError(false);
+    setIsPopupOpen(false);
+
+    addPending({ id: payload.id, name: payload.name, description: payload.description });
+    registerChannelInsertCallback(
+      payload.id,
+      () => onTrpcComplete(payload.id),
+      (err: Error) => {
+        removePending(payload.id);
+        setFormData({ name: payload.name, description: payload.description });
+        setDuplicateError(err.message.includes(`already exists`));
+        setIsPopupOpen(true);
+      },
+    );
+    channelsCollection.insert(payload);
   };
 
   const handleInputChange = (
@@ -195,10 +189,9 @@ export function NewChannelButton({ buildUnitId }: { buildUnitId: string }) {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                className="w-full bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
-                {isSubmitting ? "Creating…" : "Create Channel"}
+                Create Channel
               </button>
             </form>
           </div>
