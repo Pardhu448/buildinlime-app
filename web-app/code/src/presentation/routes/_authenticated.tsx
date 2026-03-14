@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, useNavigate, redirect } from '@tanstack/react-
 import { authClient } from '../../infrastructure/auth/client'
 import { authStateCollection } from '../../infrastructure/database/tanstack-db-electric/authCollections'
 import { projectsCollection, buildUnitsCollection, usersCollection, teamsCollection, membershipsCollection } from '../../infrastructure/database/tanstack-db-electric/admincollections'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 function AuthLoadingComponent() {
   return (
@@ -43,10 +43,20 @@ export const Route = createFileRoute('/_authenticated')({
 function AuthenticatedLayout() {
   const { data: session, isPending } = authClient.useSession()
   const navigate = useNavigate()
+  const prevUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!isPending && !session) {
       navigate({ to: '/login' })
+      return
+    }
+    if (session?.user?.id) {
+      if (prevUserIdRef.current !== null && prevUserIdRef.current !== session.user.id) {
+        // User switched — reload to clear stale Electric collection caches
+        window.location.reload()
+        return
+      }
+      prevUserIdRef.current = session.user.id
     }
   }, [session, isPending, navigate])
 

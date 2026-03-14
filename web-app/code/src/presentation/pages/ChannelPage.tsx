@@ -27,7 +27,6 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogAction,
-  AlertDialogCancel,
 } from "../components/ui/alert-dialog";
 import { tasksCollection, channelsCollection, usersCollection, membershipsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 import { trpc } from "%/infrastructure/trpc/lib/trpc-client";
@@ -73,8 +72,9 @@ export function ChannelPage({
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
   const [addPeopleOpen, setAddPeopleOpen] = useState(false);
   const [isAddingMember, setIsAddingMember] = useState(false);
-  const [removingMember, setRemovingMember] = useState<{ id: string; name: string } | null>(null);
-  const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [pendingRemovals, setPendingRemovals] = useState<Set<string>>(new Set());
+  const [removalError, setRemovalError] = useState<string | null>(null);
   const [alreadyMemberName, setAlreadyMemberName] = useState<string | null>(null);
   const { data: session } = useSession();
   const navigate = useNavigate();
@@ -92,8 +92,8 @@ export function ChannelPage({
     [channelId]
   );
   const channelMemberIds = (channelMemberships ?? []).map(m => m.user_id);
-  const channelMembers = (allUsers ?? []).filter(u => channelMemberIds.includes(u.id));
-  const nonMembers = (allUsers ?? []).filter(u => !channelMemberIds.includes(u.id));
+  const channelMembers = (allUsers ?? []).filter(u => channelMemberIds.includes(u.id) && !pendingRemovals.has(u.id));
+  const nonMembers = (allUsers ?? []).filter(u => !channelMemberIds.includes(u.id) || pendingRemovals.has(u.id));
 
   const handleAddMember = async (userId: string) => {
     const user = allUsers?.find(u => u.id === userId);
@@ -112,13 +112,15 @@ export function ChannelPage({
     }
   };
 
-  const handleRemoveMember = async () => {
-    if (!removingMember) return;
+  const handleRemoveMember = async (userId: string, userName: string) => {
+    setConfirmRemoveId(null);
+    setPendingRemovals(prev => new Set(prev).add(userId));
     try {
-      await trpc.channels.removeMember.mutate({ channelId, userId: removingMember.id });
-    } finally {
-      setRemovingMember(null);
-      setConfirmStep(1);
+      await trpc.channels.removeMember.mutate({ channelId, userId });
+    } catch (err: unknown) {
+      setPendingRemovals(prev => { const s = new Set(prev); s.delete(userId); return s; });
+      const msg = err instanceof Error ? err.message : String(err);
+      setRemovalError(`Failed to remove ${userName}: ${msg}`);
     }
   };
 
@@ -353,19 +355,37 @@ export function ChannelPage({
                 ) : (
                   <div className="space-y-2">
                     {channelMembers.map((u) => (
-                      <div key={u.id} className="flex items-center justify-between group">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
-                            {((u.name || u.email || "?")[0] ?? "?").toUpperCase()}
+                      <div key={u.id}>
+                        {confirmRemoveId === u.id ? (
+                          <div className="text-xs bg-red-50 border border-red-200 rounded p-2">
+                            <p className="text-red-700 mb-2">Remove <strong>{u.name || u.email}</strong>?</p>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleRemoveMember(u.id, u.name || u.email || u.id)}
+                                className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+                              >Confirm</button>
+                              <button
+                                onClick={() => setConfirmRemoveId(null)}
+                                className="px-2 py-1 border border-gray-300 rounded text-xs hover:bg-gray-50"
+                              >Cancel</button>
+                            </div>
                           </div>
-                          <span className="text-sm text-[#1e1e1e] truncate">{u.name || u.email}</span>
-                        </div>
-                        {isOwner && u.id !== channelOwnerId && (
-                          <button
-                            onClick={() => { setRemovingMember({ id: u.id, name: u.name || u.email || u.id }); setConfirmStep(1); }}
-                            className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs transition-opacity"
-                            title="Remove member"
-                          >✕</button>
+                        ) : (
+                          <div className="flex items-center justify-between group">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                                {((u.name || u.email || "?")[0] ?? "?").toUpperCase()}
+                              </div>
+                              <span className="text-sm text-[#1e1e1e] truncate">{u.name || u.email}</span>
+                            </div>
+                            {isOwner && u.id !== channelOwnerId && (
+                              <button
+                                onClick={() => setConfirmRemoveId(u.id)}
+                                className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs transition-opacity"
+                                title="Remove member"
+                              >✕</button>
+                            )}
+                          </div>
                         )}
                       </div>
                     ))}
@@ -425,35 +445,14 @@ export function ChannelPage({
         </div>
       )}
 
-      {/* Remove member: Step 1 confirm */}
-      <AlertDialog open={!!removingMember && confirmStep === 1} onOpenChange={(open) => { if (!open) setRemovingMember(null); }}>
-        <AlertDialogContent>
-          <AlertDialogTitle>Remove member?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Remove {removingMember?.name} from this channel?
-          </AlertDialogDescription>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setRemovingMember(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => setConfirmStep(2)}>Continue</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
-      {/* Remove member: Step 2 confirm */}
-      <AlertDialog open={!!removingMember && confirmStep === 2} onOpenChange={(open) => { if (!open) { setRemovingMember(null); setConfirmStep(1); } }}>
+      {/* Remove member error dialog */}
+      <AlertDialog open={!!removalError} onOpenChange={(open) => { if (!open) setRemovalError(null); }}>
         <AlertDialogContent>
-          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {removingMember?.name} will lose access to all messages, tasks, and files in this channel.
-          </AlertDialogDescription>
+          <AlertDialogTitle>Remove failed</AlertDialogTitle>
+          <AlertDialogDescription>{removalError}</AlertDialogDescription>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setRemovingMember(null); setConfirmStep(1); }}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={handleRemoveMember}
-            >
-              Remove
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => setRemovalError(null)}>OK</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

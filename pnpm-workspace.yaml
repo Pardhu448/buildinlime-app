@@ -1,3 +1,7 @@
 packages:
   - "web-app/code"
   - "mobile-app"
+
+onlyBuiltDependencies:
+  - esbuild
+  - unrs-resolver

@@ -76,6 +76,9 @@ export const channelsTable = pgTable(`channels`, {
   created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
 })
 
+export const MEMBERSHIP_ROLES = [`owner`, `co-owner`, `viewer`] as const
+export type MembershipRole = typeof MEMBERSHIP_ROLES[number]
+
 export const membershipTable = pgTable(`memberships`, {
   id: text(`id`).primaryKey(),
   user_id: text(`user_id`).notNull().references(() => users.id, { onDelete: `cascade` }),
@@ -83,6 +86,7 @@ export const membershipTable = pgTable(`memberships`, {
   buildunit_id: text(`buildunit_id`).notNull().references(() => buildUnitsTable.id, { onDelete: `cascade` }),
   project_id: text(`project_id`).notNull().references(() => projectsTable.id, { onDelete: `cascade` }),
   member_flag: boolean(`member_flag`).notNull().default(true),
+  role: text(`role`).$type<MembershipRole>().notNull().default(`viewer`),
   created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex(`memberships_user_channel_unique`).on(t.user_id, t.channel_id)])
 
@@ -219,8 +223,12 @@ export const createChannelSchema = createInsertSchema(channelsTable).omit({
 })
 export const updateChannelSchema = createUpdateSchema(channelsTable)
 
-export const selectMembershipSchema = createSelectSchema(membershipTable)
-export const createMembershipSchema = createInsertSchema(membershipTable).omit({ created_at: true })
+export const selectMembershipSchema = createSelectSchema(membershipTable).extend({
+  role: z.enum(MEMBERSHIP_ROLES).default(`viewer`),
+})
+export const createMembershipSchema = createInsertSchema(membershipTable).omit({ created_at: true }).extend({
+  role: z.enum(MEMBERSHIP_ROLES).default(`viewer`),
+})
 
 export const selectTaskSchema = createSelectSchema(tasksTable)
 export const createTaskSchema = createInsertSchema(tasksTable).omit({

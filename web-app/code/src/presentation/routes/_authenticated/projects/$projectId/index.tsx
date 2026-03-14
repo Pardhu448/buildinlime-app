@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Plus, ChevronRight } from "lucide-react";
+import { useCallback, useEffect, useRef } from "react";
 import { Sidebar } from "../../../../components/buildInlime/Sidebar";
 import { NewBuildUnitButton } from "../../../../components/buildInlime/NewBuildUnitButton";
 import { DisplayButton } from "../../../../components/buildInlime/DisplayButton";
@@ -8,6 +9,7 @@ import { FilterButton } from "../../../../components/buildInlime/FilterButton";
 import { BuildUnitsTable } from "../../../../components/buildInlime/BuildUnitsTable";
 import { projectsCollection, buildUnitsCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
 import { RoutePendingComponent } from "../../../../components/buildInlime/RoutePendingComponent";
+import { usePendingBuildUnits } from "../../../../hooks/use-pending-build-units";
 
 import { useLiveQuery, eq } from "@tanstack/react-db"
 
@@ -19,6 +21,18 @@ export const Route = createFileRoute('/_authenticated/projects/$projectId/')({
 function ProjectRoute() {
   const { projectId } = Route.useParams()
   const navigate = useNavigate()
+  const { pendingItems, pendingIds, addPending, removePending } = usePendingBuildUnits()
+  // Two-signal approach: spinner stops only when BOTH tRPC is done AND Electric
+  // has next updated buildUnitsFromDB (confirming the write from the server).
+  const pendingIdsRef = useRef(pendingIds)
+  pendingIdsRef.current = pendingIds
+  const trpcDoneRef = useRef<Set<string>>(new Set())
+
+  // Called by NewBuildUnitButton (via registry resolve) when tRPC write completes.
+  // Only sets the flag — the useEffect below stops the spinner on the next Electric sync.
+  const onTrpcComplete = useCallback((id: string) => {
+    trpcDoneRef.current.add(id)
+  }, [])
 
   const { data: dbProjects } = useLiveQuery(
     (q) =>
@@ -38,7 +52,19 @@ function ProjectRoute() {
     [projectId]
   )
 
-  const buildunits = (buildUnitsFromDB ?? []).map((bu) => ({
+  // Second signal: whenever Electric updates buildUnitsFromDB, check if any
+  // pending item has already had its tRPC write confirmed. If so, stop spinner.
+  useEffect(() => {
+    if (!buildUnitsFromDB) return
+    for (const id of pendingIdsRef.current) {
+      if (trpcDoneRef.current.has(id) && buildUnitsFromDB.some((bu) => bu.id === id)) {
+        removePending(id)
+        trpcDoneRef.current.delete(id)
+      }
+    }
+  }, [buildUnitsFromDB])
+
+  const dbBuildUnits = (buildUnitsFromDB ?? []).map((bu) => ({
     id: bu.id,
     name: bu.name,
     description: bu.descritption,
@@ -52,6 +78,25 @@ function ProjectRoute() {
     targetDate: bu.target_date ?? "—",
     statusPercent: parseInt(bu.status_percent ?? "0", 10),
   }));
+
+  // During Electric txid reconciliation the optimistic entry is briefly removed
+  // before the confirmed entry arrives. Fill that gap using pendingItems so the
+  // row stays visible and doesn't flicker out of the table.
+  const dbIds = new Set(dbBuildUnits.map((bu) => bu.id))
+  const ghostRows = [...pendingItems.values()]
+    .filter((p) => !dbIds.has(p.id))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      health: "On track" as const,
+      priority: "Low" as const,
+      waitingOnTask: { name: "—", assignee: "—", since: "—" },
+      targetDate: "—",
+      statusPercent: 0,
+    }))
+
+  const buildunits = [...dbBuildUnits, ...ghostRows];
 
   const onBuildUnitClick = (buildUnit: { id: string; name: string, desc: string }) => {
     navigate({
@@ -86,7 +131,7 @@ return (
               {projectName}
             </span>
           </div>
-          <NewBuildUnitButton />
+          <NewBuildUnitButton addPending={addPending} removePending={removePending} onTrpcComplete={onTrpcComplete} />
         </header>
 
         {/* Toolbar */}
@@ -113,7 +158,7 @@ return (
         </div>
 
         {/* Table */}
-        <BuildUnitsTable buildUnits={buildunits} onBuildUnitClick={onBuildUnitClick} />
+        <BuildUnitsTable buildUnits={buildunits} onBuildUnitClick={onBuildUnitClick} pendingIds={pendingIds} />
       </div>
     </div>
   );
