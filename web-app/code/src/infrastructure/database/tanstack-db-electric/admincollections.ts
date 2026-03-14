@@ -62,6 +62,7 @@ const electricUsersSchema = z.object({
 
 const electricMembershipSchema = selectMembershipSchema.extend({
   member_flag: z.preprocess(coerceBool, z.boolean()),
+  role: z.enum([`owner`, `co-owner`, `viewer`]).default(`viewer`),
 })
 
 const origin = typeof window !== `undefined`
@@ -148,6 +149,19 @@ export const projectsCollection = createCollection(
   })
 )
 
+// Registry allowing UI components to be notified when a build unit insert
+// completes (success or error) via the onInsert handler below.
+type InsertCallback = { resolve: () => void; reject: (err: Error) => void }
+const _buildUnitInsertCallbacks = new Map<string, InsertCallback>()
+
+export function registerBuildUnitInsertCallback(
+  id: string,
+  resolve: () => void,
+  reject: (err: Error) => void,
+) {
+  _buildUnitInsertCallbacks.set(id, { resolve, reject })
+}
+
 export const buildUnitsCollection = createCollection(
   electricCollectionOptions({
     id: `build-units`,
@@ -164,15 +178,22 @@ export const buildUnitsCollection = createCollection(
     getKey: (item) => item.id,
     onInsert: async ({ transaction }) => {
       const { modified: newBuildUnit } = transaction.mutations[0]
-      const result = await trpc.buildUnits.create.mutate({
-        id: newBuildUnit.id,
-        name: newBuildUnit.name,
-        description: newBuildUnit.description,
-        project_id: newBuildUnit.project_id,
-        owner_id: newBuildUnit.owner_id,
-      })
-
-      return { txid: result.txid }
+      try {
+        const result = await trpc.buildUnits.create.mutate({
+          id: newBuildUnit.id,
+          name: newBuildUnit.name,
+          description: newBuildUnit.description,
+          project_id: newBuildUnit.project_id,
+          owner_id: newBuildUnit.owner_id,
+        })
+        _buildUnitInsertCallbacks.get(newBuildUnit.id)?.resolve()
+        _buildUnitInsertCallbacks.delete(newBuildUnit.id)
+        return { txid: result.txid }
+      } catch (err) {
+        _buildUnitInsertCallbacks.get(newBuildUnit.id)?.reject(err instanceof Error ? err : new Error(String(err)))
+        _buildUnitInsertCallbacks.delete(newBuildUnit.id)
+        throw err
+      }
     },
     onUpdate: async ({ transaction }) => {
       const { modified: updatedBuildUnit } = transaction.mutations[0]
@@ -197,6 +218,19 @@ export const buildUnitsCollection = createCollection(
   })
 )
 
+// Registry allowing UI components to be notified when a channel insert
+// completes (success or error) via the onInsert handler below.
+type ChannelInsertCallback = { resolve: () => void; reject: (err: Error) => void }
+const _channelInsertCallbacks = new Map<string, ChannelInsertCallback>()
+
+export function registerChannelInsertCallback(
+  id: string,
+  resolve: () => void,
+  reject: (err: Error) => void,
+) {
+  _channelInsertCallbacks.set(id, { resolve, reject })
+}
+
 export const channelsCollection = createCollection(
   electricCollectionOptions({
     id: `channels`,
@@ -213,15 +247,22 @@ export const channelsCollection = createCollection(
     getKey: (item) => item.id,
     onInsert: async ({ transaction }) => {
       const { modified: newChannel } = transaction.mutations[0]
-      const result = await trpc.channels.create.mutate({
-        id: newChannel.id,
-        name: newChannel.name,
-        description: newChannel.description,
-        buildunit_id: newChannel.buildunit_id,
-        owner_id: newChannel.owner_id,
-      })
-
-      return { txid: result.txid }
+      try {
+        const result = await trpc.channels.create.mutate({
+          id: newChannel.id,
+          name: newChannel.name,
+          description: newChannel.description,
+          buildunit_id: newChannel.buildunit_id,
+          owner_id: newChannel.owner_id,
+        })
+        _channelInsertCallbacks.get(newChannel.id)?.resolve()
+        _channelInsertCallbacks.delete(newChannel.id)
+        return { txid: result.txid }
+      } catch (err) {
+        _channelInsertCallbacks.get(newChannel.id)?.reject(err instanceof Error ? err : new Error(String(err)))
+        _channelInsertCallbacks.delete(newChannel.id)
+        throw err
+      }
     },
     onUpdate: async ({ transaction }) => {
       const { modified: updatedChannel } = transaction.mutations[0]

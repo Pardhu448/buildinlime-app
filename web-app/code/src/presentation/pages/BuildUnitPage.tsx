@@ -11,10 +11,11 @@ import {
 } from "../components/buildInlime";
 import type { Channel } from "../components/buildInlime";
 import type { Property } from "%/infrastructure/database/schema/admin-schema";
+import type { PendingItem } from "%/presentation/hooks/use-pending-items";
 
 
 
-export function BuildUnitPage({ projectId, buildUnitName, buildUnitId, projectName, buildUnitDesc, channels, properties: dbProperties }: { projectId: string; buildUnitName: string; buildUnitId: string; projectName: string; buildUnitDesc: string; channels?: Channel[]; properties?: Property[] }) {
+export function BuildUnitPage({ projectId, buildUnitName, buildUnitId, projectName, buildUnitDesc, channels, properties: dbProperties, pendingChannelIds, addPendingChannel, removePendingChannel, onChannelTrpcComplete }: { projectId: string; buildUnitName: string; buildUnitId: string; projectName: string; buildUnitDesc: string; channels?: Channel[]; properties?: Property[]; pendingChannelIds: Set<string>; addPendingChannel: (item: PendingItem) => void; removePendingChannel: (id: string) => void; onChannelTrpcComplete: (id: string) => void }) {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
 
   return (
@@ -61,7 +62,14 @@ export function BuildUnitPage({ projectId, buildUnitName, buildUnitId, projectNa
               /> */}
 
               {/* Channels */}
-              <ChannelsSection channels={channels} buildUnitId={buildUnitId} />
+              <ChannelsSection
+                channels={channels ?? []}
+                buildUnitId={buildUnitId}
+                pendingIds={pendingChannelIds}
+                addPending={addPendingChannel}
+                removePending={removePendingChannel}
+                onTrpcComplete={onChannelTrpcComplete}
+              />
             </div>
           </div>
 

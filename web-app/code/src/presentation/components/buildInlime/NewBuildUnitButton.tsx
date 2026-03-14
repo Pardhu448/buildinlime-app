@@ -2,17 +2,26 @@ import { Plus, X } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useParams } from "@tanstack/react-router";
+import { useLiveQuery, eq } from "@tanstack/react-db";
 import { useSession } from "%/infrastructure/auth/client";
-import { buildUnitsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
+import { projectsCollection, buildUnitsCollection, registerBuildUnitInsertCallback } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 
 interface NewBuildUnitFormData {
   name: string;
   description: string;
 }
 
-export function NewBuildUnitButton() {
+import type { PendingBuildUnit } from "%/presentation/hooks/use-pending-build-units";
+
+interface NewBuildUnitButtonProps {
+  addPending: (item: PendingBuildUnit) => void;
+  removePending: (id: string) => void;
+  onTrpcComplete: (id: string) => void;
+}
+
+export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }: NewBuildUnitButtonProps) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [duplicateError, setDuplicateError] = useState(false);
   const [formData, setFormData] = useState<NewBuildUnitFormData>({
     name: "",
     description: "",
@@ -20,33 +29,59 @@ export function NewBuildUnitButton() {
   const { data: session } = useSession();
   const { projectId } = useParams({ strict: false });
 
+  const { data: projectData } = useLiveQuery(
+    (q) =>
+      projectId
+        ? q.from({ projectsCollection }).where(({ projectsCollection: p }) => eq(p.id, projectId))
+        : q.from({ projectsCollection }).where(({ projectsCollection: p }) => eq(p.id, `__none__`)),
+    [projectId]
+  );
+  const isProjectOwner = !!session?.user?.id && projectData?.[0]?.owner_id === session.user.id;
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!session?.user || !projectId) return;
 
-    setIsSubmitting(true);
-    try {
-      await buildUnitsCollection.insert({
-        id: crypto.randomUUID(),
-        name: formData.name,
-        description: formData.description,
-        project_id: projectId,
-        owner_id: session.user.id,
-        created_at: new Date(),
-      });
-      setFormData({ name: "", description: "" });
-      setIsPopupOpen(false);
-    } finally {
-      setIsSubmitting(false);
-    }
+    const payload = {
+      id: crypto.randomUUID(),
+      name: formData.name,
+      description: formData.description,
+      project_id: projectId,
+      owner_id: session.user.id,
+      created_at: new Date(),
+    };
+
+    // Close modal immediately for instant feedback
+    setFormData({ name: "", description: "" });
+    setDuplicateError(false);
+    setIsPopupOpen(false);
+
+    // Register callback: success is a no-op (ProjectRoute detects Electric sync and
+    // removes the spinner); on error the optimistic insert is rolled back and we
+    // reopen the form so the user can retry.
+    addPending({ id: payload.id, name: payload.name, description: payload.description ?? null });
+    registerBuildUnitInsertCallback(
+      payload.id,
+      () => onTrpcComplete(payload.id),
+      (err: Error) => {
+        removePending(payload.id);
+        setFormData({ name: payload.name, description: payload.description });
+        setDuplicateError(err.message.includes(`already exists`));
+        setIsPopupOpen(true);
+      },
+    );
+    buildUnitsCollection.insert(payload);
   };
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
+    if (name === "name") setDuplicateError(false);
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
+  if (!isProjectOwner) return null;
 
   return (
     <>
@@ -104,8 +139,13 @@ export function NewBuildUnitButton() {
                   onChange={handleInputChange}
                   placeholder="Enter build unit name"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent ${duplicateError ? "border-red-500" : "border-gray-300"}`}
                 />
+                {duplicateError && (
+                  <p className="mt-1 text-sm text-red-600">
+                    A build unit with this name already exists in this project.
+                  </p>
+                )}
               </div>
 
               {/* Description Input */}
@@ -131,10 +171,9 @@ export function NewBuildUnitButton() {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                className="w-full bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
-                {isSubmitting ? "Creating…" : "Create Build Unit"}
+                Create Build Unit
               </button>
             </form>
           </div>
