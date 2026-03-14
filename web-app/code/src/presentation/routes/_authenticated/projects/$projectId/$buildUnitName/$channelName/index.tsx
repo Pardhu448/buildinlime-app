@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useLiveQuery, eq } from "@tanstack/react-db"
+import { useState, useEffect } from 'react'
 import { ClipboardCheck } from 'lucide-react'
 import { ChannelPage } from '../../../../../../pages/ChannelPage'
 import { projectsCollection, buildUnitsCollection, channelsCollection, propertiesCollection, tasksCollection, resourcesCollection, messagesCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
@@ -19,6 +20,11 @@ export const Route = createFileRoute('/_authenticated/projects/$projectId/$build
 
 function ChannelRoute() {
   const { projectId, buildUnitName, channelName } = Route.useParams()
+  const [syncTimedOut, setSyncTimedOut] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setSyncTimedOut(true), 5000)
+    return () => clearTimeout(t)
+  }, [])
 
   // Look up the project name by projectId
   const { data: dbProjects } = useLiveQuery(
@@ -83,6 +89,9 @@ function ChannelRoute() {
   }
 
   if (!buildUnit) {
+    if (!syncTimedOut) {
+      return <div className="flex h-screen items-center justify-center text-[#717182]">Loading…</div>
+    }
     return (
       <div className="flex h-screen items-center justify-center text-[#717182]">
         Build unit "{buildUnitName}" not found.
@@ -95,6 +104,9 @@ function ChannelRoute() {
   }
 
   if (!channel) {
+    if (!syncTimedOut) {
+      return <div className="flex h-screen items-center justify-center text-[#717182]">Loading…</div>
+    }
     return (
       <div className="flex h-screen items-center justify-center text-[#717182]">
         Channel "{channelName}" not found.
