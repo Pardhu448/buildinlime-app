@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { useLiveQuery, eq } from "@tanstack/react-db";
+import { Link } from "@tanstack/react-router";
 import {
   ChevronRight,
   ChevronDown,
@@ -28,10 +27,7 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
 } from "../components/ui/alert-dialog";
-import { tasksCollection, channelsCollection, usersCollection, membershipsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
-import { trpc } from "%/infrastructure/trpc/lib/trpc-client";
-import { useSession } from "%/infrastructure/auth/client";
-import type { ActivityItem, Task } from "../components/buildInlime";
+import { useChannelPage } from "../hooks/use-channel-page";
 import type { Property } from "%/infrastructure/database/schema/admin-schema";
 
 interface ChannelPageProps {
@@ -61,109 +57,47 @@ export function ChannelPage({
   properties,
   buildUnitProperties,
 }: ChannelPageProps) {
+  // UI-only toggle state
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [channelPropsOpen, setChannelPropsOpen] = useState(true);
   const [buildUnitPropsOpen, setBuildUnitPropsOpen] = useState(true);
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [resourcesOpen, setResourcesOpen] = useState(true);
-  const [taskName, setTaskName] = useState("");
-  const [taskDesc, setTaskDesc] = useState("");
-  const [isSubmittingTask, setIsSubmittingTask] = useState(false);
   const [addPeopleOpen, setAddPeopleOpen] = useState(false);
-  const [isAddingMember, setIsAddingMember] = useState(false);
-  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
-  const [pendingRemovals, setPendingRemovals] = useState<Set<string>>(new Set());
-  const [removalError, setRemovalError] = useState<string | null>(null);
-  const [alreadyMemberName, setAlreadyMemberName] = useState<string | null>(null);
-  const { data: session } = useSession();
-  const navigate = useNavigate();
 
-  const { data: channelData } = useLiveQuery(
-    (q) => q.from({ channelsCollection }).where(({ channelsCollection: c }) => eq(c.id, channelId)),
-    [channelId]
-  );
+  const {
+    currentUserId,
+    isOwner,
+    channelOwnerId,
+    channelMembers,
+    nonMembers,
+    isAddingMember,
+    confirmRemoveId,
+    setConfirmRemoveId,
+    removalError,
+    setRemovalError,
+    alreadyMemberName,
+    setAlreadyMemberName,
+    tasks,
+    dbTasksReady,
+    taskName,
+    setTaskName,
+    taskDesc,
+    setTaskDesc,
+    isSubmittingTask,
+    handleAddMember,
+    handleRemoveMember,
+    handleAddTask,
+    handleTaskClick,
+  } = useChannelPage(channelId, buildUnitId, projectId, buildUnitName, channelName);
 
-  const { data: allUsers } = useLiveQuery((q) => q.from({ usersCollection }), []);
+  if (!dbTasksReady) return null;
 
-  // Derive channel members from the membershipsCollection (all channel members, not just current user)
-  const { data: channelMemberships } = useLiveQuery(
-    (q) => q.from({ membershipsCollection }).where(({ membershipsCollection: m }) => eq(m.channel_id, channelId)),
-    [channelId]
-  );
-  const channelMemberIds = (channelMemberships ?? []).map(m => m.user_id);
-  const channelMembers = (allUsers ?? []).filter(u => channelMemberIds.includes(u.id) && !pendingRemovals.has(u.id));
-  const nonMembers = (allUsers ?? []).filter(u => !channelMemberIds.includes(u.id) || pendingRemovals.has(u.id));
-
-  const handleAddMember = async (userId: string) => {
-    const user = allUsers?.find(u => u.id === userId);
-    setIsAddingMember(true);
-    try {
-      await trpc.channels.addMember.mutate({ channelId, userId });
-      setAddPeopleOpen(false);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("ALREADY_MEMBER")) {
-        setAlreadyMemberName(user?.name || user?.email || userId);
-        setAddPeopleOpen(false);
-      }
-    } finally {
-      setIsAddingMember(false);
-    }
+  const onAddTask = async (e: FormEvent) => {
+    await handleAddTask(e);
+    setTaskFormOpen(false);
   };
-
-  const handleRemoveMember = async (userId: string, userName: string) => {
-    setConfirmRemoveId(null);
-    setPendingRemovals(prev => new Set(prev).add(userId));
-    try {
-      await trpc.channels.removeMember.mutate({ channelId, userId });
-    } catch (err: unknown) {
-      setPendingRemovals(prev => { const s = new Set(prev); s.delete(userId); return s; });
-      const msg = err instanceof Error ? err.message : String(err);
-      setRemovalError(`Failed to remove ${userName}: ${msg}`);
-    }
-  };
-
-  const { data: dbTasks } = useLiveQuery(
-    (q) => q.from({ tasksCollection }).where(({ tasksCollection: t }) => eq(t.channel_id, channelId)),
-    [channelId]
-  );
-
-  if (dbTasks === undefined) return null
-
-  const tasks: Task[] = dbTasks.map((t) => ({
-    id: t.id,
-    name: t.name,
-    completed: t.completed,
-  }));
-
-  const handleAddTask = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!session?.user || !channelId || !buildUnitId || !taskName.trim()) return;
-    setIsSubmittingTask(true);
-    try {
-      await tasksCollection.insert({
-        id: crypto.randomUUID(),
-        name: taskName.trim(),
-        description: taskDesc.trim(),
-        completed: false,
-        opened_at: new Date(),
-        closed_at: new Date(),
-        channel_id: channelId,
-        buildunit_id: buildUnitId,
-        createdby_id: session.user.id,
-        assignee_id: null,
-      });
-      setTaskName("");
-      setTaskDesc("");
-      setTaskFormOpen(false);
-    } finally {
-      setIsSubmittingTask(false);
-    }
-  };
-
-  const channelOwnerId = channelData?.[0]?.owner_id;
-  const isOwner = session?.user?.id === channelOwnerId;
 
   return (
     <>
@@ -229,7 +163,7 @@ export function ChannelPage({
                         {nonMembers.map((u) => (
                           <button
                             key={u.id}
-                            onClick={() => handleAddMember(u.id)}
+                            onClick={() => handleAddMember(u.id, () => setAddPeopleOpen(false))}
                             disabled={isAddingMember}
                             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1e1e1e] hover:bg-[#fdf8f2] transition-colors disabled:opacity-50"
                           >
@@ -275,8 +209,8 @@ export function ChannelPage({
                 channelId={channelId}
                 buildunitId={buildUnitId}
                 projectId={projectId}
-                currentUserId={session?.user?.id ?? ""}
-                memberIds={session?.user ? [session.user.id] : []}
+                currentUserId={currentUserId}
+                memberIds={currentUserId ? [currentUserId] : []}
               />
             </div>
           </div>
@@ -337,14 +271,7 @@ export function ChannelPage({
               {/* Tasks */}
               <TasksRightPanel
                 tasks={tasks}
-                onTaskClick={(taskId) => {
-                  const task = dbTasks.find((t) => t.id === taskId);
-                  if (!task) return;
-                  navigate({
-                    to: '/projects/$projectId/$buildUnitName/$channelName/$taskName',
-                    params: { projectId, buildUnitName, channelName, taskName: task.name },
-                  });
-                }}
+                onTaskClick={handleTaskClick}
               />
 
               {/* Members */}
@@ -410,7 +337,7 @@ export function ChannelPage({
               <X className="w-5 h-5" />
             </button>
             <h2 className="text-xl font-semibold text-gray-800 mb-6">Add Task</h2>
-            <form onSubmit={handleAddTask} className="space-y-4">
+            <form onSubmit={onAddTask} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
                 <input
@@ -444,7 +371,6 @@ export function ChannelPage({
           </div>
         </div>
       )}
-
 
       {/* Remove member error dialog */}
       <AlertDialog open={!!removalError} onOpenChange={(open) => { if (!open) setRemovalError(null); }}>
