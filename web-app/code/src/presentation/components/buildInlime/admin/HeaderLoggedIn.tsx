@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import imgBrickPattern from "../../assets/044683d680bab81b91974a32f614f0acede8855d.png";
+import imgBrickPattern from "../../../assets/044683d680bab81b91974a32f614f0acede8855d.png";
 
 interface HeaderLoggedInProps {
   onSignOut?: () => void;
