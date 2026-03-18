@@ -16,7 +16,7 @@ import {
   AssignedToSection,
 } from "../components/buildInlime";
 import { PropertiesPanel } from "../components/buildInlime/PropertiesPanel";
-import type { Property } from "%/infrastructure/database/schema/admin-schema";
+import type { Property } from "%/domain/communication/types";
 
 interface TaskPageProps {
   projectId: string;

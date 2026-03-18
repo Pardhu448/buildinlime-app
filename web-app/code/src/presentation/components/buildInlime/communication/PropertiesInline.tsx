@@ -1,31 +1,19 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { FormEvent } from "react";
-import { Plus, X, Trash2, Circle, Flag, Target, CalendarDays, AlertCircle, Percent, Tag } from "lucide-react";
-import type { Property } from "%/infrastructure/database/schema/admin-schema";
-import { PROPERTY_TYPES, STATUS_VALUES, PRIORITY_VALUES } from "%/infrastructure/database/schema/admin-schema";
+import { Plus, X, MoreHorizontal, Circle, Flag, Target, CalendarDays, AlertCircle, Percent, Tag } from "lucide-react";
+import type { Property } from "%/domain/communication/types";
+import { PROPERTY_TYPES, STATUS_VALUES, PRIORITY_VALUES, ENTITY_TYPES } from "%/domain/shared/types";
 import { propertiesCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 import { useSession } from "%/infrastructure/auth/client";
 
-export interface PropertiesPanelProps {
+export interface PropertiesInlineProps {
   properties: Property[];
+  onAddProperty?: () => void;
   buildUnitId: string;
-  hideAddButton?: boolean;
-  hideLabel?: boolean;
-  label?: string;
+  entity?: typeof ENTITY_TYPES[number];
 }
 
-// ── Shared label maps ─────────────────────────────────────────────────────────
-
-const PROPERTY_TYPE_LABELS: Record<string, string> = {
-  status:           "Status",
-  priority:         "Priority",
-  targetDate:       "Target Date",
-  startDate:        "Start Date",
-  pendingTask:      "Pending Task",
-  percent_complete: "Percent Complete",
-  label:            "Label",
-}
-
+// Short labels shown inside inline pills
 const PILL_LABELS: Record<typeof PROPERTY_TYPES[number], string> = {
   status:           "Status",
   priority:         "Priority",
@@ -33,6 +21,17 @@ const PILL_LABELS: Record<typeof PROPERTY_TYPES[number], string> = {
   startDate:        "Start",
   pendingTask:      "Pending",
   percent_complete: "% Done",
+  label:            "Label",
+}
+
+// Full labels used in the add-property form selects
+const PROPERTY_TYPE_LABELS: Record<typeof PROPERTY_TYPES[number], string> = {
+  status:           "Status",
+  priority:         "Priority",
+  targetDate:       "Target Date",
+  startDate:        "Start Date",
+  pendingTask:      "Pending Task",
+  percent_complete: "Percent Complete",
   label:            "Label",
 }
 
@@ -54,8 +53,6 @@ const PRIORITY_LABELS: Record<string, string> = {
   completed:   "Completed",
   cancelled:   "Cancelled",
 }
-
-// ── Pill styling (same palette as PropertiesInline) ───────────────────────────
 
 type PillStyle = { bg: string; border: string; text: string }
 
@@ -80,86 +77,89 @@ const PRIORITY_PILL_STYLES: Record<string, PillStyle> = {
   cancelled:   { bg: "bg-gray-100",   border: "border-gray-200",   text: "text-gray-400"   },
 }
 
-// ── Value pill (right column) ─────────────────────────────────────────────────
-
-function ValuePill({ property }: { property: Property }) {
+function PropertyPill({ property }: { property: Property }) {
   let icon: React.ReactNode
   let style: PillStyle = DEFAULT_PILL
-  let label: string
 
   switch (property.type) {
     case "status": {
       style = STATUS_PILL_STYLES[property.status_value ?? ""] ?? DEFAULT_PILL
-      icon = <Circle className={`w-2.5 h-2.5 shrink-0 ${style.text}`} fill="currentColor" />
-      label = STATUS_VALUE_LABELS[property.status_value ?? ""] ?? "—"
+      icon = <Circle className={`w-3 h-3 shrink-0 ${style.text}`} fill="currentColor" />
       break
     }
     case "priority": {
       style = PRIORITY_PILL_STYLES[property.priority_value ?? ""] ?? DEFAULT_PILL
-      icon = <Flag className={`w-2.5 h-2.5 shrink-0 ${style.text}`} />
-      label = PRIORITY_LABELS[property.priority_value ?? ""] ?? "—"
+      icon = <Flag className={`w-3 h-3 shrink-0 ${style.text}`} />
       break
     }
     case "targetDate":
-      icon = <Target className="w-2.5 h-2.5 shrink-0 text-green-600" />
-      label = property.target_date ?? "—"
+      icon = <Target className="w-3 h-3 shrink-0 text-green-600" />
       break
     case "startDate":
-      icon = <CalendarDays className="w-2.5 h-2.5 shrink-0 text-blue-600" />
-      label = property.start_date ?? "—"
+      icon = <CalendarDays className="w-3 h-3 shrink-0 text-blue-600" />
       break
     case "pendingTask":
-      icon = <AlertCircle className="w-2.5 h-2.5 shrink-0 text-yellow-600" />
-      label = property.pending_task ?? "—"
+      icon = <AlertCircle className="w-3 h-3 shrink-0 text-yellow-600" />
       break
     case "percent_complete":
-      icon = <Percent className="w-2.5 h-2.5 shrink-0 text-[#976623]" />
-      label = `${property.pending_task ?? "0"}%`
+      icon = <Percent className="w-3 h-3 shrink-0 text-[#976623]" />
       break
     case "label":
-      icon = <Tag className="w-2.5 h-2.5 shrink-0 text-purple-600" />
-      label = property.label_value ?? "—"
+      icon = <Tag className="w-3 h-3 shrink-0 text-purple-600" />
       break
     default:
       return null
   }
 
   return (
-    <div className={`flex items-center gap-1.5 px-2 h-6 ${style.bg} border ${style.border} rounded`}>
+    <div className={`flex items-center gap-1.5 px-2.5 h-7 min-w-[80px] ${style.bg} border ${style.border} rounded`}>
       {icon}
-      <span className={`text-xs font-medium ${style.text} whitespace-nowrap`}>{label}</span>
+      <span className={`text-xs font-medium ${style.text} whitespace-nowrap`}>
+        {PILL_LABELS[property.type]}
+      </span>
     </div>
   )
 }
 
-// ── Add-property form (same logic as PropertiesInline) ────────────────────────
-
 type ValueState = {
-  statusValue:   typeof STATUS_VALUES[number];
+  statusValue: typeof STATUS_VALUES[number];
   priorityValue: typeof PRIORITY_VALUES[number];
-  dateValue:     string;
-  textValue:     string;
-  labelValue:    string;
-}
+  dateValue: string;
+  textValue: string;
+  labelValue: string;
+};
 
 const DEFAULT_VALUE_STATE: ValueState = {
-  statusValue:   "critical",
+  statusValue: "critical",
   priorityValue: "notStarted",
-  dateValue:     "",
-  textValue:     "",
-  labelValue:    "",
-}
+  dateValue: "",
+  textValue: "",
+  labelValue: "",
+};
 
-// ── Main component ────────────────────────────────────────────────────────────
+const VISIBLE_LIMIT = 4;
 
-export function PropertiesPanel({ properties, buildUnitId, hideAddButton = false, hideLabel = false, label = "Properties" }: PropertiesPanelProps) {
-  const [isPopupOpen, setIsPopupOpen]   = useState(false);
+export function PropertiesInline({ properties, onAddProperty, buildUnitId, entity = "buildUnit" }: PropertiesInlineProps) {
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedType, setSelectedType] = useState<typeof PROPERTY_TYPES[number]>("status");
-  const [valueState, setValueState]     = useState<ValueState>(DEFAULT_VALUE_STATE);
+  const [valueState, setValueState] = useState<ValueState>(DEFAULT_VALUE_STATE);
+  const [showMore, setShowMore] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
   const { data: session } = useSession();
 
-  const existingTypes  = new Set(properties.map((p) => p.type));
+  useEffect(() => {
+    if (!showMore) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setShowMore(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showMore]);
+
+  const existingTypes = new Set(properties.map((p) => p.type));
   const availableTypes = PROPERTY_TYPES.filter((t) => !existingTypes.has(t));
 
   const openPopup = () => {
@@ -167,49 +167,7 @@ export function PropertiesPanel({ properties, buildUnitId, hideAddButton = false
     setSelectedType(firstAvailable);
     setValueState(DEFAULT_VALUE_STATE);
     setIsPopupOpen(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    const tx = propertiesCollection.delete(id);
-    await tx.isPersisted.promise;
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!session?.user || !buildUnitId) return;
-    if (existingTypes.has(selectedType)) return;
-
-    setIsSubmitting(true);
-    try {
-      const base = {
-        id:             crypto.randomUUID(),
-        type:           selectedType,
-        entity:         "buildUnit" as const,
-        entity_id:      buildUnitId,
-        created_at:     new Date(),
-        status_value:   undefined as typeof STATUS_VALUES[number]   | undefined,
-        priority_value: undefined as typeof PRIORITY_VALUES[number] | undefined,
-        target_date:    undefined as string | undefined,
-        start_date:     undefined as string | undefined,
-        pending_task:   undefined as string | undefined,
-        label_value:    undefined as string | undefined,
-      };
-
-      switch (selectedType) {
-        case "status":           base.status_value   = valueState.statusValue;   break;
-        case "priority":         base.priority_value = valueState.priorityValue; break;
-        case "targetDate":       base.target_date    = valueState.dateValue;     break;
-        case "startDate":        base.start_date     = valueState.dateValue;     break;
-        case "pendingTask":
-        case "percent_complete": base.pending_task   = valueState.textValue;     break;
-        case "label":            base.label_value    = valueState.labelValue;    break;
-      }
-
-      await propertiesCollection.insert(base);
-      setIsPopupOpen(false);
-    } finally {
-      setIsSubmitting(false);
-    }
+    onAddProperty?.();
   };
 
   const renderValueInput = () => {
@@ -218,7 +176,9 @@ export function PropertiesPanel({ properties, buildUnitId, hideAddButton = false
         return (
           <select
             value={valueState.statusValue}
-            onChange={(e) => setValueState((v) => ({ ...v, statusValue: e.target.value as typeof STATUS_VALUES[number] }))}
+            onChange={(e) =>
+              setValueState((v) => ({ ...v, statusValue: e.target.value as typeof STATUS_VALUES[number] }))
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           >
             {STATUS_VALUES.map((v) => (
@@ -230,7 +190,9 @@ export function PropertiesPanel({ properties, buildUnitId, hideAddButton = false
         return (
           <select
             value={valueState.priorityValue}
-            onChange={(e) => setValueState((v) => ({ ...v, priorityValue: e.target.value as typeof PRIORITY_VALUES[number] }))}
+            onChange={(e) =>
+              setValueState((v) => ({ ...v, priorityValue: e.target.value as typeof PRIORITY_VALUES[number] }))
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           >
             {PRIORITY_VALUES.map((v) => (
@@ -260,6 +222,17 @@ export function PropertiesPanel({ properties, buildUnitId, hideAddButton = false
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
+      case "label":
+        return (
+          <input
+            type="text"
+            value={valueState.labelValue}
+            onChange={(e) => setValueState((v) => ({ ...v, labelValue: e.target.value }))}
+            placeholder="Enter label text"
+            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
+          />
+        );
       case "percent_complete":
         return (
           <input
@@ -273,65 +246,95 @@ export function PropertiesPanel({ properties, buildUnitId, hideAddButton = false
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
-      case "label":
-        return (
-          <input
-            type="text"
-            value={valueState.labelValue}
-            onChange={(e) => setValueState((v) => ({ ...v, labelValue: e.target.value }))}
-            placeholder="Enter label text"
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
-          />
-        );
     }
   };
 
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!session?.user || !buildUnitId) return;
+    if (existingTypes.has(selectedType)) return;
+
+    setIsSubmitting(true);
+    try {
+      const base = {
+        id: crypto.randomUUID(),
+        type: selectedType,
+        entity: entity,
+        entity_id: buildUnitId,
+        created_at: new Date(),
+        status_value: undefined as typeof STATUS_VALUES[number] | undefined,
+        priority_value: undefined as typeof PRIORITY_VALUES[number] | undefined,
+        target_date: undefined as string | undefined,
+        start_date: undefined as string | undefined,
+        pending_task: undefined as string | undefined,
+        label_value: undefined as string | undefined,
+      };
+
+      switch (selectedType) {
+        case "status":
+          base.status_value = valueState.statusValue;
+          break;
+        case "priority":
+          base.priority_value = valueState.priorityValue;
+          break;
+        case "targetDate":
+          base.target_date = valueState.dateValue;
+          break;
+        case "startDate":
+          base.start_date = valueState.dateValue;
+          break;
+        case "pendingTask":
+        case "percent_complete":
+          base.pending_task = valueState.textValue;
+          break;
+        case "label":
+          base.label_value = valueState.labelValue;
+          break;
+      }
+
+      await propertiesCollection.insert(base);
+      setIsPopupOpen(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const visibleProperties = properties.slice(0, VISIBLE_LIMIT);
+  const hiddenProperties = properties.slice(VISIBLE_LIMIT);
+
   return (
     <>
-      <div>
-        {(!hideLabel || !hideAddButton) && (
-          <div className="flex items-center justify-between mb-4">
-            {!hideLabel && (
-              <h3 className="text-sm font-medium text-[#717182]">{label}</h3>
-            )}
-            {!hideAddButton && (
-              <button
-                onClick={openPopup}
-                className="p-1 text-[#717182] hover:text-[#1e1e1e] transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        )}
-
-        {properties.length === 0 ? (
-          <p className="text-sm text-[#717182]">No properties added yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {properties.map((property) => (
-              <div key={property.id} className="group flex items-center justify-between gap-3">
-                <span className="text-sm text-[#717182] shrink-0">
-                  {PROPERTY_TYPE_LABELS[property.type] ?? property.type}
-                </span>
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <ValuePill property={property} />
-                  <button
-                    onClick={() => handleDelete(property.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-400 hover:text-red-500"
-                    title="Delete property"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+      <div className="flex items-center gap-4 mb-6 text-sm flex-wrap">
+        <span className="text-[#717182]">Properties</span>
+        <button
+          className="p-1 text-[#717182] hover:text-[#1e1e1e] transition-colors"
+          onClick={openPopup}
+        >
+          <Plus className="w-3 h-3" />
+        </button>
+        {visibleProperties.map((property) => (
+          <PropertyPill key={property.id} property={property} />
+        ))}
+        {hiddenProperties.length > 0 && (
+          <div ref={moreRef} className="relative">
+            <button
+              className="p-1 text-[#717182] hover:text-[#1e1e1e] transition-colors"
+              onClick={() => setShowMore((v) => !v)}
+              title={`${hiddenProperties.length} more`}
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            {showMore && (
+              <div className="absolute top-full left-0 mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg p-3 flex flex-col gap-2 min-w-max">
+                {hiddenProperties.map((property) => (
+                  <PropertyPill key={property.id} property={property} />
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
 
-      {/* Add Property popup — same form as PropertiesInline */}
       {isPopupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={() => setIsPopupOpen(false)} />
@@ -348,7 +351,9 @@ export function PropertiesPanel({ properties, buildUnitId, hideAddButton = false
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Property Type</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Property Type
+                  </label>
                   <select
                     value={selectedType}
                     onChange={(e) => {
@@ -363,7 +368,9 @@ export function PropertiesPanel({ properties, buildUnitId, hideAddButton = false
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Property Value</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Property Value
+                  </label>
                   {renderValueInput()}
                 </div>
                 <button

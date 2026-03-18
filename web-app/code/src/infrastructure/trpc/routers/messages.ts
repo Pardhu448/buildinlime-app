@@ -1,11 +1,11 @@
-import { router, authedProcedure, generateTxId } from "./lib/trpc"
+import { router, authedProcedure, generateTxId } from "../lib/trpc"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { eq } from "drizzle-orm"
 import {
   messagesTable,
   createMessageSchema,
-} from "../database/schema/admin-schema"
+} from "../../database/schema/admin-schema"
 
 export const messagesRouter = router({
   create: authedProcedure

@@ -1,4 +1,4 @@
-import { router, authedProcedure, generateTxId } from "./lib/trpc"
+import { router, authedProcedure, generateTxId } from "../lib/trpc"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { eq, and, sql } from "drizzle-orm"
@@ -9,7 +9,7 @@ import {
   membershipTable,
   createChannelSchema,
   updateChannelSchema,
-} from "../database/schema/admin-schema"
+} from "../../database/schema/admin-schema"
 
 export const channelsRouter = router({
   create: authedProcedure

@@ -1,21 +1,21 @@
-import { router, authedProcedure, generateTxId } from "./lib/trpc"
+import { router, authedProcedure, generateTxId } from "../lib/trpc"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { eq } from "drizzle-orm"
 import {
-  propertiesTable,
-  createPropertySchema,
-  updatePropertySchema,
-} from "../database/schema/admin-schema"
+  tasksTable,
+  createTaskSchema,
+  updateTaskSchema,
+} from "../../database/schema/admin-schema"
 
-export const propertiesRouter = router({
+export const tasksRouter = router({
   create: authedProcedure
-    .input(createPropertySchema)
+    .input(createTaskSchema)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
         const [newItem] = await tx
-          .insert(propertiesTable)
+          .insert(tasksTable)
           .values(input)
           .returning()
         return { item: newItem, txid }
@@ -28,22 +28,22 @@ export const propertiesRouter = router({
     .input(
       z.object({
         id: z.string(),
-        data: updatePropertySchema,
+        data: updateTaskSchema,
       })
     )
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
         const [updatedItem] = await tx
-          .update(propertiesTable)
+          .update(tasksTable)
           .set(input.data)
-          .where(eq(propertiesTable.id, input.id))
+          .where(eq(tasksTable.id, input.id))
           .returning()
 
         if (!updatedItem) {
           throw new TRPCError({
             code: `NOT_FOUND`,
-            message: `Property not found`,
+            message: `Task not found`,
           })
         }
 
@@ -59,14 +59,14 @@ export const propertiesRouter = router({
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
         const [deletedItem] = await tx
-          .delete(propertiesTable)
-          .where(eq(propertiesTable.id, input.id))
+          .delete(tasksTable)
+          .where(eq(tasksTable.id, input.id))
           .returning()
 
         if (!deletedItem) {
           throw new TRPCError({
             code: `NOT_FOUND`,
-            message: `Property not found`,
+            message: `Task not found`,
           })
         }
 

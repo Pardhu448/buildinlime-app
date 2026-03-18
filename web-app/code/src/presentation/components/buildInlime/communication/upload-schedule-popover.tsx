@@ -13,7 +13,7 @@ import {
   getDay,
 } from "date-fns"
 import { ChevronLeft, ChevronRight, Upload, Clock, AlertTriangle, Loader2 } from "lucide-react"
-import type { UploadStatus } from "../../hooks/use-pending-resources"
+import type { UploadStatus } from "%/application/hooks/use-pending-resources"
 
 const HOUR_SLOTS = Array.from({ length: 24 }, (_, i) => {
   const hour = i % 12 === 0 ? 12 : i % 12

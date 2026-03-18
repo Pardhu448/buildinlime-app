@@ -3,7 +3,7 @@ import { useLiveQuery, eq } from "@tanstack/react-db"
 import { Plus, Download, X, FileText, Image, Video, Music, File } from "lucide-react"
 import { format } from "date-fns"
 import { resourcesCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
-import { usePendingResources } from "../../hooks/use-pending-resources"
+import { usePendingResources } from "%/application/hooks/use-pending-resources"
 import { AddResourceForm } from "./add-resource-form"
 import { UploadSchedulePopover } from "./upload-schedule-popover"
 

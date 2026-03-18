@@ -5,7 +5,7 @@ import {
   messagesCollection,
   usersCollection,
 } from "%/infrastructure/database/tanstack-db-electric/admincollections"
-import { usePendingResources, type PendingResource } from "../../hooks/use-pending-resources"
+import { usePendingResources, type PendingResource } from "%/application/hooks/use-pending-resources"
 import { CommentInput, mentionDisplayName, type MentionUser } from "./CommentInput"
 import {
   MessageResourceDisplay,
@@ -14,7 +14,7 @@ import {
   mimeIcon,
   type PendingAttachment,
 } from "./MessageResourceSection"
-import type { Message } from "%/infrastructure/database/schema/admin-schema"
+import type { Message } from "%/domain/communication/types"
 
 export interface CommentsSectionProps {
   channelId: string

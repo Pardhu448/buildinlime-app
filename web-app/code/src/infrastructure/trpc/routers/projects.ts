@@ -1,21 +1,29 @@
-import { router, authedProcedure, generateTxId } from "./lib/trpc"
+import { router, authedProcedure, generateTxId } from "../lib/trpc"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
-import { eq } from "drizzle-orm"
+import { eq, and } from "drizzle-orm"
 import {
-  tasksTable,
-  createTaskSchema,
-  updateTaskSchema,
-} from "../database/schema/admin-schema"
+  projectsTable,
+  createProjectSchema,
+  updateProjectSchema,
+} from "../../database/schema/admin-schema"
 
-export const tasksRouter = router({
+export const projectsRouter = router({
   create: authedProcedure
-    .input(createTaskSchema)
-    .mutation(async ({ ctx, input }) => {
+    .input(createProjectSchema)
+    .mutation(async ({ ctx, input }) => 
+      {
+      //if (input.owner_id !== ctx.session.user.id) {
+      //  throw new TRPCError({
+      //    code: `FORBIDDEN`,
+      //    message: `You can only create projects `,
+      //  })
+     // }
+
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
         const [newItem] = await tx
-          .insert(tasksTable)
+          .insert(projectsTable)
           .values(input)
           .returning()
         return { item: newItem, txid }
@@ -28,22 +36,27 @@ export const tasksRouter = router({
     .input(
       z.object({
         id: z.string(),
-        data: updateTaskSchema,
+        data: updateProjectSchema,
       })
     )
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
         const [updatedItem] = await tx
-          .update(tasksTable)
+          .update(projectsTable)
           .set(input.data)
-          .where(eq(tasksTable.id, input.id))
+          .where(
+            and(
+              eq(projectsTable.id, input.id),
+              eq(projectsTable.owner_id, ctx.session.user.id)
+            )
+          )
           .returning()
 
         if (!updatedItem) {
           throw new TRPCError({
             code: `NOT_FOUND`,
-            message: `Task not found`,
+            message: `Project not found or you do not have permission to update it`,
           })
         }
 
@@ -59,14 +72,19 @@ export const tasksRouter = router({
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
         const [deletedItem] = await tx
-          .delete(tasksTable)
-          .where(eq(tasksTable.id, input.id))
+          .delete(projectsTable)
+          .where(
+            and(
+              eq(projectsTable.id, input.id),
+              eq(projectsTable.owner_id, ctx.session.user.id)
+            )
+          )
           .returning()
 
         if (!deletedItem) {
           throw new TRPCError({
             code: `NOT_FOUND`,
-            message: `Task not found`,
+            message: `Project not found or you do not have permission to delete it`,
           })
         }
 

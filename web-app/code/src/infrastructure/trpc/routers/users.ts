@@ -1,8 +1,8 @@
-import { router, authedProcedure, procedure } from "./lib/trpc"
+import { router, authedProcedure, procedure } from "../lib/trpc"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { eq } from "drizzle-orm"
-import { users } from "../database/schema/auth-schema"
+import { users } from "../../database/schema/auth-schema"
 
 export const usersRouter = router({
   checkEmail: procedure

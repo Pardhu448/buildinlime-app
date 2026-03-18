@@ -2,12 +2,12 @@ import { useEffect, useCallback, useRef } from 'react'
 import { useLiveQuery, eq } from "@tanstack/react-db"
 import { ClipboardCheck } from 'lucide-react'
 import { channelsCollection, propertiesCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
-import { CHANNEL_NAMES } from '%/infrastructure/database/schema/admin-schema'
+import { CHANNEL_NAMES } from '%/domain/shared/types'
 import { CHANNEL_ICONS } from '%/presentation/lib/channelIcons'
 import { unwrapJsonb } from '%/presentation/lib/utils'
 import { usePendingItems } from './use-pending-items'
 import type { Channel } from '../components/buildInlime'
-import type { Property } from '%/infrastructure/database/schema/admin-schema'
+import type { Property } from '%/domain/communication/types'
 
 export type BuildUnitChannelsStatus = 'loading' | 'ready'
 
