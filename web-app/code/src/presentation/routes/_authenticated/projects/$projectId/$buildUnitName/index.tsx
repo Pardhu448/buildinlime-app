@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { BuildUnitPage } from '../../../../../pages/BuildUnitPage'
 import { channelsCollection, propertiesCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
-import { RoutePendingComponent } from '../../../../../components/buildInlime/RoutePendingComponent'
+import { RoutePendingComponent } from '../../../../../components/buildInlime'
 import { useBuildUnitChannels } from '../../../../../hooks/use-build-unit-channels'
 import { useBuildUnitContext } from '../../../../../contexts/route-contexts'
 

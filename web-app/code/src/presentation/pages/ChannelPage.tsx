@@ -18,7 +18,7 @@ import {
   TasksRightPanel,
   PageTopBar,
 } from "../components/buildInlime";
-import { PropertiesPanel } from "../components/buildInlime/PropertiesPanel";
+import { PropertiesPanel } from "../components/buildInlime";
 import {
   AlertDialog,
   AlertDialogContent,

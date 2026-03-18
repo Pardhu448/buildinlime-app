@@ -15,7 +15,7 @@ import {
   ResourcesSection,
   AssignedToSection,
 } from "../components/buildInlime";
-import { PropertiesPanel } from "../components/buildInlime/PropertiesPanel";
+import { PropertiesPanel } from "../components/buildInlime";
 import type { Property } from "%/domain/communication/types";
 
 interface TaskPageProps {

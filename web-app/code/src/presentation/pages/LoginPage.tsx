@@ -1,7 +1,7 @@
-import { LoginHeader } from "../components/buildInlime/LoginHeader";
-import { LoginDecorativeImage } from "../components/buildInlime/LoginDecorativeImage";
-import { LoginForm } from "../components/buildInlime/LoginForm";
-import { LoginTerms } from "../components/buildInlime/LoginTerms";
+import { LoginHeader } from "../components/buildInlime";
+import { LoginDecorativeImage } from "../components/buildInlime";
+import { LoginForm } from "../components/buildInlime";
+import { LoginTerms } from "../components/buildInlime";
 
 export default function LoginPage2() {
   return (
