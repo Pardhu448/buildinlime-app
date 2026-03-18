@@ -3,8 +3,8 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { UserInfo } from "./UserInfo";
 import { InboxNav } from "./InboxNav";
 import { MyTasksNav } from "./MyTasksNav";
-import { TrySection } from "./TrySection";
-import { BottomSection } from "./BottomSection";
+import { TrySection } from "../TrySection";
+import { BottomSection } from "../BottomSection";
 
 export interface SidebarProjectsProps {
   buildUnitsNavTo?: string;

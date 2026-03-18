@@ -15,7 +15,7 @@ import { UserInfo } from "./UserInfo";
 import { InboxNav } from "./InboxNav";
 import { MyTasksNav } from "./MyTasksNav";
 import { TeamSection } from "./TeamSection";
-import { BottomSection } from "./BottomSection";
+import { BottomSection } from "../BottomSection";
 
 export interface SidebarProps {
   projectId?: string;

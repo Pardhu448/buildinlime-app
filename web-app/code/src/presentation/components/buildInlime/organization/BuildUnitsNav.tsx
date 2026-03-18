@@ -1,5 +1,5 @@
 import { Package } from "lucide-react";
-import { NavButton } from "./NavButton";
+import { NavButton } from "../NavButton";
 
 export interface BuildUnitsNavProps {
   to?: string;
