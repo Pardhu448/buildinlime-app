@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, useNavigate, redirect } from '@tanstack/react-
 import { authClient } from '../../infrastructure/auth/client'
 import { authStateCollection } from '../../infrastructure/database/tanstack-db-electric/authCollections'
 import { projectsCollection, buildUnitsCollection, usersCollection, teamsCollection, membershipsCollection } from '../../infrastructure/database/tanstack-db-electric/admincollections'
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 
 function AuthLoadingComponent() {
   return (
@@ -20,6 +20,9 @@ export const Route = createFileRoute('/_authenticated')({
       return cached
     }
     const result = await authClient.getSession()
+    const prevUserId = cached?.user?.id
+    const newUserId = result.data?.user?.id
+
     if (authStateCollection.get(`auth`)) {
       authStateCollection.update(`auth`, (doc) => {
         doc.session = result.data?.session ?? null
@@ -28,9 +31,17 @@ export const Route = createFileRoute('/_authenticated')({
     } else {
       authStateCollection.insert({ id: `auth`, ...result.data })
     }
+
     if (!result.data?.session) {
       throw redirect({ to: `/login` })
     }
+
+    // Different user logged in — reload to flush stale Electric collection caches.
+    // Same-user re-login is unaffected (prevUserId === newUserId → no reload).
+    if (prevUserId && newUserId && prevUserId !== newUserId) {
+      window.location.reload()
+    }
+
     return result.data
   },
   loader: async () => {
@@ -50,20 +61,10 @@ export const Route = createFileRoute('/_authenticated')({
 function AuthenticatedLayout() {
   const { data: session, isPending } = authClient.useSession()
   const navigate = useNavigate()
-  const prevUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!isPending && !session) {
       navigate({ to: '/login' })
-      return
-    }
-    if (session?.user?.id) {
-      if (prevUserIdRef.current !== null && prevUserIdRef.current !== session.user.id) {
-        // User switched — reload to clear stale Electric collection caches
-        window.location.reload()
-        return
-      }
-      prevUserIdRef.current = session.user.id
     }
   }, [session, isPending, navigate])
 
