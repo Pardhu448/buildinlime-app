@@ -67,6 +67,18 @@ export const teamsCollection = createCollection(
       })
       return { txid: result.txid }
     },
+    onUpdate: async ({ transaction }) => {
+      const { modified: updatedTeam } = transaction.mutations[0]
+      const result = await trpc.teams.update.mutate({
+        id: updatedTeam.id,
+        data: {
+          name: updatedTeam.name,
+          description: updatedTeam.description,
+          member_ids: updatedTeam.member_ids,
+        },
+      })
+      return { txid: result.txid }
+    },
     onDelete: async ({ transaction }) => {
       const { original: deletedTeam } = transaction.mutations[0]
       const result = await trpc.teams.delete.mutate({ id: deletedTeam.id })
