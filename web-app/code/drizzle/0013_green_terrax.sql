@@ -1,1 +1,0 @@
-ALTER TABLE "resources" ALTER COLUMN "channel_id" SET NOT NULL;
