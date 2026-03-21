@@ -20,8 +20,6 @@ export const Route = createFileRoute('/_authenticated')({
       return cached
     }
     const result = await authClient.getSession()
-    const prevUserId = cached?.user?.id
-    const newUserId = result.data?.user?.id
 
     if (authStateCollection.get(`auth`)) {
       authStateCollection.update(`auth`, (doc) => {
@@ -34,12 +32,6 @@ export const Route = createFileRoute('/_authenticated')({
 
     if (!result.data?.session) {
       throw redirect({ to: `/login` })
-    }
-
-    // Different user logged in — reload to flush stale Electric collection caches.
-    // Same-user re-login is unaffected (prevUserId === newUserId → no reload).
-    if (prevUserId && newUserId && prevUserId !== newUserId) {
-      window.location.reload()
     }
 
     return result.data

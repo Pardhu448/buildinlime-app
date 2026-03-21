@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ChevronDown, Settings, LogOut } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
 import { authClient } from "%/infrastructure/auth/client";
 
 interface UserInfoProps {
@@ -10,11 +9,12 @@ interface UserInfoProps {
 
 export function UserInfo({ initials, name }: UserInfoProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const navigate = useNavigate();
 
   const handleLogout = async () => {
     await authClient.signOut();
-    navigate({ to: "/login" });
+    // Hard redirect clears all in-memory Electric collection state,
+    // preventing stale data from leaking to the next user.
+    window.location.href = "/login";
   };
 
   return (
