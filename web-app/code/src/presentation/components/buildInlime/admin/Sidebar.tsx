@@ -83,6 +83,14 @@ export function Sidebar({ projectId }: SidebarProps) {
     setCreateOpen(true);
   };
 
+  const handleAddMember = async (teamId: string, newMemberIds: string[]) => {
+    const team = teamsCollection.get(teamId);
+    if (!team) return;
+    await teamsCollection.update(teamId, (t) => {
+      t.member_ids = [...t.member_ids, ...newMemberIds];
+    });
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!teamName.trim() || !currentUserId || !projectId) return;
@@ -304,9 +312,13 @@ export function Sidebar({ projectId }: SidebarProps) {
                     return (
                       <TeamSection
                         key={team.id}
+                        teamId={team.id}
                         name={team.name}
                         description={team.description}
                         members={members}
+                        currentMemberIds={team.member_ids}
+                        allUsers={allUsers ?? []}
+                        onAddMember={handleAddMember}
                       />
                     );
                   })

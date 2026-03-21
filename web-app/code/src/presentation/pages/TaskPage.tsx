@@ -4,6 +4,7 @@ import {
   ChevronRight,
   ChevronDown,
   Link as LinkIcon,
+  Check,
   Bell,
   PanelRight,
   Hammer,
@@ -50,6 +51,13 @@ export function TaskPage({
   currentUserId,
 }: TaskPageProps) {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 1500);
+  };
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [taskPropsOpen, setTaskPropsOpen] = useState(true);
 
@@ -89,8 +97,12 @@ export function TaskPage({
               <span className="text-[#1e1e1e]">{taskName}</span>
             </div>
             <div className="flex items-center gap-2">
-              <button className="p-1.5 text-[#717182] hover:bg-gray-100 rounded transition-colors">
-                <LinkIcon className="w-4 h-4" />
+              <button
+                onClick={handleCopyLink}
+                title="Copy link"
+                className={`p-1.5 rounded transition-colors ${linkCopied ? "text-green-600 bg-green-50" : "text-[#717182] hover:bg-gray-100"}`}
+              >
+                {linkCopied ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
               </button>
               <button className="p-1.5 text-[#717182] hover:bg-gray-100 rounded transition-colors">
                 <Bell className="w-4 h-4" />
