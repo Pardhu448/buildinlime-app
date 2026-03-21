@@ -1,15 +1,46 @@
-import { View, Text, StyleSheet } from "react-native"
-import { useLocalSearchParams } from "expo-router"
+import { View, FlatList, ActivityIndicator, Text, StyleSheet } from "react-native"
+import { useRouter, useLocalSearchParams } from "expo-router"
+import { ScreenHeader } from "@/src/presentation/shared/components/ScreenHeader"
+import { BuildUnitCard } from "@/src/presentation/build-units/components/BuildUnitCard"
+import { useBuildUnits } from "@/src/presentation/build-units/hooks/useBuildUnits"
 import { colors } from "@/src/presentation/shared/colors"
 
 export default function BuildUnitsScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>()
+  const router = useRouter()
+  const { buildUnits, isLoading } = useBuildUnits()
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Build Units</Text>
-      <Text style={styles.subtitle}>Project: {projectId}</Text>
-      <Text style={styles.hint}>Build units grid coming in Phase 4.</Text>
+      <ScreenHeader title="Build Units" />
+      {isLoading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : buildUnits.length === 0 ? (
+        <View style={styles.centered}>
+          <Text style={styles.emptyText}>No build units in this project.</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={buildUnits}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          contentContainerStyle={styles.listContent}
+          columnWrapperStyle={styles.columnWrapper}
+          renderItem={({ item }) => (
+            <View style={styles.cardWrapper}>
+              <BuildUnitCard
+                buildUnit={item}
+                onPress={() =>
+                  router.push(`/(tabs)/project/${projectId}/${item.id}` as any)
+                }
+              />
+            </View>
+          )}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   )
 }
@@ -18,24 +49,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingHorizontal: 20,
-    paddingTop: 60,
   },
-  title: {
-    fontSize: 26,
-    fontFamily: "InstrumentSans_700Bold",
-    color: colors.foreground,
-    marginBottom: 4,
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
   },
-  subtitle: {
+  emptyText: {
     fontSize: 14,
-    fontFamily: "InstrumentSans_500Medium",
-    color: colors.primary,
-    marginBottom: 8,
-  },
-  hint: {
-    fontSize: 13,
     fontFamily: "InstrumentSans_400Regular",
     color: colors.mutedForeground,
+    textAlign: "center",
+  },
+  listContent: {
+    padding: 16,
+    gap: 12,
+  },
+  columnWrapper: {
+    gap: 12,
+  },
+  cardWrapper: {
+    flex: 1,
   },
 })
