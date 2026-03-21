@@ -210,7 +210,7 @@ export function ChannelPage({
                 buildunitId={buildUnitId}
                 projectId={projectId}
                 currentUserId={currentUserId}
-                memberIds={currentUserId ? [currentUserId] : []}
+                memberIds={channelMembers.map(u => u.id)}
               />
             </div>
           </div>

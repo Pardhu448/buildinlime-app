@@ -312,10 +312,11 @@ export function CommentsSection({
     [channelId]
   )
 
-  const { data: users } = useLiveQuery(
+  const { data: allUsers } = useLiveQuery(
     (q) => q.from({ usersCollection }),
     []
   )
+  const users = (allUsers ?? []).filter(u => memberIds.includes(u.id))
 
   const { messagePending, addPending, scheduleUpload, retryUpload } = usePendingResources(channelId)
 
