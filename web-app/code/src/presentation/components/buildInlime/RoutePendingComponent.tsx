@@ -1,4 +1,4 @@
-import { Sidebar } from "./Sidebar"
+import { Sidebar } from "./admin/Sidebar"
 
 export function RoutePendingComponent() {
   return (

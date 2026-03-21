@@ -10,7 +10,7 @@ import {
   PageTopBar,
 } from "../components/buildInlime";
 import type { Channel } from "../components/buildInlime";
-import type { Property } from "%/infrastructure/database/schema/admin-schema";
+import type { Property } from "%/domain/communication/types";
 import type { PendingItem } from "%/presentation/hooks/use-pending-items";
 
 

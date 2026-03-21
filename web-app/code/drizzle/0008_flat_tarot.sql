@@ -1,2 +1,0 @@
-ALTER TABLE "messages" ADD COLUMN "parent_id" text;--> statement-breakpoint
-ALTER TABLE "messages" ADD CONSTRAINT "messages_parent_id_messages_id_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."messages"("id") ON DELETE set null ON UPDATE no action;

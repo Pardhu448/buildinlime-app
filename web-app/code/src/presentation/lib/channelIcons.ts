@@ -7,7 +7,7 @@ import {
   ClipboardCheck,
   FlaskConical,
 } from 'lucide-react'
-import { CHANNEL_NAMES } from '%/infrastructure/database/schema/admin-schema'
+import { CHANNEL_NAMES } from '%/domain/shared/types'
 
 export const CHANNEL_ICONS: Record<typeof CHANNEL_NAMES[number], typeof IndianRupee> = {
   Finance: IndianRupee,

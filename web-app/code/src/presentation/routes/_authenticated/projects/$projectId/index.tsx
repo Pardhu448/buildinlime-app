@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Plus, ChevronRight } from "lucide-react";
-import { Sidebar } from "../../../../components/buildInlime/Sidebar";
-import { NewBuildUnitButton } from "../../../../components/buildInlime/NewBuildUnitButton";
-import { DisplayButton } from "../../../../components/buildInlime/DisplayButton";
-import { FilterButton } from "../../../../components/buildInlime/FilterButton";
-import { BuildUnitsTable } from "../../../../components/buildInlime/BuildUnitsTable";
-import { RoutePendingComponent } from "../../../../components/buildInlime/RoutePendingComponent";
+import { Sidebar } from "../../../../components/buildInlime";
+import { NewBuildUnitButton } from "../../../../components/buildInlime";
+import { DisplayButton } from "../../../../components/buildInlime";
+import { FilterButton } from "../../../../components/buildInlime";
+import { BuildUnitsTable } from "../../../../components/buildInlime";
+import { RoutePendingComponent } from "../../../../components/buildInlime";
 import { useProjectBuildUnits } from "../../../../hooks/use-project-build-units";
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId/')({

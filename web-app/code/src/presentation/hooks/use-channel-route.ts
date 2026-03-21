@@ -1,7 +1,7 @@
 import { useLiveQuery, eq } from "@tanstack/react-db"
 import { propertiesCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
 import { unwrapJsonb } from '%/presentation/lib/utils'
-import type { Property } from '%/infrastructure/database/schema/admin-schema'
+import type { Property } from '%/domain/communication/types'
 
 // buildUnitId and channelId are pre-resolved by the layout routes via React context —
 // no need to re-query projects, buildUnits, or channels here.

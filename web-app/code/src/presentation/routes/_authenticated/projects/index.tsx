@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Sidebar } from "../../../components/buildInlime/Sidebar";
-import { NewProjectButton } from "../../../components/buildInlime/NewProjectButton";
-//import { DisplayButton } from "../../../components/buildInlime/DisplayButton";
-//import { FilterButton } from "../../../components/buildInlime/FilterButton";
-import { ProjectsTable } from "../../../components/buildInlime/ProjectsTable";
+import { Sidebar } from "../../../components/buildInlime";
+import { NewProjectButton } from "../../../components/buildInlime";
+//import { DisplayButton } from "../../../components/buildInlime";
+//import { FilterButton } from "../../../components/buildInlime";
+import { ProjectsTable } from "../../../components/buildInlime";
 import { projectsCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
-import { RoutePendingComponent } from "../../../components/buildInlime/RoutePendingComponent";
+import { RoutePendingComponent } from "../../../components/buildInlime";
 
 import { useLiveQuery } from "@tanstack/react-db"
 

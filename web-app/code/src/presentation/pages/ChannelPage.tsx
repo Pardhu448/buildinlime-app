@@ -18,7 +18,7 @@ import {
   TasksRightPanel,
   PageTopBar,
 } from "../components/buildInlime";
-import { PropertiesPanel } from "../components/buildInlime/PropertiesPanel";
+import { PropertiesPanel } from "../components/buildInlime";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -28,7 +28,7 @@ import {
   AlertDialogAction,
 } from "../components/ui/alert-dialog";
 import { useChannelPage } from "../hooks/use-channel-page";
-import type { Property } from "%/infrastructure/database/schema/admin-schema";
+import type { Property } from "%/domain/communication/types";
 
 interface ChannelPageProps {
   projectId: string;

@@ -6,7 +6,7 @@ import {
   membershipsCollection,
 } from '%/infrastructure/database/tanstack-db-electric/admincollections'
 import { unwrapJsonb } from '%/presentation/lib/utils'
-import type { Property } from '%/infrastructure/database/schema/admin-schema'
+import type { Property } from '%/domain/communication/types'
 
 export type TaskRouteStatus =
   | 'loading'
