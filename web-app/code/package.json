@@ -27,6 +27,7 @@
     "psql": "dotenvx run -- sh -c 'psql \"$DATABASE_URL\"'"
   },
   "dependencies": {
+    "@buildinlime/domain-types": "workspace:*",
     "@electric-sql/client": "^1.2.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",

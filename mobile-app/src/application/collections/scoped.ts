@@ -1,6 +1,13 @@
 import { createCollection } from "@tanstack/react-db"
 import { electricCollectionOptions } from "@tanstack/electric-db-collection"
 import { z } from "zod"
+import {
+  CHANNEL_NAMES,
+  PROPERTY_TYPES,
+  ENTITY_TYPES,
+  STATUS_VALUES,
+  PRIORITY_VALUES,
+} from "@buildinlime/domain-types"
 import { createCookieFetch } from "../../infrastructure/auth/cookie-fetch"
 import { trpc } from "../../infrastructure/trpc/client"
 
@@ -15,11 +22,6 @@ const coerceBool = (v: unknown) => v === "true" || v === true
 const unwrapJsonb = (v: unknown) =>
   typeof v === "string" && v.startsWith('"') ? JSON.parse(v) : v
 
-const PROPERTY_TYPES = ["status", "priority", "target_date", "start_date", "label", "pending_task"] as const
-const ENTITY_TYPES = ["project", "build_unit", "channel", "task"] as const
-const STATUS_VALUES = ["backlog", "todo", "in_progress", "done", "cancelled"] as const
-const PRIORITY_VALUES = ["none", "low", "medium", "high", "critical"] as const
-
 // Schemas
 const buildUnitSchema = z.object({
   id: z.string(),
@@ -27,18 +29,23 @@ const buildUnitSchema = z.object({
   description: z.string().nullable().optional(),
   project_id: z.string(),
   owner_id: z.string(),
+  health: z.preprocess(unwrapJsonb, z.enum(["On track", "At risk", "Off track"]).nullish()),
+  priority: z.preprocess(unwrapJsonb, z.enum(["High", "Mid", "Low"]).nullish()),
+  task_name: z.string().nullable().optional(),
+  task_assignee: z.string().nullable().optional(),
+  task_since: z.string().nullable().optional(),
+  target_date: z.string().nullable().optional(),
+  status_percent: z.string().nullable().optional(),
   created_at: z.union([z.string(), z.date()]).optional(),
-  updated_at: z.union([z.string(), z.date()]).optional(),
 })
 
 const channelSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  name: z.preprocess(unwrapJsonb, z.enum(CHANNEL_NAMES)),
   description: z.string().nullable().optional(),
   buildunit_id: z.string(),
   owner_id: z.string(),
   created_at: z.union([z.string(), z.date()]).optional(),
-  updated_at: z.union([z.string(), z.date()]).optional(),
 })
 
 const taskSchema = z.object({
@@ -46,12 +53,12 @@ const taskSchema = z.object({
   name: z.string(),
   description: z.string().nullable().optional(),
   completed: z.preprocess(coerceBool, z.boolean()),
+  opened_at: z.union([z.string(), z.date()]).optional(),
+  closed_at: z.union([z.string(), z.date()]).optional(),
   channel_id: z.string(),
   buildunit_id: z.string(),
   createdby_id: z.string(),
   assignee_id: z.string().nullable().optional(),
-  created_at: z.union([z.string(), z.date()]).optional(),
-  updated_at: z.union([z.string(), z.date()]).optional(),
 })
 
 const messageSchema = z.object({
@@ -65,24 +72,25 @@ const messageSchema = z.object({
   resource_ids: z.array(z.string()).nullable().optional(),
   parent_id: z.string().nullable().optional(),
   created_at: z.union([z.string(), z.date()]).optional(),
-  updated_at: z.union([z.string(), z.date()]).optional(),
 })
 
 const resourceSchema = z.object({
   id: z.string(),
   name: z.string(),
+  description: z.string().nullable().optional(),
+  file_location: z.string(),
   mime_type: z.string(),
   file_size_bytes: z.preprocess(
     (v) => (typeof v === "string" || typeof v === "bigint" ? Number(v) : v),
     z.number()
   ),
+  uploaded_at: z.union([z.string(), z.date()]).optional(),
   channel_id: z.string(),
   buildunit_id: z.string(),
   project_id: z.string(),
   message_id: z.string().nullable().optional(),
   task_id: z.string().nullable().optional(),
-  uploader_id: z.string(),
-  created_at: z.union([z.string(), z.date()]).optional(),
+  createdby_id: z.string(),
 })
 
 const propertySchema = z.object({
@@ -97,7 +105,6 @@ const propertySchema = z.object({
   pending_task: z.string().nullable().optional(),
   label_value: z.string().nullable().optional(),
   created_at: z.union([z.string(), z.date()]).optional(),
-  updated_at: z.union([z.string(), z.date()]).optional(),
 })
 
 export interface ScopedCollections {

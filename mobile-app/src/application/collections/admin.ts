@@ -30,8 +30,13 @@ const selectTeamSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().nullable().optional(),
+  owner_id: z.string(),
+  project_id: z.string(),
+  member_ids: z.preprocess(
+    (v) => (typeof v === "string" ? JSON.parse(v) : v),
+    z.array(z.string()).default([])
+  ),
   created_at: z.union([z.string(), z.date()]).optional(),
-  updated_at: z.union([z.string(), z.date()]).optional(),
 })
 
 // --- Collections ---
@@ -65,6 +70,16 @@ export const teamsCollection = createCollection(
       const { modified: t } = transaction.mutations[0]
       const result = await trpc.teams.create.mutate({
         id: t.id, name: t.name, description: t.description,
+        owner_id: t.owner_id, project_id: t.project_id,
+        member_ids: t.member_ids ?? [],
+      })
+      return { txid: result.txid }
+    },
+    onUpdate: async ({ transaction }) => {
+      const { modified: t } = transaction.mutations[0]
+      const result = await trpc.teams.update.mutate({
+        id: t.id,
+        data: { name: t.name, description: t.description, member_ids: t.member_ids },
       })
       return { txid: result.txid }
     },

@@ -1,4 +1,5 @@
 packages:
+  - "packages/*"
   - "web-app/code"
   - "mobile-app"
 

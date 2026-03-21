@@ -10,6 +10,9 @@ importers:
 
   mobile-app:
     dependencies:
+      '@buildinlime/domain-types':
+        specifier: workspace:*
+        version: link:../packages/domain-types
       '@electric-sql/client':
         specifier: ^1.5.12
         version: 1.5.12
@@ -108,8 +111,13 @@ importers:
         specifier: ~5.9.2
         version: 5.9.3
 
+  packages/domain-types: {}
+
   web-app/code:
     dependencies:
+      '@buildinlime/domain-types':
+        specifier: workspace:*
+        version: link:../../packages/domain-types
       '@electric-sql/client':
         specifier: ^1.2.0
         version: 1.5.12

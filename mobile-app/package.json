@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@buildinlime/domain-types": "workspace:*",
     "@electric-sql/client": "^1.5.12",
     "@expo-google-fonts/instrument-sans": "^0.4.2",
     "@react-navigation/drawer": "^7.9.4",

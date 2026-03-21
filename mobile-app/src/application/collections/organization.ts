@@ -1,6 +1,10 @@
 import { createCollection } from "@tanstack/react-db"
 import { electricCollectionOptions } from "@tanstack/electric-db-collection"
 import { z } from "zod"
+import {
+  CHANNEL_NAMES,
+  MEMBERSHIP_ROLES,
+} from "@buildinlime/domain-types"
 import { createCookieFetch } from "../../infrastructure/auth/cookie-fetch"
 import { trpc } from "../../infrastructure/trpc/client"
 
@@ -13,16 +17,20 @@ const retryOnError = async (error: Error) => {
 }
 
 const coerceBool = (v: unknown) => v === "true" || v === true
+const unwrapJsonb = (v: unknown) =>
+  typeof v === "string" && v.startsWith('"') ? JSON.parse(v) : v
 
-// --- Schemas (mirrors web app's admin-schema Zod shapes) ---
+// --- Schemas (mirror web app's organization-tables Zod shapes) ---
 
 const selectProjectSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().nullable().optional(),
   owner_id: z.string(),
+  priority: z.preprocess(unwrapJsonb, z.enum(["High", "Mid", "Low"]).nullish()),
+  target_date: z.string().nullable().optional(),
+  status_percent: z.string().nullable().optional(),
   created_at: z.union([z.string(), z.date()]).optional(),
-  updated_at: z.union([z.string(), z.date()]).optional(),
 })
 
 const selectBuildUnitSchema = z.object({
@@ -31,26 +39,33 @@ const selectBuildUnitSchema = z.object({
   description: z.string().nullable().optional(),
   project_id: z.string(),
   owner_id: z.string(),
+  health: z.preprocess(unwrapJsonb, z.enum(["On track", "At risk", "Off track"]).nullish()),
+  priority: z.preprocess(unwrapJsonb, z.enum(["High", "Mid", "Low"]).nullish()),
+  task_name: z.string().nullable().optional(),
+  task_assignee: z.string().nullable().optional(),
+  task_since: z.string().nullable().optional(),
+  target_date: z.string().nullable().optional(),
+  status_percent: z.string().nullable().optional(),
   created_at: z.union([z.string(), z.date()]).optional(),
-  updated_at: z.union([z.string(), z.date()]).optional(),
 })
 
 const selectChannelSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  name: z.preprocess(unwrapJsonb, z.enum(CHANNEL_NAMES)),
   description: z.string().nullable().optional(),
   buildunit_id: z.string(),
   owner_id: z.string(),
   created_at: z.union([z.string(), z.date()]).optional(),
-  updated_at: z.union([z.string(), z.date()]).optional(),
 })
 
 const selectMembershipSchema = z.object({
   id: z.string(),
   user_id: z.string(),
+  channel_id: z.string(),
+  buildunit_id: z.string(),
   project_id: z.string(),
-  team_id: z.string().nullable().optional(),
   member_flag: z.preprocess(coerceBool, z.boolean()),
+  role: z.enum(MEMBERSHIP_ROLES).default(`viewer`),
   created_at: z.union([z.string(), z.date()]).optional(),
 })
 

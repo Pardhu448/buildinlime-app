@@ -1,6 +1,12 @@
 import { createCollection } from "@tanstack/react-db"
 import { electricCollectionOptions } from "@tanstack/electric-db-collection"
 import { z } from "zod"
+import {
+  PROPERTY_TYPES,
+  ENTITY_TYPES,
+  STATUS_VALUES,
+  PRIORITY_VALUES,
+} from "@buildinlime/domain-types"
 import { createCookieFetch } from "../../infrastructure/auth/cookie-fetch"
 import { trpc } from "../../infrastructure/trpc/client"
 
@@ -16,11 +22,6 @@ const coerceBool = (v: unknown) => v === "true" || v === true
 const unwrapJsonb = (v: unknown) =>
   typeof v === "string" && v.startsWith('"') ? JSON.parse(v) : v
 
-const PROPERTY_TYPES = ["status", "priority", "target_date", "start_date", "label", "pending_task"] as const
-const ENTITY_TYPES = ["project", "build_unit", "channel", "task"] as const
-const STATUS_VALUES = ["backlog", "todo", "in_progress", "done", "cancelled"] as const
-const PRIORITY_VALUES = ["none", "low", "medium", "high", "critical"] as const
-
 // --- Schemas ---
 
 const selectTaskSchema = z.object({
@@ -28,12 +29,12 @@ const selectTaskSchema = z.object({
   name: z.string(),
   description: z.string().nullable().optional(),
   completed: z.preprocess(coerceBool, z.boolean()),
+  opened_at: z.union([z.string(), z.date()]).optional(),
+  closed_at: z.union([z.string(), z.date()]).optional(),
   channel_id: z.string(),
   buildunit_id: z.string(),
   createdby_id: z.string(),
   assignee_id: z.string().nullable().optional(),
-  created_at: z.union([z.string(), z.date()]).optional(),
-  updated_at: z.union([z.string(), z.date()]).optional(),
 })
 
 const selectMessageSchema = z.object({
@@ -47,24 +48,25 @@ const selectMessageSchema = z.object({
   resource_ids: z.array(z.string()).nullable().optional(),
   parent_id: z.string().nullable().optional(),
   created_at: z.union([z.string(), z.date()]).optional(),
-  updated_at: z.union([z.string(), z.date()]).optional(),
 })
 
 const selectResourceSchema = z.object({
   id: z.string(),
   name: z.string(),
+  description: z.string().nullable().optional(),
+  file_location: z.string(),
   mime_type: z.string(),
   file_size_bytes: z.preprocess(
     (v) => (typeof v === "string" || typeof v === "bigint" ? Number(v) : v),
     z.number()
   ),
+  uploaded_at: z.union([z.string(), z.date()]).optional(),
   channel_id: z.string(),
   buildunit_id: z.string(),
   project_id: z.string(),
   message_id: z.string().nullable().optional(),
   task_id: z.string().nullable().optional(),
-  uploader_id: z.string(),
-  created_at: z.union([z.string(), z.date()]).optional(),
+  createdby_id: z.string(),
 })
 
 const selectPropertySchema = z.object({
@@ -79,7 +81,6 @@ const selectPropertySchema = z.object({
   pending_task: z.string().nullable().optional(),
   label_value: z.string().nullable().optional(),
   created_at: z.union([z.string(), z.date()]).optional(),
-  updated_at: z.union([z.string(), z.date()]).optional(),
 })
 
 // --- Collections ---
