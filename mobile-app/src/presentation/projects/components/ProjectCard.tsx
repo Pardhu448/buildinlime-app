@@ -1,6 +1,6 @@
 import { TouchableOpacity, View, Text, StyleSheet } from "react-native"
 import { colors } from "@/src/presentation/shared/colors"
-import type { Project } from "../hooks/useProjects"
+import type { Project } from "@buildinlime/domain-types"
 
 interface ProjectCardProps {
   project: Project
