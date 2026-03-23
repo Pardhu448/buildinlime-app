@@ -43,6 +43,10 @@ const config = defineConfig({
       '#': path.resolve(__dirname, './src/presentation'),
       '%': path.resolve(__dirname, './src'),
     },
+    // Force a single copy of React across all packages in the monorepo.
+    // Without this, pnpm's symlinked node_modules can cause Vite to bundle
+    // multiple React instances, triggering "invalid hook call" errors.
+    dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
   },
   root: '.',
   publicDir: 'public',

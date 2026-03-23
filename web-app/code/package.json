@@ -11,7 +11,7 @@
   },
   "scripts": {
     "predev": "kill -9 $(ss -tlnp | grep -E ':3000|:5173|:8080' | grep -oP 'pid=\\K[0-9]+' | sort -u) 2>/dev/null; true",
-    "dev": "vite dev --port 3000",
+    "dev": "vite dev --port 3000 --host",
     "debug": "vite inspect",
     "build": "vite build",
     "preview": "vite preview",
