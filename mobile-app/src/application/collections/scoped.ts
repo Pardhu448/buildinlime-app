@@ -129,7 +129,10 @@ export function createScopedCollections(projectId: string): ScopedCollections {
 
   const cookieFetch = createCookieFetch()
   const url = (path: string) => `${apiUrl}${path}?project_id=${projectId}`
-  const parser = { timestamptz: (d: string) => new Date(d) }
+  // Hermes (React Native) cannot parse PostgreSQL's timestamp format
+  // "2024-01-15 10:30:00.123456+00" — it needs strict ISO 8601 with 'T' separator.
+  const normalizeTs = (d: string) => d.replace(' ', 'T').replace(/\+00(?::00)?$/, 'Z')
+  const parser = { timestamptz: (d: string) => new Date(normalizeTs(d)) }
 
   const collections: ScopedCollections = {
     buildUnitsCollection: createCollection(
