@@ -1,5 +1,6 @@
 import { View, TextInput, TouchableOpacity, StyleSheet, Text } from "react-native"
 import { useState } from "react"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { colors } from "@/src/presentation/shared/colors"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
@@ -12,6 +13,7 @@ interface MessageInputProps {
 
 export function MessageInput({ channelId, buildUnitId, projectId }: MessageInputProps) {
   const [text, setText] = useState("")
+  const { bottom } = useSafeAreaInsets()
   const { data: session } = useSession()
   const { collections } = useProjectContext()
 
@@ -32,6 +34,7 @@ export function MessageInput({ channelId, buildUnitId, projectId }: MessageInput
         mention_ids: [],
         resource_ids: [],
         parent_id: null,
+        created_at: new Date(),
       })
       setText("")
     } catch (err) {
@@ -40,7 +43,7 @@ export function MessageInput({ channelId, buildUnitId, projectId }: MessageInput
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: 10 + bottom }]}>
       <TextInput
         style={styles.input}
         value={text}
