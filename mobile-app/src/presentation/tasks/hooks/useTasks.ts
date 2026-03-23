@@ -1,14 +1,17 @@
-import { useCollection } from "@tanstack/react-db"
+import { useLiveQuery, eq } from "@tanstack/react-db"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
 import type { Task } from "@buildinlime/domain-types"
 
 export function useTasks(assigneeId?: string) {
   const { collections } = useProjectContext()
-  const { data, isLoading } = useCollection(collections!.tasksCollection, {
-    select: (items) => {
-      const all = [...items.values()] as Task[]
-      return assigneeId ? all.filter((t) => t.assignee_id === assigneeId) : all
+  const { data, isLoading } = useLiveQuery(
+    (q) => {
+      const base = q.from({ tasksCollection: collections!.tasksCollection })
+      return assigneeId
+        ? base.where(({ tasksCollection: t }) => eq(t.assignee_id, assigneeId))
+        : base
     },
-  })
-  return { tasks: data ?? [], isLoading }
+    [collections, assigneeId]
+  )
+  return { tasks: (data ?? []) as Task[], isLoading }
 }

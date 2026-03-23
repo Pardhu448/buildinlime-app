@@ -1,10 +1,7 @@
-import { useCollection } from "@tanstack/react-db"
+import { useLiveQuery } from "@tanstack/react-db"
 import { projectsCollection } from "@/src/application/collections/projects"
-import type { Project } from "@buildinlime/domain-types"
 
 export function useProjects() {
-  const { data, isLoading } = useCollection(projectsCollection, {
-    select: (items) => [...items.values()] as Project[],
-  })
+  const { data, isLoading } = useLiveQuery((q) => q.from({ projectsCollection }), [])
   return { projects: data ?? [], isLoading }
 }

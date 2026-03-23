@@ -1,11 +1,11 @@
-import { useCollection } from "@tanstack/react-db"
+import { useLiveQuery } from "@tanstack/react-db"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
-import type { BuildUnit } from "@buildinlime/domain-types"
 
 export function useBuildUnits() {
   const { collections } = useProjectContext()
-  const { data, isLoading } = useCollection(collections!.buildUnitsCollection, {
-    select: (items) => [...items.values()] as BuildUnit[],
-  })
+  const { data, isLoading } = useLiveQuery(
+    (q) => q.from({ buildUnitsCollection: collections!.buildUnitsCollection }),
+    [collections]
+  )
   return { buildUnits: data ?? [], isLoading }
 }
