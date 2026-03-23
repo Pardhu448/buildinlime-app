@@ -28,6 +28,14 @@ export async function clearAuthCookies(): Promise<void> {
   await SecureStore.deleteItemAsync(SECURE_STORE_KEY)
 }
 
+/** Returns the stored session cookies as a Cookie header string. */
+export async function getAuthCookieHeader(): Promise<string> {
+  const cookieMap = await loadCookies()
+  return Object.entries(cookieMap)
+    .map(([k, v]) => `${k}=${v}`)
+    .join("; ")
+}
+
 /**
  * Parses a raw Set-Cookie header string into a name=value pair.
  * Strips directives like Path, HttpOnly, SameSite, Expires, Max-Age, Domain.
