@@ -29,38 +29,50 @@ function TaskItem({ task }: { task: Task }) {
   )
 }
 
-export default function MyTasksScreen() {
+// Only rendered when collections is ready — safe to call useTasks
+function MyTasksContent() {
   const { data: session } = useSession()
-  const { projectId } = useProjectContext()
   const currentUserId = session?.user?.id
-
   const { tasks, isLoading } = useTasks(currentUserId)
+
+  if (isLoading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    )
+  }
+  if (tasks.length === 0) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.emptyText}>No tasks assigned to you.</Text>
+      </View>
+    )
+  }
+  return (
+    <FlatList
+      data={tasks}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={styles.listContent}
+      renderItem={({ item }) => <TaskItem task={item} />}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      showsVerticalScrollIndicator={false}
+    />
+  )
+}
+
+export default function MyTasksScreen() {
+  const { projectId, collections } = useProjectContext()
 
   return (
     <View style={styles.container}>
       <ScreenHeader title="My Tasks" subtitle="Your assigned tasks" />
-
-      {!projectId ? (
+      {!projectId || !collections ? (
         <View style={styles.centered}>
           <Text style={styles.emptyText}>Select a project to see your tasks.</Text>
         </View>
-      ) : isLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : tasks.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyText}>No tasks assigned to you.</Text>
-        </View>
       ) : (
-        <FlatList
-          data={tasks}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => <TaskItem task={item} />}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          showsVerticalScrollIndicator={false}
-        />
+        <MyTasksContent />
       )}
     </View>
   )
