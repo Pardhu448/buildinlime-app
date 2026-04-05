@@ -87,7 +87,9 @@ export const auth = betterAuth({
     process.env.BETTER_AUTH_URL || "https://localhost:5173",
     "http://localhost:3000",
     "http://10.0.2.2:3000",
+    "http://192.168.10.37:3000",
     "exp://192.168.10.37:8081",
+    ...(process.env.MOBILE_ORIGIN ? [process.env.MOBILE_ORIGIN] : []),
   ],
   
   // Cookie configuration
