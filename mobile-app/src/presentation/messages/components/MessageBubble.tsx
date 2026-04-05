@@ -8,11 +8,11 @@ interface MessageBubbleProps {
   isOwn: boolean
 }
 
-function formatTime(date: Date | string): string {
+function formatTime(date: Date | string | undefined): string {
+  if (!date) return ""
   const d = typeof date === "string" ? new Date(date) : date
-  const hours = d.getHours().toString().padStart(2, "0")
-  const minutes = d.getMinutes().toString().padStart(2, "0")
-  return `${hours}:${minutes}`
+  if (isNaN(d.getTime())) return ""
+  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`
 }
 
 export function MessageBubble({ message, senderName, isOwn }: MessageBubbleProps) {

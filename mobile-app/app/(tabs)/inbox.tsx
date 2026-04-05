@@ -1,6 +1,6 @@
 import { View, Text, FlatList, ActivityIndicator, StyleSheet } from "react-native"
 import { ScreenHeader } from "@/src/presentation/shared/components/ScreenHeader"
-import { useCollection } from "@tanstack/react-db"
+import { useLiveQuery } from "@tanstack/react-db"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { colors } from "@/src/presentation/shared/colors"
@@ -30,58 +30,64 @@ function MentionItem({ message }: { message: Message }) {
   )
 }
 
-export default function InboxScreen() {
+// Only rendered when collections is ready — safe to call useLiveQuery
+function InboxContent() {
   const { data: session } = useSession()
-  const { projectId, collections } = useProjectContext()
+  const { collections } = useProjectContext()
   const currentUserId = session?.user?.id
 
-  const { data: allMessages } = useCollection(
-    collections?.messagesCollection ?? ({} as any),
-    {
-      select: (items) => {
-        if (!currentUserId) return []
-        return ([...items.values()] as Message[])
-          .filter(
-            (m) =>
-              Array.isArray(m.mention_ids) &&
-              m.mention_ids.includes(currentUserId)
-          )
-          .sort(
-            (a, b) =>
-              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          )
-      },
-    }
+  const { data: rawMessages, isLoading } = useLiveQuery(
+    (q) => q.from({ messagesCollection: collections!.messagesCollection }),
+    [collections]
   )
 
-  const isLoading = allMessages === undefined && !!projectId
-  const mentions = allMessages ?? []
+  const mentions = ((rawMessages ?? []) as Message[])
+    .filter(
+      (m) =>
+        currentUserId &&
+        Array.isArray(m.mention_ids) &&
+        m.mention_ids.includes(currentUserId)
+    )
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  if (isLoading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    )
+  }
+  if (mentions.length === 0) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.emptyText}>No mentions yet.</Text>
+      </View>
+    )
+  }
+  return (
+    <FlatList
+      data={mentions}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={styles.listContent}
+      renderItem={({ item }) => <MentionItem message={item} />}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      showsVerticalScrollIndicator={false}
+    />
+  )
+}
+
+export default function InboxScreen() {
+  const { projectId, collections } = useProjectContext()
 
   return (
     <View style={styles.container}>
       <ScreenHeader title="Inbox" subtitle="Your @mentions" />
-
-      {!projectId ? (
+      {!projectId || !collections ? (
         <View style={styles.centered}>
           <Text style={styles.emptyText}>Select a project first.</Text>
         </View>
-      ) : isLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : mentions.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyText}>No mentions yet.</Text>
-        </View>
       ) : (
-        <FlatList
-          data={mentions}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => <MentionItem message={item} />}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          showsVerticalScrollIndicator={false}
-        />
+        <InboxContent />
       )}
     </View>
   )

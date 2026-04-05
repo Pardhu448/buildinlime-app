@@ -6,17 +6,18 @@ import {
   Platform,
   StyleSheet,
   ActivityIndicator,
-  ScrollView,
   StatusBar,
 } from "react-native"
+import { useState } from "react"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useMessages } from "@/src/presentation/messages/hooks/useMessages"
 import { useProperties } from "@/src/presentation/properties/hooks/useProperties"
 import { MessageList } from "@/src/presentation/messages/components/MessageList"
 import { MessageInput } from "@/src/presentation/messages/components/MessageInput"
 import { PropertyPill } from "@/src/presentation/properties/components/PropertyPill"
+import { ResourcesSection } from "@/src/presentation/resources/components/ResourcesSection"
 import { useSession } from "@/src/infrastructure/auth/client"
-import { useCollection } from "@tanstack/react-db"
+import { useLiveQuery, eq } from "@tanstack/react-db"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { colors } from "@/src/presentation/shared/colors"
 import type { Channel } from "@buildinlime/domain-types"
@@ -32,16 +33,22 @@ export default function ChannelScreen() {
   const { collections } = useProjectContext()
 
   // Look up channel name from channelsCollection
-  const { data: channelsData } = useCollection(collections!.channelsCollection, {
-    select: (items) => [...items.values()] as Channel[],
-  })
-  const channel = (channelsData ?? []).find((c) => c.id === channelId)
+  const { data: channelsData } = useLiveQuery(
+    (q) =>
+      q
+        .from({ channelsCollection: collections!.channelsCollection })
+        .where(({ channelsCollection: c }) => eq(c.id, channelId)),
+    [collections, channelId]
+  )
+  const channel = ((channelsData ?? []) as Channel[])[0]
 
   const { messages, isLoading } = useMessages(channelId)
   const { properties } = useProperties(channelId)
 
   // Only show channel-level properties
   const channelProperties = properties.filter((p) => p.entity === "channel")
+
+  const [propertiesExpanded, setPropertiesExpanded] = useState(true)
 
   const currentUserId = session?.user?.id ?? ""
 
@@ -80,19 +87,29 @@ export default function ChannelScreen() {
         </Text>
       </View>
 
-      {/* Optional property pills row */}
+      {/* Collapsible properties */}
       {channelProperties.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.pillsContainer}
-          style={styles.pillsScroll}
-        >
-          {channelProperties.map((prop) => (
-            <PropertyPill key={prop.id} property={prop} />
-          ))}
-        </ScrollView>
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.sectionHeader}
+            onPress={() => setPropertiesExpanded((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.sectionLabel}>Properties</Text>
+            <Text style={styles.chevron}>{propertiesExpanded ? "⌄" : "›"}</Text>
+          </TouchableOpacity>
+          {propertiesExpanded && (
+            <View style={styles.pillsContainer}>
+              {channelProperties.map((prop) => (
+                <PropertyPill key={prop.id} property={prop} />
+              ))}
+            </View>
+          )}
+        </View>
       )}
+
+      {/* Collapsible resources */}
+      <ResourcesSection channelId={channelId} />
 
       {/* Messages */}
       {isLoading ? (
@@ -150,15 +167,35 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     lineHeight: 22,
   },
-  pillsScroll: {
+  section: {
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontFamily: "InstrumentSans_500Medium",
+    color: colors.mutedForeground,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  chevron: {
+    fontSize: 16,
+    color: colors.mutedForeground,
+    lineHeight: 20,
   },
   pillsContainer: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
   },
   centered: {
     flex: 1,

@@ -2,7 +2,7 @@ import { emailOTPClient } from "better-auth/client/plugins"
 import { createAuthClient } from "better-auth/react"
 import { clearAuthCookies, createCookieFetch } from "./cookie-fetch"
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "https://localhost:5173"
+const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://10.0.2.2:3000"
 console.log(">>> AUTH API URL:", apiUrl) 
 /**
  * Better Auth client for React Native.

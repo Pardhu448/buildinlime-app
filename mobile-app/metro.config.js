@@ -16,4 +16,20 @@ config.resolver.nodeModulesPaths = [
 // Required for pnpm's symlinked node_modules to work with Metro
 config.resolver.unstable_enableSymlinks = true
 
+// Force react and react-native to always resolve from the workspace root's
+// node_modules (the single hoisted copy), even when the requesting module
+// lives somewhere else in the monorepo. This prevents duplicate React copies
+// which cause "useContext" crashes.
+const SINGLETONS = ["react", "react/jsx-runtime", "react/jsx-dev-runtime", "react-native"]
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (SINGLETONS.includes(moduleName) || moduleName.startsWith("react-native/")) {
+    return context.resolveRequest(
+      { ...context, originModulePath: path.join(workspaceRoot, "node_modules", "react", "package.json") },
+      moduleName,
+      platform
+    )
+  }
+  return context.resolveRequest(context, moduleName, platform)
+}
+
 module.exports = withNativeWind(config, { input: "./global.css" })

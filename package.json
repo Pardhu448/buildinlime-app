@@ -4,10 +4,17 @@
   "version": "0.1.0",
   "scripts": {
     "web": "pnpm --filter buildinlime dev",
-    "mobile": "pnpm --filter buildinlimemobile start"
+    "mobile": "pnpm --filter buildinlimemobile start",
+    "mobile:lan": "pnpm --filter buildinlimemobile start -- --host lan --clear"
   },
   "engines": {
     "node": ">=20.19.0 || >=22.12.0",
     "pnpm": ">=9"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "19.1.0",
+      "react-dom": "19.1.0"
+    }
   }
 }

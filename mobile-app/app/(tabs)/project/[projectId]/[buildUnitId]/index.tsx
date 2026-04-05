@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   StatusBar,
 } from "react-native"
@@ -49,18 +48,15 @@ export default function ChannelsScreen() {
         </Text>
       </View>
 
-      {/* Property pills row */}
+      {/* Property pills */}
       {buildUnitProperties.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.pillsContainer}
-          style={styles.pillsScroll}
-        >
-          {buildUnitProperties.map((prop) => (
-            <PropertyPill key={prop.id} property={prop} />
-          ))}
-        </ScrollView>
+        <View style={styles.pillsScroll}>
+          <View style={styles.pillsContainer}>
+            {buildUnitProperties.map((prop) => (
+              <PropertyPill key={prop.id} property={prop} />
+            ))}
+          </View>
+        </View>
       )}
 
       {/* Channels grid */}
@@ -134,12 +130,13 @@ const styles = StyleSheet.create({
   pillsScroll: {
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   pillsContainer: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
   },
   centered: {
     flex: 1,

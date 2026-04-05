@@ -1,4 +1,11 @@
+import "react-native-get-random-values"
 import "../global.css"
+import * as ExpoCrypto from "expo-crypto"
+
+// Polyfill crypto.randomUUID — TanStack DB's collection insert calls this internally.
+if (typeof crypto !== "undefined" && !crypto.randomUUID) {
+  ;(crypto as any).randomUUID = ExpoCrypto.randomUUID
+}
 import "react-native-gesture-handler"
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
