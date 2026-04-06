@@ -1,12 +1,15 @@
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native"
 import { useRouter } from "expo-router"
 import { useSession, authClient, clearAuthCookies } from "@/src/infrastructure/auth/client"
+import { useSignOut } from "../_layout"
 
 export default function ProfileScreen() {
   const router = useRouter()
   const { data: session, isPending } = useSession()
+  const { startSignOut } = useSignOut()
 
   async function handleSignOut() {
+    startSignOut()
     console.log(">>> signOut: start")
     const { error } = await authClient.signOut()
     console.log(">>> signOut: done, error:", JSON.stringify(error))

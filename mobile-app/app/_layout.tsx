@@ -18,7 +18,7 @@ import {
 } from "@expo-google-fonts/instrument-sans"
 import { Stack, useRouter, useSegments } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
-import { useState, useEffect } from "react"
+import { createContext, useContext, useState, useEffect } from "react"
 import { ActivityIndicator, View } from "react-native"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 import "react-native-reanimated"
@@ -28,6 +28,9 @@ import { useSession } from "@/src/infrastructure/auth/client"
 import { ProjectProvider } from "@/src/application/context/ProjectContext"
 
 export { ErrorBoundary } from "expo-router"
+
+const SignOutContext = createContext<{ startSignOut: () => void }>({ startSignOut: () => {} })
+export const useSignOut = () => useContext(SignOutContext)
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
@@ -77,19 +80,21 @@ function AuthGuard() {
   const { data: session, isPending, error } = useSession()
   const segments = useSegments()
   const router = useRouter()
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
   useEffect(() => {
     // If session check errored (e.g. server unreachable), treat as logged out
     if (isPending) return
     const inAuthGroup = segments[0] === "(auth)"
     if ((!session || error) && !inAuthGroup) {
+      setIsSigningOut(false)
       router.replace("/(auth)/login")
     } else if (session && !error && inAuthGroup) {
       router.replace("/(tabs)")
     }
   }, [session, isPending, error, segments])
 
-  if (isPending) {
+  if (isPending || isSigningOut) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator size="large" color="#976623" />
@@ -98,10 +103,12 @@ function AuthGuard() {
   }
 
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-    </Stack>
+    <SignOutContext.Provider value={{ startSignOut: () => setIsSigningOut(true) }}>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+      </Stack>
+    </SignOutContext.Provider>
   )
 }
