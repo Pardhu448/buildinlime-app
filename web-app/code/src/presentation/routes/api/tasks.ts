@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router"
 import { auth } from "../../../infrastructure/auth/server"
 import { prepareElectricUrl, proxyElectricRequest } from "../../../infrastructure/database/electric-proxy"
 import { db } from "../../../infrastructure/database/connection"
-import { membershipTable, channelsTable, buildUnitsTable } from "../../../infrastructure/database/schema/admin-schema"
-import { eq, and, inArray } from "drizzle-orm"
+import { channelsTable, buildUnitsTable } from "../../../infrastructure/database/schema/admin-schema"
+import { eq, inArray } from "drizzle-orm"
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -16,29 +16,19 @@ const serve = async ({ request }: { request: Request }) => {
     })
   }
 
-  const [memberships, ownedChannels] = await Promise.all([
-    db
-      .select({ channel_id: membershipTable.channel_id })
-      .from(membershipTable)
-      .where(and(
-        eq(membershipTable.user_id, session.user.id),
-        eq(membershipTable.member_flag, true)
-      )),
-    db
-      .select({ id: channelsTable.id })
-      .from(channelsTable)
-      .where(eq(channelsTable.owner_id, session.user.id)),
-  ])
+  const url = new URL(request.url)
+  const memberChannelIds = (url.searchParams.get(`member_channel_ids`) ?? ``).split(`,`).filter(id => UUID_REGEX.test(id))
 
-  let channelIds = [...new Set([
-    ...memberships.map(m => m.channel_id),
-    ...ownedChannels.map(c => c.id),
-  ])]
-  if (channelIds.length === 0) {
-    return new Response(`[]`, { status: 200, headers: { "content-type": "application/json" } })
-  }
+  // Include channels the user owns (not captured by memberships)
+  const ownedChannels = await db
+    .select({ id: channelsTable.id })
+    .from(channelsTable)
+    .where(eq(channelsTable.owner_id, session.user.id))
 
-  const projectId = new URL(request.url).searchParams.get(`project_id`)
+  let channelIds = [...new Set([...memberChannelIds, ...ownedChannels.map(c => c.id)])]
+
+  // Optional project_id filter
+  const projectId = url.searchParams.get(`project_id`)
   if (projectId && UUID_REGEX.test(projectId)) {
     const projectBuildUnits = await db
       .select({ id: buildUnitsTable.id })
@@ -57,13 +47,14 @@ const serve = async ({ request }: { request: Request }) => {
     }
   }
 
-  if (channelIds.length === 0) {
-    return new Response(`[]`, { status: 200, headers: { "content-type": "application/json" } })
-  }
-
   const originUrl = prepareElectricUrl(request.url)
   originUrl.searchParams.set(`table`, `tasks`)
-  originUrl.searchParams.set(`where`, `channel_id = ANY(ARRAY[${channelIds.map(id => `'${id}'`).join(`,`)}]::text[])`)
+  originUrl.searchParams.set(
+    `where`,
+    channelIds.length === 0
+      ? `1 = 0`
+      : `channel_id = ANY(ARRAY[${channelIds.map(id => `'${id}'`).join(`,`)}]::text[])`
+  )
 
   return proxyElectricRequest(originUrl)
 }

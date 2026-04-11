@@ -1,7 +1,8 @@
 import { createFileRoute, Outlet, useNavigate, redirect } from '@tanstack/react-router'
 import { authClient } from '../../infrastructure/auth/client'
 import { authStateCollection } from '../../infrastructure/database/tanstack-db-electric/authCollections'
-import { projectsCollection, buildUnitsCollection, usersCollection, teamsCollection, membershipsCollection } from '../../infrastructure/database/tanstack-db-electric/admincollections'
+import { projectsCollection, buildUnitsCollection, usersCollection, teamsCollection, membershipsCollection, initializeOrganizationCollections } from '../../infrastructure/database/tanstack-db-electric/admincollections'
+import { initializeCommunicationCollections } from '../../application/collections/communication'
 import { useEffect } from 'react'
 
 function AuthLoadingComponent() {
@@ -39,6 +40,18 @@ export const Route = createFileRoute('/_authenticated')({
   loader: async () => {
     // Memberships must load first — other shapes use it for access control
     await membershipsCollection.preload()
+
+    // Extract membership-derived IDs and initialize dependent collections
+    // so their shape URLs include the IDs (eliminating per-poll DB scans)
+    const memberships = membershipsCollection.toArray
+    const memberProjectIds = [...new Set(memberships.map(m => m.project_id))].sort()
+    const memberBuildunitIds = [...new Set(memberships.map(m => m.buildunit_id))].sort()
+    const memberChannelIds = [...new Set(memberships.map(m => m.channel_id))].sort()
+
+    const membershipParams = { memberProjectIds, memberBuildunitIds, memberChannelIds }
+    initializeOrganizationCollections(membershipParams)
+    initializeCommunicationCollections(membershipParams)
+
     await Promise.all([
       projectsCollection.preload(),
       buildUnitsCollection.preload(),
