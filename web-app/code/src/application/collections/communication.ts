@@ -130,11 +130,13 @@ function _makePropertiesCollection(params: {
   memberProjectIds: string[]
   memberBuildunitIds: string[]
   memberChannelIds: string[]
+  memberTaskIds: string[]
 }) {
   const url = new URL(`/api/properties`, origin)
   if (params.memberProjectIds.length > 0) url.searchParams.set(`member_project_ids`, params.memberProjectIds.join(`,`))
   if (params.memberBuildunitIds.length > 0) url.searchParams.set(`member_buildunit_ids`, params.memberBuildunitIds.join(`,`))
   if (params.memberChannelIds.length > 0) url.searchParams.set(`member_channel_ids`, params.memberChannelIds.join(`,`))
+  if (params.memberTaskIds.length > 0) url.searchParams.set(`member_task_ids`, params.memberTaskIds.join(`,`))
   return createCollection(
     electricCollectionOptions({
       id: `properties`,
@@ -248,12 +250,21 @@ export let propertiesCollection: ReturnType<typeof _makePropertiesCollection> = 
 export let messagesCollection: ReturnType<typeof _makeMessagesCollection> = null!
 
 export function initializeCommunicationCollections(params: {
-  memberProjectIds: string[]
-  memberBuildunitIds: string[]
   memberChannelIds: string[]
 }) {
   tasksCollection = _makeTasksCollection(params.memberChannelIds)
   resourcesCollection = _makeResourcesCollection(params.memberChannelIds)
-  propertiesCollection = _makePropertiesCollection(params)
   messagesCollection = _makeMessagesCollection(params.memberChannelIds)
+}
+
+// Must be called AFTER tasksCollection has been preloaded so task IDs are known.
+// Task IDs are a snapshot — new tasks created after load won't have their
+// properties stream until the page is reloaded.
+export function initializePropertiesCollection(params: {
+  memberProjectIds: string[]
+  memberBuildunitIds: string[]
+  memberChannelIds: string[]
+  memberTaskIds: string[]
+}) {
+  propertiesCollection = _makePropertiesCollection(params)
 }

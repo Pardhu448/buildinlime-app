@@ -1,9 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { auth } from "../../../infrastructure/auth/server"
 import { prepareElectricUrl, proxyElectricRequest } from "../../../infrastructure/database/electric-proxy"
-import { db } from "../../../infrastructure/database/connection"
-import { buildUnitsTable } from "../../../infrastructure/database/schema/admin-schema"
-import { eq } from "drizzle-orm"
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -24,26 +21,10 @@ const serve = async ({ request }: { request: Request }) => {
     parts.push(`id = ANY(ARRAY[${memberIds.map(id => `'${id}'`).join(`,`)}]::text[])`)
   }
   parts.push(`owner_id = '${session.user.id}'`)
-  let whereClause = `(${parts.join(` OR `)})`
-
-  // Optional project_id filter — narrow to channels belonging to that project's build units
-  const projectId = url.searchParams.get(`project_id`)
-  if (projectId && UUID_REGEX.test(projectId)) {
-    const projectBuildUnits = await db
-      .select({ id: buildUnitsTable.id })
-      .from(buildUnitsTable)
-      .where(eq(buildUnitsTable.project_id, projectId))
-    const projectBuildUnitIds = projectBuildUnits.map(b => b.id)
-    if (projectBuildUnitIds.length > 0) {
-      whereClause += ` AND buildunit_id = ANY(ARRAY[${projectBuildUnitIds.map(id => `'${id}'`).join(`,`)}]::text[])`
-    } else {
-      whereClause = `1 = 0`
-    }
-  }
 
   const originUrl = prepareElectricUrl(request.url)
   originUrl.searchParams.set(`table`, `channels`)
-  originUrl.searchParams.set(`where`, whereClause)
+  originUrl.searchParams.set(`where`, parts.join(` OR `))
 
   return proxyElectricRequest(originUrl)
 }
