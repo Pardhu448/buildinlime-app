@@ -1,8 +1,10 @@
 import { createCollection } from "@tanstack/react-db"
 import { electricCollectionOptions } from "@tanstack/electric-db-collection"
+import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence"
 import { z } from "zod"
 import { selectTeamSchema } from "%/infrastructure/database/schema/admin-schema"
 import { trpc } from "%/infrastructure/trpc/lib/trpc-client"
+import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
 import { retryOnError, origin } from "./_shared"
 
 // Electric returns the actual DB column names (snake_case), not the camelCase
@@ -26,63 +28,112 @@ const electricTeamSchema = selectTeamSchema.extend({
   ),
 })
 
-export const usersCollection = createCollection(
-  electricCollectionOptions({
-    id: `users`,
-    shapeOptions: {
-      url: new URL(`/api/users`, origin).toString(),
-      onError: retryOnError,
-      parser: {
-        timestamptz: (date: string) => {
-          return new Date(date)
-        },
-      },
-    },
-    schema: electricUsersSchema,
-    getKey: (item) => item.id,
-  })
-)
+// usersCollection is wrapped with SQLite persistence (OPFS) so the user list
+// hydrates instantly from local cache on reload, even with the server offline.
+// Bump USERS_SCHEMA_VERSION whenever electricUsersSchema changes shape — a
+// version mismatch triggers a full reset and re-sync from Electric.
+const USERS_SCHEMA_VERSION = 1
 
-export const teamsCollection = createCollection(
-  electricCollectionOptions({
-    id: `teams`,
-    shapeOptions: {
-      url: new URL(`/api/teams`, origin).toString(),
-      onError: retryOnError,
-      parser: {
-        timestamptz: (date: string) => new Date(date),
-      },
-    },
-    schema: electricTeamSchema,
-    getKey: (item) => item.id,
-    onInsert: async ({ transaction }) => {
-      const { modified: newTeam } = transaction.mutations[0]
-      const result = await trpc.teams.create.mutate({
-        id: newTeam.id,
-        name: newTeam.name,
-        description: newTeam.description,
-        owner_id: newTeam.owner_id,
-        project_id: newTeam.project_id,
-        member_ids: newTeam.member_ids ?? [],
-      })
-      return { txid: result.txid }
-    },
-    onUpdate: async ({ transaction }) => {
-      const { modified: updatedTeam } = transaction.mutations[0]
-      const result = await trpc.teams.update.mutate({
-        id: updatedTeam.id,
-        data: {
-          name: updatedTeam.name,
-          description: updatedTeam.description,
-          member_ids: updatedTeam.member_ids,
+function _makeUsersCollection(
+  persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
+) {
+  return createCollection(
+    persistedCollectionOptions({
+      ...electricCollectionOptions({
+        id: `users`,
+        shapeOptions: {
+          url: new URL(`/api/users`, origin).toString(),
+          onError: retryOnError,
+          parser: {
+            timestamptz: (date: string) => {
+              return new Date(date)
+            },
+          },
         },
-      })
-      return { txid: result.txid }
-    },
-    onDelete: async ({ transaction }) => {
-      const { original: deletedTeam } = transaction.mutations[0]
-      const result = await trpc.teams.delete.mutate({ id: deletedTeam.id })
-      return { txid: result.txid }
-    },
-  })
-)
+        schema: electricUsersSchema,
+        getKey: (item) => item.id,
+      }),
+      persistence,
+      schemaVersion: USERS_SCHEMA_VERSION,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any,
+  )
+}
+
+// Deferred export — initialized by initializeUsersCollection() in
+// _authenticated.beforeLoad after the persistence trio is ready.
+export let usersCollection: ReturnType<typeof _makeUsersCollection> = null!
+
+export async function initializeUsersCollection() {
+  if (import.meta.env.DEV) console.log(`[OPFS:users] Initializing persisted collection…`)
+  const t0 = performance.now()
+  const { persistence } = await getPersistence()
+  usersCollection = _makeUsersCollection(persistence)
+  if (import.meta.env.DEV) console.log(`[OPFS:users] Collection created in ${(performance.now() - t0).toFixed(0)}ms`)
+}
+
+const TEAMS_SCHEMA_VERSION = 1
+
+function _makeTeamsCollection(
+  persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
+) {
+  return createCollection(
+    persistedCollectionOptions({
+      ...electricCollectionOptions({
+        id: `teams`,
+        shapeOptions: {
+          url: new URL(`/api/teams`, origin).toString(),
+          onError: retryOnError,
+          parser: {
+            timestamptz: (date: string) => new Date(date),
+          },
+        },
+        schema: electricTeamSchema,
+        getKey: (item) => item.id,
+        onInsert: async ({ transaction }) => {
+          const { modified: newTeam } = transaction.mutations[0]
+          const result = await trpc.teams.create.mutate({
+            id: newTeam.id,
+            name: newTeam.name,
+            description: newTeam.description,
+            owner_id: newTeam.owner_id,
+            project_id: newTeam.project_id,
+            member_ids: newTeam.member_ids ?? [],
+          })
+          return { txid: result.txid }
+        },
+        onUpdate: async ({ transaction }) => {
+          const { modified: updatedTeam } = transaction.mutations[0]
+          const result = await trpc.teams.update.mutate({
+            id: updatedTeam.id,
+            data: {
+              name: updatedTeam.name,
+              description: updatedTeam.description,
+              member_ids: updatedTeam.member_ids,
+            },
+          })
+          return { txid: result.txid }
+        },
+        onDelete: async ({ transaction }) => {
+          const { original: deletedTeam } = transaction.mutations[0]
+          const result = await trpc.teams.delete.mutate({ id: deletedTeam.id })
+          return { txid: result.txid }
+        },
+      }),
+      persistence,
+      schemaVersion: TEAMS_SCHEMA_VERSION,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any,
+  )
+}
+
+// Deferred export — initialized by initializeTeamsCollection()
+export let teamsCollection: ReturnType<typeof _makeTeamsCollection> = null!
+
+export async function initializeTeamsCollection() {
+  if (import.meta.env.DEV) console.log(`[OPFS:teams] Initializing persisted collection…`)
+  const t0 = performance.now()
+  const { persistence } = await getPersistence()
+  teamsCollection = _makeTeamsCollection(persistence)
+  if (import.meta.env.DEV) console.log(`[OPFS:teams] Collection created in ${(performance.now() - t0).toFixed(0)}ms`)
+}

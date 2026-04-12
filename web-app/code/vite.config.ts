@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
+import type { Plugin } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
+import fs from 'fs'
 import path from 'path'
 
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
@@ -10,6 +12,30 @@ import tailwindcss from '@tailwindcss/vite'
 
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 import { caddyPlugin } from "./vite-plugin-caddy"
+
+function serveOPFSWorker(): Plugin {
+  const assetsDir = path.resolve(
+    __dirname,
+    '../../node_modules/@tanstack/browser-db-sqlite-persistence/dist/assets',
+  )
+  return {
+    name: 'serve-opfs-worker',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url?.startsWith('/assets/opfs-worker-')) {
+          const filename = req.url.split('/').pop()!
+          const filePath = path.join(assetsDir, filename)
+          if (fs.existsSync(filePath)) {
+            res.setHeader('Content-Type', 'application/javascript')
+            fs.createReadStream(filePath).pipe(res)
+            return
+          }
+        }
+        next()
+      })
+    },
+  }
+}
 
 const config = defineConfig({
   server: {
@@ -24,6 +50,7 @@ const config = defineConfig({
     },
   },
   plugins: [
+    serveOPFSWorker(),
     devtools(),
     tsconfigPaths({ projects: ['./tsconfig.json'] }),
     tailwindcss(),

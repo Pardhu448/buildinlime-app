@@ -1,23 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { TaskPage } from '../../../../../../pages/TaskPage'
-import {
-  tasksCollection,
-  propertiesCollection,
-  resourcesCollection,
-} from '%/infrastructure/database/tanstack-db-electric/admincollections'
 import { RoutePendingComponent } from '../../../../../../components/buildInlime'
 import { useTaskRoute } from '../../../../../../hooks/use-task-route'
 import { useBuildUnitContext, useChannelContext } from '../../../../../../contexts/route-contexts'
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId/$buildUnitName/$channelName/$taskName')({
   component: TaskRoute,
-  loader: async () => {
-    await Promise.all([
-      tasksCollection.preload(),
-      propertiesCollection.preload(),
-      resourcesCollection.preload(),
-    ])
-  },
   pendingComponent: RoutePendingComponent,
 })
 

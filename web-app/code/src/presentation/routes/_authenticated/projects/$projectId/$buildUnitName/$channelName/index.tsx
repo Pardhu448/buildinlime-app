@@ -1,15 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { ChannelPage } from '../../../../../../pages/ChannelPage'
-import { propertiesCollection, tasksCollection, resourcesCollection, messagesCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
 import { RoutePendingComponent } from '../../../../../../components/buildInlime'
 import { useChannelRoute } from '../../../../../../hooks/use-channel-route'
 import { useBuildUnitContext, useChannelContext } from '../../../../../../contexts/route-contexts'
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId/$buildUnitName/$channelName/')({
   component: ChannelRoute,
-  loader: async () => {
-    await Promise.all([propertiesCollection.preload(), tasksCollection.preload(), resourcesCollection.preload(), messagesCollection.preload()])
-  },
   pendingComponent: RoutePendingComponent,
 })
 
