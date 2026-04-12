@@ -1,9 +1,11 @@
 import { createFileRoute, Outlet, useNavigate, redirect } from '@tanstack/react-router'
 import { authClient } from '../../infrastructure/auth/client'
 import { authStateCollection } from '../../infrastructure/database/tanstack-db-electric/authCollections'
-import { projectsCollection, buildUnitsCollection, usersCollection, teamsCollection, membershipsCollection, initializeOrganizationCollections } from '../../infrastructure/database/tanstack-db-electric/admincollections'
-import { initializeCommunicationCollections, initializePropertiesCollection, tasksCollection, propertiesCollection } from '../../application/collections/communication'
-import { useEffect } from 'react'
+import { projectsCollection, buildUnitsCollection, usersCollection, teamsCollection, membershipsCollection, initializeOrganizationCollections, initializeUsersCollection, initializeMembershipsCollection, initializeTeamsCollection } from '../../infrastructure/database/tanstack-db-electric/admincollections'
+import { initializeCommunicationCollections, initializePropertiesCollection, tasksCollection, messagesCollection, resourcesCollection, propertiesCollection } from '../../application/collections/communication'
+import { debugListOPFSFiles } from '../../infrastructure/persistence/browser-persistence'
+import { useEffect, useState, useRef } from 'react'
+import type { Collection } from '@tanstack/react-db'
 
 function AuthLoadingComponent() {
   return (
@@ -13,8 +15,30 @@ function AuthLoadingComponent() {
   )
 }
 
+// Start sync and wait for data to appear from ANY source (OPFS cache or
+// Electric network), whichever is faster. Unlike preload(), this does NOT
+// block until the Electric stream finishes — it resolves as soon as rows
+// hydrate from cache. Falls back to preload() only when the cache is empty
+// (first-ever load) so Electric can provide the initial data.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadCollection(collection: Collection<any, any, any>, timeoutMs = 3000): Promise<void> {
+  collection.startSyncImmediate()
+
+  if (collection.size > 0 || collection.isReady()) return
+
+  const deadline = Date.now() + timeoutMs
+  while (collection.size === 0 && !collection.isReady() && Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 30))
+  }
+
+  if (import.meta.env.DEV) {
+    const source = collection.size > 0 ? 'cache' : collection.isReady() ? 'sync' : 'timeout'
+    console.log(`[collections] ${collection.id}: ${collection.size} rows (${source})`)
+  }
+}
+
 export const Route = createFileRoute('/_authenticated')({
-  ssr: false, // Only run on client — avoids SSR fetch through Caddy with untrusted cert
+  ssr: false,
   beforeLoad: async () => {
     const cached = authStateCollection.get(`auth`)
     let sessionData: unknown
@@ -39,44 +63,60 @@ export const Route = createFileRoute('/_authenticated')({
       sessionData = result.data
     }
 
-    // Collection init must happen here, not in loader: child route loaders run
-    // in parallel with _authenticated's loader, so if init lived in loader the
-    // children would race and hit null.preload(). beforeLoad runs sequentially
-    // parent-before-child and completes before any loader starts.
-    await membershipsCollection.preload()
-
-    const memberships = membershipsCollection.toArray
-    const memberProjectIds = [...new Set(memberships.map(m => m.project_id))].sort()
-    const memberBuildunitIds = [...new Set(memberships.map(m => m.buildunit_id))].sort()
-    const memberChannelIds = [...new Set(memberships.map(m => m.channel_id))].sort()
-
-    const membershipParams = { memberProjectIds, memberBuildunitIds, memberChannelIds }
-    initializeOrganizationCollections(membershipParams)
-    initializeCommunicationCollections({ memberChannelIds })
-
-    // Tasks must preload before propertiesCollection is initialized — its shape
-    // URL bakes in task IDs to let the server skip per-poll tasksTable scans.
-    await Promise.all([
-      projectsCollection.preload(),
-      buildUnitsCollection.preload(),
-      usersCollection.preload(),
-      teamsCollection.preload(),
-      tasksCollection.preload(),
-    ])
-
-    const memberTaskIds = [...new Set(tasksCollection.toArray.map(t => t.id))].sort()
-    initializePropertiesCollection({ ...membershipParams, memberTaskIds })
-    await propertiesCollection.preload()
-
     return sessionData
   },
   pendingComponent: AuthLoadingComponent,
   component: AuthenticatedLayout,
 })
 
+async function initCollections(): Promise<void> {
+  const t0 = import.meta.env.DEV ? performance.now() : 0
+
+  // 1. Bootstrap: init memberships and wait for data (from OPFS cache or Electric)
+  await initializeMembershipsCollection()
+  await loadCollection(membershipsCollection)
+
+  const memberships = membershipsCollection.toArray
+  const memberProjectIds = [...new Set(memberships.map(m => m.project_id))].sort()
+  const memberBuildunitIds = [...new Set(memberships.map(m => m.buildunit_id))].sort()
+  const memberChannelIds = [...new Set(memberships.map(m => m.channel_id))].sort()
+  const membershipParams = { memberProjectIds, memberBuildunitIds, memberChannelIds }
+
+  // 2. Create all downstream collections in parallel
+  await Promise.all([
+    initializeOrganizationCollections(membershipParams),
+    initializeCommunicationCollections({ memberChannelIds }),
+    initializeUsersCollection(),
+    initializeTeamsCollection(),
+  ])
+
+  // 3. Start sync on all — OPFS hydrates from cache, Electric syncs in background.
+  //    No await — UI renders with whatever data hydrates from cache.
+  projectsCollection.startSyncImmediate()
+  buildUnitsCollection.startSyncImmediate()
+  usersCollection.startSyncImmediate()
+  teamsCollection.startSyncImmediate()
+  tasksCollection.startSyncImmediate()
+  messagesCollection.startSyncImmediate()
+  resourcesCollection.startSyncImmediate()
+
+  // 4. Properties depend on task IDs — wait for tasks to hydrate from cache
+  await loadCollection(tasksCollection)
+  const memberTaskIds = [...new Set(tasksCollection.toArray.map(t => t.id))].sort()
+  await initializePropertiesCollection({ ...membershipParams, memberTaskIds })
+  propertiesCollection.startSyncImmediate()
+
+  if (import.meta.env.DEV) {
+    console.log(`[collections] All initialized in ${(performance.now() - t0).toFixed(0)}ms`)
+    await debugListOPFSFiles()
+  }
+}
+
 function AuthenticatedLayout() {
   const { data: session, isPending } = authClient.useSession()
   const navigate = useNavigate()
+  const [collectionsReady, setCollectionsReady] = useState(false)
+  const initStarted = useRef(false)
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -84,7 +124,19 @@ function AuthenticatedLayout() {
     }
   }, [session, isPending, navigate])
 
+  useEffect(() => {
+    if (!session || initStarted.current) return
+    initStarted.current = true
+    initCollections()
+      .then(() => setCollectionsReady(true))
+      .catch((err) => {
+        console.error(`[collections] Init failed:`, err)
+        setCollectionsReady(true)
+      })
+  }, [session])
+
   if (isPending || !session) return null
+  if (!collectionsReady) return <AuthLoadingComponent />
 
   return <Outlet />
 }

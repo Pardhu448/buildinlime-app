@@ -10,9 +10,6 @@ import { useBuildUnitContext, ChannelContextProvider } from '../../../../../cont
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId/$buildUnitName/$channelName')({
   component: ChannelLayout,
-  loader: async () => {
-    await channelsCollection.preload()
-  },
 })
 
 function ChannelLayout() {
