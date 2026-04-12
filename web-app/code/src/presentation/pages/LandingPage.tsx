@@ -1,6 +1,6 @@
 import { Header, Hero, FeaturesCarousel, Footer } from "../components/buildInlime";
 import { HeaderLoggedIn } from "../components/buildInlime";
-import { authClient, useRequireAuth } from "../../infrastructure/auth/client";
+import { signOutAndDispose, useRequireAuth } from "../../infrastructure/auth/client";
 
 export default function LandingPage() {
   const { user } = useRequireAuth();
@@ -8,7 +8,7 @@ export default function LandingPage() {
   const notLoggedIn = !user;
 
   const handleSignOut = async () => {
-    await authClient.signOut();
+    await signOutAndDispose();
     window.location.href = "/";
   };
 

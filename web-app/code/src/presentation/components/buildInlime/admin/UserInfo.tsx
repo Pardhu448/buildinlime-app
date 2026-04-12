@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, Settings, LogOut } from "lucide-react";
-import { authClient } from "%/infrastructure/auth/client";
+import { signOutAndDispose } from "%/infrastructure/auth/client";
 
 interface UserInfoProps {
   initials: string;
@@ -11,7 +11,7 @@ export function UserInfo({ initials, name }: UserInfoProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    await authClient.signOut();
+    await signOutAndDispose();
     // Hard redirect clears all in-memory Electric collection state,
     // preventing stale data from leaking to the next user.
     window.location.href = "/login";
