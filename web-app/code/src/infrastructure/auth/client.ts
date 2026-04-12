@@ -1,5 +1,6 @@
 import { createAuthClient } from "better-auth/react"
 import { emailOTPClient } from "better-auth/client/plugins"
+import { disposePersistence } from "../persistence/browser-persistence"
 
 /**
  * Better Auth Client Configuration
@@ -31,6 +32,14 @@ export const {
   listSessions,
   useSession,
 } = authClient
+
+// Wraps better-auth signOut to also wipe the OPFS persistence cache, so the
+// next user logging in on the same browser does not see the previous user's
+// cached rows on first paint.
+export async function signOutAndDispose(): Promise<void> {
+  await authClient.signOut()
+  await disposePersistence()
+}
 
 // Type exports for use in components
 export type Session = typeof authClient.$Infer.Session
