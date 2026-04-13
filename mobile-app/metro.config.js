@@ -7,8 +7,13 @@ const workspaceRoot = path.resolve(projectRoot, "..")
 
 const config = getDefaultConfig(projectRoot)
 
-// Let Metro watch the monorepo root and resolve packages from both locations
-config.watchFolders = [workspaceRoot]
+// Watch only what mobile actually needs — not the entire monorepo.
+// Including web-app makes Metro's FallbackWatcher crash on Vite's transient
+// .vite/deps_temp_* files (ENOENT on watch) when watchman isn't installed.
+config.watchFolders = [
+  path.resolve(workspaceRoot, "packages"),
+  path.resolve(workspaceRoot, "node_modules"),
+]
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, "node_modules"),
   path.resolve(workspaceRoot, "node_modules"),

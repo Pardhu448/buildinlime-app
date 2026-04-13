@@ -1,15 +1,14 @@
 import { useLiveQuery, eq } from "@tanstack/react-db"
-import { useProjectContext } from "@/src/application/context/ProjectContext"
+import { propertiesCollection } from "@/src/application/collections/communication"
 import type { Property } from "@buildinlime/domain-types"
 
 export function useProperties(entityId: string) {
-  const { collections } = useProjectContext()
   const { data } = useLiveQuery(
     (q) =>
       q
-        .from({ propertiesCollection: collections!.propertiesCollection })
+        .from({ propertiesCollection })
         .where(({ propertiesCollection: p }) => eq(p.entity_id, entityId)),
-    [collections, entityId]
+    [entityId]
   )
   return { properties: (data ?? []) as Property[] }
 }

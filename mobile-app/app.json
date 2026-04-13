@@ -33,7 +33,22 @@
       "expo-router",
       "expo-font",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "BuildInLime needs access to your photo library to attach images.",
+          "cameraPermission": "BuildInLime needs camera access to take photos and videos."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "BuildInLime needs microphone access to record voice messages."
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true

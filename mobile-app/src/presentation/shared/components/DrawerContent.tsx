@@ -4,6 +4,7 @@ import { useRouter } from "expo-router"
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
+import { useProjects } from "@/src/presentation/projects/hooks/useProjects"
 import { colors } from "../colors"
 
 interface NavItem {
@@ -22,6 +23,8 @@ export default function DrawerContent(_props: DrawerContentComponentProps) {
   const router = useRouter()
   const { data: session } = useSession()
   const { projectId } = useProjectContext()
+  const { projects } = useProjects()
+  const activeProject = projects?.find((p: any) => p.id === projectId)
 
   const user = session?.user
   const initials = user?.name
@@ -48,18 +51,14 @@ export default function DrawerContent(_props: DrawerContentComponentProps) {
 
       <View style={styles.divider} />
 
-      {/* Project badge */}
+      {/* Active project (read-only — sign out to switch) */}
       {projectId && (
-        <TouchableOpacity
-          style={styles.projectBadge}
-          onPress={() => router.push("/(tabs)/")}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.projectBadgeLabel}>Project</Text>
+        <View style={styles.projectBadge}>
+          <Text style={styles.projectBadgeLabel}>Active Project</Text>
           <Text style={styles.projectBadgeId} numberOfLines={1}>
-            Switch project
+            {activeProject?.name ?? projectId}
           </Text>
-        </TouchableOpacity>
+        </View>
       )}
 
       {/* Nav items */}
