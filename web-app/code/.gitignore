@@ -54,3 +54,9 @@ lerna-debug.log*
 
 # ElectricSQL
 .electric/
+
+# TanStack Router code-splitter cache
+.tanstack/
+
+# Vite temp files
+vite.config.timestamp_*
