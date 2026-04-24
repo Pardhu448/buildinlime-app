@@ -2,7 +2,7 @@ import { View, Text, FlatList, ActivityIndicator, StyleSheet } from "react-nativ
 import { ScreenHeader } from "@/src/presentation/shared/components/ScreenHeader"
 import { useLiveQuery } from "@tanstack/react-db"
 import { useSession } from "@/src/infrastructure/auth/client"
-import { useProjectContext } from "@/src/application/context/ProjectContext"
+import { messagesCollection } from "@/src/application/collections/communication"
 import { colors } from "@/src/presentation/shared/colors"
 import type { Message } from "@buildinlime/domain-types"
 
@@ -30,15 +30,13 @@ function MentionItem({ message }: { message: Message }) {
   )
 }
 
-// Only rendered when collections is ready — safe to call useLiveQuery
 function InboxContent() {
   const { data: session } = useSession()
-  const { collections } = useProjectContext()
   const currentUserId = session?.user?.id
 
   const { data: rawMessages, isLoading } = useLiveQuery(
-    (q) => q.from({ messagesCollection: collections!.messagesCollection }),
-    [collections]
+    (q) => q.from({ messagesCollection }),
+    []
   )
 
   const mentions = ((rawMessages ?? []) as Message[])
@@ -77,18 +75,10 @@ function InboxContent() {
 }
 
 export default function InboxScreen() {
-  const { projectId, collections } = useProjectContext()
-
   return (
     <View style={styles.container}>
       <ScreenHeader title="Inbox" subtitle="Your @mentions" />
-      {!projectId || !collections ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyText}>Select a project first.</Text>
-        </View>
-      ) : (
-        <InboxContent />
-      )}
+      <InboxContent />
     </View>
   )
 }

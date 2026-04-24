@@ -8,7 +8,7 @@ import { colors } from "@/src/presentation/shared/colors"
 export default function BuildUnitsScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>()
   const router = useRouter()
-  const { buildUnits, isLoading } = useBuildUnits()
+  const { buildUnits, isLoading } = useBuildUnits(projectId)
 
   return (
     <View style={styles.container}>

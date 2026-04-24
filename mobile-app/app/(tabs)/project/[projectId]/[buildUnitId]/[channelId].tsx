@@ -18,7 +18,7 @@ import { PropertyPill } from "@/src/presentation/properties/components/PropertyP
 import { ResourcesSection } from "@/src/presentation/resources/components/ResourcesSection"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useLiveQuery, eq } from "@tanstack/react-db"
-import { useProjectContext } from "@/src/application/context/ProjectContext"
+import { channelsCollection } from "@/src/application/collections/organization"
 import { colors } from "@/src/presentation/shared/colors"
 import type { Channel } from "@buildinlime/domain-types"
 
@@ -30,15 +30,14 @@ export default function ChannelScreen() {
   }>()
   const router = useRouter()
   const { data: session } = useSession()
-  const { collections } = useProjectContext()
 
   // Look up channel name from channelsCollection
   const { data: channelsData } = useLiveQuery(
     (q) =>
       q
-        .from({ channelsCollection: collections!.channelsCollection })
+        .from({ channelsCollection })
         .where(({ channelsCollection: c }) => eq(c.id, channelId)),
-    [collections, channelId]
+    [channelId]
   )
   const channel = ((channelsData ?? []) as Channel[])[0]
 

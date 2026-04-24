@@ -10,7 +10,6 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 import { caddyPlugin } from "./vite-plugin-caddy"
 
 function serveOPFSWorker(): Plugin {
@@ -55,12 +54,12 @@ const config = defineConfig({
     tsconfigPaths({ projects: ['./tsconfig.json'] }),
     tailwindcss(),
     caddyPlugin(),
-    TanStackRouterVite({
-      routesDirectory: './src/presentation/routes',
-      generatedRouteTree: './src/presentation/routeTree.gen.ts',
-    }),
     tanstackStart({
       srcDirectory: 'src/presentation',
+      router: {
+        routesDirectory: './routes',
+        generatedRouteTree: './routeTree.gen.ts',
+      },
     }),
     viteReact(),
   ],

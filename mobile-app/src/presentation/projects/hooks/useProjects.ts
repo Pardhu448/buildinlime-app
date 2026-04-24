@@ -1,5 +1,5 @@
 import { useLiveQuery } from "@tanstack/react-db"
-import { projectsCollection } from "@/src/application/collections/projects"
+import { projectsCollection } from "@/src/application/collections/organization"
 
 export function useProjects() {
   const { data, isLoading } = useLiveQuery((q) => q.from({ projectsCollection }), [])

@@ -2,7 +2,6 @@ import { View, Text, FlatList, ActivityIndicator, StyleSheet } from "react-nativ
 import { ScreenHeader } from "@/src/presentation/shared/components/ScreenHeader"
 import { useTasks } from "@/src/presentation/tasks/hooks/useTasks"
 import { useSession } from "@/src/infrastructure/auth/client"
-import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { colors } from "@/src/presentation/shared/colors"
 import type { Task } from "@buildinlime/domain-types"
 
@@ -29,7 +28,6 @@ function TaskItem({ task }: { task: Task }) {
   )
 }
 
-// Only rendered when collections is ready — safe to call useTasks
 function MyTasksContent() {
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
@@ -62,18 +60,10 @@ function MyTasksContent() {
 }
 
 export default function MyTasksScreen() {
-  const { projectId, collections } = useProjectContext()
-
   return (
     <View style={styles.container}>
       <ScreenHeader title="My Tasks" subtitle="Your assigned tasks" />
-      {!projectId || !collections ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyText}>Select a project to see your tasks.</Text>
-        </View>
-      ) : (
-        <MyTasksContent />
-      )}
+      <MyTasksContent />
     </View>
   )
 }

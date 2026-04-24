@@ -22,7 +22,7 @@ export default function ChannelsScreen() {
   }>()
   const router = useRouter()
 
-  const { buildUnits } = useBuildUnits()
+  const { buildUnits } = useBuildUnits(projectId)
   const buildUnit = buildUnits.find((b) => b.id === buildUnitId)
 
   const { channels, isLoading } = useChannels(buildUnitId)
@@ -37,7 +37,7 @@ export default function ChannelsScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => router.navigate(`/(tabs)/project/${projectId}` as any)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           activeOpacity={0.6}
         >

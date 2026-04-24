@@ -83,13 +83,13 @@ export const auth = betterAuth({
   // Trusted origins for CSRF protection
   // NOTE: Caddy serves HTTPS at localhost:5173, proxying to the app on port 3000.
   // Both the Caddy HTTPS origin and the internal port must be trusted.
+  // Set MOBILE_ORIGIN to a comma-separated list to trust dev-machine LAN
+  // origins (e.g. "http://192.168.1.15:3000,exp://192.168.1.15:8081").
   trustedOrigins: [
     process.env.BETTER_AUTH_URL || "https://localhost:5173",
     "http://localhost:3000",
     "http://10.0.2.2:3000",
-    "http://192.168.10.37:3000",
-    "exp://192.168.10.37:8081",
-    ...(process.env.MOBILE_ORIGIN ? [process.env.MOBILE_ORIGIN] : []),
+    ...(process.env.MOBILE_ORIGIN?.split(",").map((o) => o.trim()).filter(Boolean) ?? []),
   ],
   
   // Cookie configuration

@@ -3,7 +3,7 @@ import { useState } from "react"
 import { useLiveQuery, eq } from "@tanstack/react-db"
 import * as FileSystem from "expo-file-system/legacy"
 import * as Sharing from "expo-sharing"
-import { useProjectContext } from "@/src/application/context/ProjectContext"
+import { resourcesCollection } from "@/src/application/collections/communication"
 import { createCookieFetch } from "@/src/infrastructure/auth/cookie-fetch"
 import { colors } from "@/src/presentation/shared/colors"
 import type { Resource } from "@buildinlime/domain-types"
@@ -109,15 +109,14 @@ interface ResourcesSectionProps {
 }
 
 export function ResourcesSection({ channelId }: ResourcesSectionProps) {
-  const { collections } = useProjectContext()
   const [expanded, setExpanded] = useState(true)
 
   const { data } = useLiveQuery(
     (q) =>
       q
-        .from({ resourcesCollection: collections!.resourcesCollection })
+        .from({ resourcesCollection })
         .where(({ resourcesCollection: r }) => eq(r.channel_id, channelId)),
-    [collections, channelId]
+    [channelId]
   )
   const resources = (data ?? []) as Resource[]
 
