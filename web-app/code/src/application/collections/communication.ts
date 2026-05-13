@@ -60,43 +60,10 @@ function _makeTasksCollection(
         },
         schema: electricTaskSchema,
         getKey: (item) => item.id,
-        onInsert: async ({ transaction }) => {
-          const { modified: newTask } = transaction.mutations[0]
-          const result = await trpc.tasks.create.mutate({
-            id: newTask.id,
-            name: newTask.name,
-            description: newTask.description,
-            completed: newTask.completed,
-            channel_id: newTask.channel_id,
-            buildunit_id: newTask.buildunit_id,
-            createdby_id: newTask.createdby_id,
-            assignee_id: newTask.assignee_id ?? null,
-          })
-
-          return { txid: result.txid }
-        },
-        onUpdate: async ({ transaction }) => {
-          const { modified: updatedTask } = transaction.mutations[0]
-          const result = await trpc.tasks.update.mutate({
-            id: updatedTask.id,
-            data: {
-              name: updatedTask.name,
-              description: updatedTask.description,
-              completed: coerceBool(updatedTask.completed),
-              assignee_id: updatedTask.assignee_id,
-            },
-          })
-
-          return { txid: result.txid }
-        },
-        onDelete: async ({ transaction }) => {
-          const { original: deletedTask } = transaction.mutations[0]
-          const result = await trpc.tasks.delete.mutate({
-            id: deletedTask.id,
-          })
-
-          return { txid: result.txid }
-        },
+        // Task writes go through @tanstack/offline-transactions — see
+        // application/actions/tasks.ts. Direct collection.insert/update/delete
+        // calls outside an offline transaction will fail with "no handler",
+        // which is the intended loud failure mode.
       }),
       persistence,
       schemaVersion: TASKS_SCHEMA_VERSION,

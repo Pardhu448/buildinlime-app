@@ -1,6 +1,8 @@
 import { createAuthClient } from "better-auth/react"
 import { emailOTPClient } from "better-auth/client/plugins"
 import { disposePersistence } from "../persistence/browser-persistence"
+import { disposeOfflineExecutor } from "../offline/executor"
+import { resetTaskActions } from "../../application/actions/tasks"
 
 /**
  * Better Auth Client Configuration
@@ -38,6 +40,8 @@ export const {
 // cached rows on first paint.
 export async function signOutAndDispose(): Promise<void> {
   await authClient.signOut()
+  disposeOfflineExecutor()
+  resetTaskActions()
   await disposePersistence()
 }
 

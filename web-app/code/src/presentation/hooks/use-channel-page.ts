@@ -5,6 +5,7 @@ import { useLiveQuery, eq } from "@tanstack/react-db"
 import { tasksCollection, channelsCollection, usersCollection, membershipsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
 import { trpc } from "%/infrastructure/trpc/lib/trpc-client"
 import { useSession } from "%/infrastructure/auth/client"
+import { createTaskAction } from "%/application/actions/tasks"
 import type { Task } from "../components/buildInlime"
 
 export function useChannelPage(channelId: string, buildUnitId: string, projectId: string, buildUnitName: string, channelName: string) {
@@ -89,17 +90,12 @@ export function useChannelPage(channelId: string, buildUnitId: string, projectId
     if (!session?.user || !channelId || !buildUnitId || !taskName.trim()) return
     setIsSubmittingTask(true)
     try {
-      await tasksCollection.insert({
-        id: crypto.randomUUID(),
+      createTaskAction({
         name: taskName.trim(),
         description: taskDesc.trim(),
-        completed: false,
-        opened_at: new Date(),
-        closed_at: new Date(),
         channel_id: channelId,
         buildunit_id: buildUnitId,
         createdby_id: session.user.id,
-        assignee_id: null,
       })
       setTaskName("")
       setTaskDesc("")

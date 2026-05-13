@@ -4,6 +4,7 @@ import { authStateCollection } from '../../infrastructure/database/tanstack-db-e
 import { projectsCollection, buildUnitsCollection, usersCollection, teamsCollection, membershipsCollection, initializeOrganizationCollections, initializeUsersCollection, initializeMembershipsCollection, initializeTeamsCollection } from '../../infrastructure/database/tanstack-db-electric/admincollections'
 import { initializeCommunicationCollections, initializePropertiesCollection, tasksCollection, messagesCollection, resourcesCollection, propertiesCollection } from '../../application/collections/communication'
 import { debugListOPFSFiles } from '../../infrastructure/persistence/browser-persistence'
+import { initOfflineExecutor } from '../../infrastructure/offline/executor'
 import { useEffect, useState, useRef } from 'react'
 import type { Collection } from '@tanstack/react-db'
 
@@ -105,6 +106,11 @@ async function initCollections(): Promise<void> {
   const memberTaskIds = [...new Set(tasksCollection.toArray.map(t => t.id))].sort()
   await initializePropertiesCollection({ ...membershipParams, memberTaskIds })
   propertiesCollection.startSyncImmediate()
+
+  // 5. Offline executor — must follow collection init so the registered
+  //    collections are non-null. waitForInit() restores any pending outbox
+  //    transactions from the previous session.
+  await initOfflineExecutor()
 
   if (import.meta.env.DEV) {
     console.log(`[collections] All initialized in ${(performance.now() - t0).toFixed(0)}ms`)

@@ -3,8 +3,8 @@ import { Plus } from "lucide-react"
 import { useLiveQuery } from "@tanstack/react-db"
 import {
   usersCollection,
-  tasksCollection,
 } from "%/infrastructure/database/tanstack-db-electric/admincollections"
+import { updateTaskAction } from "%/application/actions/tasks"
 
 interface AssignedToSectionProps {
   taskId: string
@@ -32,7 +32,7 @@ export function AssignedToSection({
     if (!selectedUserId) return
     setIsSubmitting(true)
     try {
-      await tasksCollection.update(taskId, (task) => { task.assignee_id = selectedUserId })
+      updateTaskAction({ id: taskId, patch: { assignee_id: selectedUserId } })
       setIsPopupOpen(false)
     } finally {
       setIsSubmitting(false)
