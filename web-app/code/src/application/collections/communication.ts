@@ -12,7 +12,6 @@ import {
   STATUS_VALUES,
   PRIORITY_VALUES,
 } from "%/infrastructure/database/schema/admin-schema"
-import { trpc } from "%/infrastructure/trpc/lib/trpc-client"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
 import { retryOnError, coerceBool, origin } from "./_shared"
 
@@ -94,13 +93,8 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
         ),
       }),
       getKey: (item) => item.id,
-      onDelete: async ({ transaction }) => {
-        const { original: deletedResource } = transaction.mutations[0]
-        const result = await trpc.resources.delete.mutate({
-          id: deletedResource.id,
-        })
-        return { txid: result.txid }
-      },
+      // Resource deletes go through @tanstack/offline-transactions —
+      // see application/actions/resources.ts.
     })
   )
 }
@@ -136,46 +130,9 @@ function _makePropertiesCollection(
         },
         schema: electricPropertySchema,
         getKey: (item) => item.id,
-        onInsert: async ({ transaction }) => {
-          const { modified: newProperty } = transaction.mutations[0]
-          const result = await trpc.properties.create.mutate({
-            id: newProperty.id,
-            type: newProperty.type,
-            entity: newProperty.entity,
-            entity_id: newProperty.entity_id,
-            status_value: newProperty.status_value,
-            priority_value: newProperty.priority_value,
-            target_date: newProperty.target_date,
-            start_date: newProperty.start_date,
-            pending_task: newProperty.pending_task,
-            label_value: newProperty.label_value,
-          })
-
-          return { txid: result.txid }
-        },
-        onUpdate: async ({ transaction }) => {
-          const { modified: updatedProperty } = transaction.mutations[0]
-          const result = await trpc.properties.update.mutate({
-            id: updatedProperty.id,
-            data: {
-              status_value: updatedProperty.status_value,
-              priority_value: updatedProperty.priority_value,
-              target_date: updatedProperty.target_date,
-              start_date: updatedProperty.start_date,
-              pending_task: updatedProperty.pending_task,
-            },
-          })
-
-          return { txid: result.txid }
-        },
-        onDelete: async ({ transaction }) => {
-          const { original: deletedProperty } = transaction.mutations[0]
-          const result = await trpc.properties.delete.mutate({
-            id: deletedProperty.id,
-          })
-
-          return { txid: result.txid }
-        },
+        // Property writes go through @tanstack/offline-transactions —
+        // see application/actions/properties.ts. Update is not currently
+        // used by UI; add a mutationFn + action when needed.
       }),
       persistence,
       schemaVersion: PROPERTIES_SCHEMA_VERSION,
@@ -207,30 +164,9 @@ function _makeMessagesCollection(
         },
         schema: selectMessageSchema,
         getKey: (item) => item.id,
-        onInsert: async ({ transaction }) => {
-          const { modified: newMessage } = transaction.mutations[0]
-          const result = await trpc.messages.create.mutate({
-            id: newMessage.id,
-            text: newMessage.text,
-            channel_id: newMessage.channel_id,
-            buildunit_id: newMessage.buildunit_id,
-            project_id: newMessage.project_id,
-            createdby_id: newMessage.createdby_id,
-            mention_ids: newMessage.mention_ids,
-            resource_ids: newMessage.resource_ids,
-            parent_id: newMessage.parent_id ?? null,
-          })
-
-          return { txid: result.txid }
-        },
-        onDelete: async ({ transaction }) => {
-          const { original: deletedMessage } = transaction.mutations[0]
-          const result = await trpc.messages.delete.mutate({
-            id: deletedMessage.id,
-          })
-
-          return { txid: result.txid }
-        },
+        // Message writes go through @tanstack/offline-transactions —
+        // see application/actions/messages.ts. Delete is not currently
+        // used by UI; add a mutationFn + action when needed.
       }),
       persistence,
       schemaVersion: MESSAGES_SCHEMA_VERSION,

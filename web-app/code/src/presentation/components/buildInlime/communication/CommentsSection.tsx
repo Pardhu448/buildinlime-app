@@ -5,6 +5,7 @@ import {
   messagesCollection,
   usersCollection,
 } from "%/infrastructure/database/tanstack-db-electric/admincollections"
+import { createMessageAction } from "%/application/actions/messages"
 import { usePendingResources, type PendingResource } from "%/application/hooks/use-pending-resources"
 import { CommentInput, mentionDisplayName, type MentionUser } from "./CommentInput"
 import {
@@ -327,11 +328,14 @@ export function CommentsSection({
   const handleSendMessage = async (text: string, files: PendingAttachment[], mentionIds: string[]) => {
     const messageId = crypto.randomUUID()
 
-    // Insert message first so resources can reference it via FK
-    await messagesCollection.insert({
+    // Insert message first so resources can reference it via FK.
+    // NOTE: createMessageAction is fire-and-forget. The first
+    // /api/resources/upload may return an FK error because the message
+    // tRPC hasn't landed yet; the upload retry path catches up shortly
+    // after. Tracked for a cleaner fix (see task #9-followup).
+    createMessageAction({
       id: messageId,
       text: text || "(attachment)",
-      created_at: new Date(),
       channel_id: channelId,
       buildunit_id: buildunitId,
       project_id: projectId,
@@ -360,10 +364,9 @@ export function CommentsSection({
   const handleReply = async (parentId: string, text: string, files: PendingAttachment[], mentionIds: string[]) => {
     const messageId = crypto.randomUUID()
 
-    await messagesCollection.insert({
+    createMessageAction({
       id: messageId,
       text: text || "(attachment)",
-      created_at: new Date(),
       channel_id: channelId,
       buildunit_id: buildunitId,
       project_id: projectId,

@@ -14,11 +14,18 @@ export const propertiesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
-        const [newItem] = await tx
+        // ON CONFLICT DO NOTHING — outbox retries become idempotent.
+        const [inserted] = await tx
           .insert(propertiesTable)
           .values(input)
+          .onConflictDoNothing()
           .returning()
-        return { item: newItem, txid }
+        if (inserted) return { item: inserted, txid }
+        const [existing] = await tx
+          .select()
+          .from(propertiesTable)
+          .where(eq(propertiesTable.id, input.id))
+        return { item: existing, txid }
       })
 
       return result

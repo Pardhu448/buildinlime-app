@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import { Plus, X, Trash2, Circle, Flag, Target, CalendarDays, AlertCircle, Percent, Tag } from "lucide-react";
 import type { Property } from "%/domain/communication/types";
 import { PROPERTY_TYPES, STATUS_VALUES, PRIORITY_VALUES } from "%/domain/shared/types";
-import { propertiesCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
+import { createPropertyAction, deletePropertyAction } from "%/application/actions/properties";
 import { useSession } from "%/infrastructure/auth/client";
 
 export interface PropertiesPanelProps {
@@ -170,7 +170,7 @@ export function PropertiesPanel({ properties, buildUnitId, hideAddButton = false
   };
 
   const handleDelete = async (id: string) => {
-    const tx = propertiesCollection.delete(id);
+    const tx = deletePropertyAction({ id });
     await tx.isPersisted.promise;
   };
 
@@ -205,7 +205,18 @@ export function PropertiesPanel({ properties, buildUnitId, hideAddButton = false
         case "label":            base.label_value    = valueState.labelValue;    break;
       }
 
-      await propertiesCollection.insert(base);
+      createPropertyAction({
+        id: base.id,
+        type: base.type,
+        entity: base.entity,
+        entity_id: base.entity_id,
+        status_value: base.status_value ?? null,
+        priority_value: base.priority_value ?? null,
+        target_date: base.target_date ?? null,
+        start_date: base.start_date ?? null,
+        pending_task: base.pending_task ?? null,
+        label_value: base.label_value ?? null,
+      });
       setIsPopupOpen(false);
     } finally {
       setIsSubmitting(false);

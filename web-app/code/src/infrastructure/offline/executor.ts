@@ -1,6 +1,13 @@
 import { startOfflineExecutor } from "@tanstack/offline-transactions"
 import type { OfflineExecutor } from "@tanstack/offline-transactions"
-import { tasksCollection } from "%/application/collections/communication"
+import {
+  tasksCollection,
+  messagesCollection,
+  resourcesCollection,
+  propertiesCollection,
+} from "%/application/collections/communication"
+import { projectsCollection } from "%/application/collections/organization"
+import { teamsCollection } from "%/application/collections/admin"
 import { mutationFns } from "./mutation-fns"
 
 let _executor: OfflineExecutor | null = null
@@ -8,7 +15,14 @@ let _executor: OfflineExecutor | null = null
 export async function initOfflineExecutor(): Promise<OfflineExecutor> {
   if (_executor) return _executor
   const executor = startOfflineExecutor({
-    collections: { tasks: tasksCollection },
+    collections: {
+      tasks: tasksCollection,
+      projects: projectsCollection,
+      messages: messagesCollection,
+      resources: resourcesCollection,
+      properties: propertiesCollection,
+      teams: teamsCollection,
+    },
     mutationFns,
   })
   await executor.waitForInit()
