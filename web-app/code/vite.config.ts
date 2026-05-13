@@ -20,10 +20,15 @@ function serveOPFSWorker(): Plugin {
   return {
     name: 'serve-opfs-worker',
     configureServer(server) {
+      // Match the worker filename anywhere in the path. Older versions of
+      // @tanstack/browser-db-sqlite-persistence resolved the worker to
+      // `/assets/opfs-worker-<hash>.js`; from 0.1.9 onward Vite's dep
+      // pre-bundler exposes it under `/node_modules/.vite/assets/...`.
+      // We serve the file from the package's own dist/assets regardless.
       server.middlewares.use((req, res, next) => {
-        if (req.url?.startsWith('/assets/opfs-worker-')) {
-          const filename = req.url.split('/').pop()!
-          const filePath = path.join(assetsDir, filename)
+        const match = req.url?.match(/\/assets\/(opfs-worker-[^/?#]+\.js)(?:[?#]|$)/)
+        if (match) {
+          const filePath = path.join(assetsDir, match[1])
           if (fs.existsSync(filePath)) {
             res.setHeader('Content-Type', 'application/javascript')
             fs.createReadStream(filePath).pipe(res)

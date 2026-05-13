@@ -84,37 +84,10 @@ function _makeProjectsCollection(
         },
         schema: selectProjectSchema,
         getKey: (item) => item.id,
-        onInsert: async ({ transaction }) => {
-          const { modified: newProject } = transaction.mutations[0]
-          const result = await trpc.projects.create.mutate({
-            id: newProject.id,
-            name: newProject.name,
-            description: newProject.description,
-            owner_id: newProject.owner_id,
-          })
-
-          return { txid: result.txid }
-        },
-        onUpdate: async ({ transaction }) => {
-          const { modified: updatedProject } = transaction.mutations[0]
-          const result = await trpc.projects.update.mutate({
-            id: updatedProject.id,
-            data: {
-              name: updatedProject.name,
-              description: updatedProject.description,
-            },
-          })
-
-          return { txid: result.txid }
-        },
-        onDelete: async ({ transaction }) => {
-          const { original: deletedProject } = transaction.mutations[0]
-          const result = await trpc.projects.delete.mutate({
-            id: deletedProject.id,
-          })
-
-          return { txid: result.txid }
-        },
+        // Project writes go through @tanstack/offline-transactions —
+        // see application/actions/projects.ts. update/delete are not
+        // currently used by UI; when added, register them in mutation-fns
+        // and add an action wrapper.
       }),
       persistence,
       schemaVersion: PROJECTS_SCHEMA_VERSION,

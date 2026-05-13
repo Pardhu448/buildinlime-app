@@ -3,6 +3,7 @@ import { useLiveQuery, eq } from "@tanstack/react-db"
 import { Plus, Download, X, FileText, Image, Video, Music, File } from "lucide-react"
 import { format } from "date-fns"
 import { resourcesCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
+import { deleteResourceAction } from "%/application/actions/resources"
 import { usePendingResources } from "%/application/hooks/use-pending-resources"
 import { AddResourceForm } from "./add-resource-form"
 import { UploadSchedulePopover } from "./upload-schedule-popover"
@@ -195,7 +196,7 @@ export function ResourcesSection({
 
               {/* Delete */}
               <button
-                onClick={() => resourcesCollection.delete(r.id)}
+                onClick={() => deleteResourceAction({ id: r.id })}
                 title="Delete resource"
                 className="p-1 text-[#717182] hover:text-red-500 transition-colors"
               >

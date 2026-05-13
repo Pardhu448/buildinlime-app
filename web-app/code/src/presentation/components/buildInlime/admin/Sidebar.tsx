@@ -10,6 +10,7 @@ import {
   channelsCollection,
   projectsCollection,
 } from "%/infrastructure/database/tanstack-db-electric/admincollections";
+import { createTeamAction, updateTeamAction } from "%/application/actions/teams";
 import { unwrapJsonb } from "%/presentation/lib/utils";
 import { UserInfo } from "./UserInfo";
 import { InboxNav } from "./InboxNav";
@@ -86,8 +87,9 @@ export function Sidebar({ projectId }: SidebarProps) {
   const handleAddMember = async (teamId: string, newMemberIds: string[]) => {
     const team = teamsCollection.get(teamId);
     if (!team) return;
-    await teamsCollection.update(teamId, (t) => {
-      t.member_ids = [...t.member_ids, ...newMemberIds];
+    updateTeamAction({
+      id: teamId,
+      patch: { member_ids: [...team.member_ids, ...newMemberIds] },
     });
   };
 
@@ -99,14 +101,12 @@ export function Sidebar({ projectId }: SidebarProps) {
       ? selectedMemberIds
       : [currentUserId, ...selectedMemberIds];
     try {
-      await teamsCollection.insert({
-        id: crypto.randomUUID(),
+      createTeamAction({
         name: teamName.trim(),
         description: teamDesc.trim() || null,
         owner_id: currentUserId,
         project_id: projectId,
         member_ids: memberIds,
-        created_at: new Date(),
       });
       setCreateOpen(false);
     } finally {

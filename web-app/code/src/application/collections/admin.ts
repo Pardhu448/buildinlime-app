@@ -3,7 +3,6 @@ import { electricCollectionOptions } from "@tanstack/electric-db-collection"
 import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence"
 import { z } from "zod"
 import { selectTeamSchema } from "%/infrastructure/database/schema/admin-schema"
-import { trpc } from "%/infrastructure/trpc/lib/trpc-client"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
 import { retryOnError, origin } from "./_shared"
 
@@ -90,35 +89,9 @@ function _makeTeamsCollection(
         },
         schema: electricTeamSchema,
         getKey: (item) => item.id,
-        onInsert: async ({ transaction }) => {
-          const { modified: newTeam } = transaction.mutations[0]
-          const result = await trpc.teams.create.mutate({
-            id: newTeam.id,
-            name: newTeam.name,
-            description: newTeam.description,
-            owner_id: newTeam.owner_id,
-            project_id: newTeam.project_id,
-            member_ids: newTeam.member_ids ?? [],
-          })
-          return { txid: result.txid }
-        },
-        onUpdate: async ({ transaction }) => {
-          const { modified: updatedTeam } = transaction.mutations[0]
-          const result = await trpc.teams.update.mutate({
-            id: updatedTeam.id,
-            data: {
-              name: updatedTeam.name,
-              description: updatedTeam.description,
-              member_ids: updatedTeam.member_ids,
-            },
-          })
-          return { txid: result.txid }
-        },
-        onDelete: async ({ transaction }) => {
-          const { original: deletedTeam } = transaction.mutations[0]
-          const result = await trpc.teams.delete.mutate({ id: deletedTeam.id })
-          return { txid: result.txid }
-        },
+        // Team writes go through @tanstack/offline-transactions —
+        // see application/actions/teams.ts. Delete is not currently used
+        // by UI; add a mutationFn + action when needed.
       }),
       persistence,
       schemaVersion: TEAMS_SCHEMA_VERSION,
