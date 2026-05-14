@@ -119,6 +119,11 @@ export function ResourcesSection({
                 {r.status === "error" && (
                   <p className="text-[10px] text-red-500">{r.errorMessage}</p>
                 )}
+                {r.status === "awaiting_network" && (
+                  <p className="text-[10px] text-[#976623]">
+                    Waiting for network — will upload when back online
+                  </p>
+                )}
                 {r.status === "uploading" && (
                   <p className="text-[10px] text-[#717182]">Uploading…</p>
                 )}

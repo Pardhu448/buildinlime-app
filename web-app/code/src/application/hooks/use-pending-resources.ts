@@ -1,7 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { dbGetAll, dbPut, dbDelete, type StoredResource } from "./pending-resources-db"
 
-export type UploadStatus = "awaiting_schedule" | "scheduled" | "uploading" | "error"
+export type UploadStatus =
+  | "awaiting_schedule"
+  | "scheduled"
+  | "uploading"
+  | "awaiting_network"
+  | "error"
 
 export interface PendingResource {
   id: string
@@ -37,6 +42,8 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
   const [pending, setPending] = useState<PendingResource[]>([])
   const pendingRef = useRef<PendingResource[]>([])
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const retryTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const retryAttempts = useRef<Map<string, number>>(new Map())
   // Stable ref so the hydration effect can call doUpload before it is defined
   const doUploadRef = useRef<(id: string) => Promise<void>>(async () => {})
 
@@ -53,7 +60,27 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
     return () => {
       pendingRef.current.forEach((r) => URL.revokeObjectURL(r.objectUrl))
       timers.current.forEach((t) => clearTimeout(t))
+      retryTimers.current.forEach((t) => clearTimeout(t))
     }
+  }, [])
+
+  // Auto-retry any errored uploads as soon as the browser reports we're back online.
+  useEffect(() => {
+    const onOnline = () => {
+      pendingRef.current.forEach((r) => {
+        if (r.status === "error" || r.status === "awaiting_network") {
+          retryAttempts.current.set(r.id, 0)
+          const t = retryTimers.current.get(r.id)
+          if (t) {
+            clearTimeout(t)
+            retryTimers.current.delete(r.id)
+          }
+          doUploadRef.current(r.id)
+        }
+      })
+    }
+    window.addEventListener("online", onOnline)
+    return () => window.removeEventListener("online", onOnline)
   }, [])
 
   // Hydrate from IndexedDB on mount
@@ -73,6 +100,15 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
         if (r.status === "awaiting_schedule" && stored[i].status === "uploading") {
           const { objectUrl: _, ...toStore } = r
           dbPut(toStore as StoredResource)
+        }
+        // Errored / waiting-for-network uploads from a previous session: retry
+        // once on mount if we think we're online; otherwise the `online`
+        // listener will pick them up when connectivity returns.
+        if (
+          (r.status === "error" || r.status === "awaiting_network") &&
+          navigator.onLine
+        ) {
+          doUploadRef.current(r.id)
         }
         // Re-schedule timers for items that were waiting for a future time
         if (r.status === "scheduled" && r.scheduledAt) {
@@ -95,6 +131,15 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
   const doUpload = useCallback(async (id: string) => {
     const resource = pendingRef.current.find((r) => r.id === id)
     if (!resource) return
+    // Skip if an upload is already in flight for this resource (online-event
+    // retries, multiple mounted hook instances, etc. can all race).
+    if (resource.status === "uploading") return
+
+    const existingRetry = retryTimers.current.get(id)
+    if (existingRetry) {
+      clearTimeout(existingRetry)
+      retryTimers.current.delete(id)
+    }
 
     setPendingSync((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: "uploading" as UploadStatus } : r))
@@ -133,14 +178,34 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
         return prev.filter((x) => x.id !== id)
       })
       dbDelete(id)
+      retryAttempts.current.delete(id)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Upload failed"
+      // While offline this isn't really a failure — surface it as a calmer
+      // "waiting for network" state so the user doesn't see a red error for
+      // an upload we're going to retry as soon as connectivity returns.
+      const nextStatus: UploadStatus = navigator.onLine ? "error" : "awaiting_network"
       setPendingSync((prev) =>
         prev.map((r) =>
-          r.id === id ? { ...r, status: "error" as UploadStatus, errorMessage: message } : r
+          r.id === id ? { ...r, status: nextStatus, errorMessage: message } : r
         )
       )
-      dbPut({ ...toStore, status: "error", errorMessage: message } as StoredResource)
+      dbPut({ ...toStore, status: nextStatus, errorMessage: message } as StoredResource)
+
+      // Auto-retry: while offline wait for the `online` event to wake us up;
+      // while online use exponential backoff (covers transient FK races where
+      // the parent message/task hasn't replayed from the outbox yet).
+      const attempt = (retryAttempts.current.get(id) ?? 0) + 1
+      retryAttempts.current.set(id, attempt)
+      const MAX_AUTO_RETRIES = 5
+      if (attempt <= MAX_AUTO_RETRIES && navigator.onLine) {
+        const delay = Math.min(30000, 1000 * 2 ** (attempt - 1))
+        const timer = setTimeout(() => {
+          retryTimers.current.delete(id)
+          doUploadRef.current(id)
+        }, delay)
+        retryTimers.current.set(id, timer)
+      }
     }
   }, [setPendingSync])
 
@@ -224,6 +289,12 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
       clearTimeout(timer)
       timers.current.delete(id)
     }
+    const retryTimer = retryTimers.current.get(id)
+    if (retryTimer) {
+      clearTimeout(retryTimer)
+      retryTimers.current.delete(id)
+    }
+    retryAttempts.current.delete(id)
     setPendingSync((prev) => {
       const r = prev.find((x) => x.id === id)
       if (r) URL.revokeObjectURL(r.objectUrl)
@@ -234,6 +305,14 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
 
   const retryUpload = useCallback(
     (id: string) => {
+      // Manual retry resets the auto-backoff counter so the user gets a fresh
+      // sequence if the next attempt also fails.
+      retryAttempts.current.set(id, 0)
+      const retryTimer = retryTimers.current.get(id)
+      if (retryTimer) {
+        clearTimeout(retryTimer)
+        retryTimers.current.delete(id)
+      }
       doUpload(id)
     },
     [doUpload]
