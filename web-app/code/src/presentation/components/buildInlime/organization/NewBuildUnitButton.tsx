@@ -4,14 +4,14 @@ import type { FormEvent } from "react";
 import { useParams } from "@tanstack/react-router";
 import { useLiveQuery, eq } from "@tanstack/react-db";
 import { useSession } from "%/infrastructure/auth/client";
-import { projectsCollection, buildUnitsCollection, registerBuildUnitInsertCallback } from "%/infrastructure/database/tanstack-db-electric/admincollections";
+import { projectsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
+import { createBuildUnitAction } from "%/application/actions/buildunits";
+import type { PendingBuildUnit } from "%/presentation/hooks/use-pending-build-units";
 
 interface NewBuildUnitFormData {
   name: string;
   description: string;
 }
-
-import type { PendingBuildUnit } from "%/presentation/hooks/use-pending-build-units";
 
 interface NewBuildUnitButtonProps {
   addPending: (item: PendingBuildUnit) => void;
@@ -48,7 +48,6 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
       description: formData.description,
       project_id: projectId,
       owner_id: session.user.id,
-      created_at: new Date(),
     };
 
     // Close modal immediately for instant feedback
@@ -56,21 +55,23 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
     setDuplicateError(false);
     setIsPopupOpen(false);
 
-    // Register callback: success is a no-op (ProjectRoute detects Electric sync and
-    // removes the spinner); on error the optimistic insert is rolled back and we
-    // reopen the form so the user can retry.
     addPending({ id: payload.id, name: payload.name, description: payload.description ?? null });
-    registerBuildUnitInsertCallback(
-      payload.id,
+
+    // Queue via @tanstack/offline-transactions. On success the spinner is removed
+    // (ProjectRoute also detects Electric sync). On NonRetriableError (e.g.
+    // duplicate name → CONFLICT) the optimistic insert is rolled back and we
+    // reopen the form so the user can retry.
+    const tx = createBuildUnitAction(payload);
+    tx.isPersisted.promise.then(
       () => onTrpcComplete(payload.id),
-      (err: Error) => {
+      (err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
         removePending(payload.id);
         setFormData({ name: payload.name, description: payload.description });
-        setDuplicateError(err.message.includes(`already exists`));
+        setDuplicateError(message.includes(`already exists`));
         setIsPopupOpen(true);
       },
     );
-    buildUnitsCollection.insert(payload);
   };
 
   const handleInputChange = (

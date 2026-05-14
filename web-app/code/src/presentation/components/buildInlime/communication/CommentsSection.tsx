@@ -167,12 +167,22 @@ function MessageItem({
                 >
                   {r.status === "uploading" ? (
                     <Loader className="w-3 h-3 animate-spin shrink-0" />
+                  ) : r.status === "awaiting_network" ? (
+                    <Loader className="w-3 h-3 animate-spin shrink-0 text-[#976623]" />
                   ) : r.status === "error" ? (
                     mimeIcon(r.file.type, "w-3 h-3 text-red-400")
                   ) : (
                     mimeIcon(r.file.type, "w-3 h-3 text-[#976623]")
                   )}
-                  <span className="max-w-[140px] truncate">{r.name}</span>
+                  <span
+                    className="max-w-[140px] truncate"
+                    title={r.status === "awaiting_network" ? "Will upload when back online" : undefined}
+                  >
+                    {r.name}
+                  </span>
+                  {r.status === "awaiting_network" && (
+                    <span className="text-[#976623] shrink-0">Waiting for network…</span>
+                  )}
                   {r.status === "error" && (
                     <>
                       <span className="text-red-500 shrink-0">Failed</span>

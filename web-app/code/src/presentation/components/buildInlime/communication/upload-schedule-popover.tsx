@@ -66,8 +66,10 @@ export function UploadSchedulePopover({
     onSchedule(resourceId, scheduled)
   }
 
+  const isBusy = status === "uploading" || status === "awaiting_network"
+
   const triggerIcon = () => {
-    if (status === "uploading") {
+    if (status === "uploading" || status === "awaiting_network") {
       return <Loader2 className="w-3.5 h-3.5 animate-spin text-[#976623]" />
     }
     if (status === "scheduled") {
@@ -81,6 +83,7 @@ export function UploadSchedulePopover({
 
   const triggerTitle = () => {
     if (status === "uploading") return "Uploading…"
+    if (status === "awaiting_network") return "Waiting for network — will upload when back online"
     if (status === "scheduled" && scheduledAt)
       return `Scheduled: ${format(scheduledAt, "MMM d, h:mm a")}`
     if (status === "error") return "Upload failed — click to retry"
@@ -88,11 +91,11 @@ export function UploadSchedulePopover({
   }
 
   return (
-    <Popover.Root open={open} onOpenChange={status === "uploading" ? undefined : setOpen}>
+    <Popover.Root open={open} onOpenChange={isBusy ? undefined : setOpen}>
       <Popover.Trigger asChild>
         <button
           title={triggerTitle()}
-          disabled={status === "uploading"}
+          disabled={isBusy}
           className="p-1 rounded transition-colors hover:bg-[#f0e5d8] disabled:cursor-not-allowed"
         >
           {triggerIcon()}

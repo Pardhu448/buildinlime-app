@@ -7,6 +7,7 @@ import {
   resourcesRawTable,
   messagesTable,
   membershipTable,
+  tasksTable,
 } from "%/infrastructure/database/schema/admin-schema"
 import { sql, eq, and } from "drizzle-orm"
 
@@ -69,16 +70,18 @@ export async function handleFileUpload(request: Request): Promise<Response> {
     })
   }
 
-  // If a messageId was supplied, the message is created optimistically on the client
-  // (collection.insert resolves before the onInsert tRPC call completes).
-  // Poll up to 3 seconds for the message to land in the DB before inserting the resource FK.
-  if (messageId) {
-    const deadline = Date.now() + 3000
+  // Parent rows are created optimistically on the client through
+  // @tanstack/offline-transactions; the outbox replay can add several seconds
+  // of latency on top of the tRPC round-trip. Poll up to 15s for the parent.
+  const parentTable = messageId ? messagesTable : taskId ? tasksTable : null
+  const parentId = messageId ?? taskId ?? null
+  if (parentTable && parentId) {
+    const deadline = Date.now() + 15000
     while (Date.now() < deadline) {
       const rows = await db
-        .select({ id: messagesTable.id })
-        .from(messagesTable)
-        .where(eq(messagesTable.id, messageId))
+        .select({ id: parentTable.id })
+        .from(parentTable)
+        .where(eq(parentTable.id, parentId))
         .limit(1)
       if (rows.length > 0) break
       await new Promise((resolve) => setTimeout(resolve, 300))

@@ -1,7 +1,7 @@
 import { router, authedProcedure, generateTxId } from "../lib/trpc"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
-import { eq, and, sql } from "drizzle-orm"
+import { eq, and, ne, sql } from "drizzle-orm"
 import {
   channelsTable,
   buildUnitsTable,
@@ -34,13 +34,16 @@ export const channelsRouter = router({
         throw new TRPCError({ code: `FORBIDDEN`, message: `Only project owners can create channels` })
       }
 
-      // Prevent duplicate channel names within the same build unit
+      // Prevent duplicate channel names within the same build unit.
+      // Exclude the same id so offline-transactions retries (which re-send the
+      // same row id) are not flagged as duplicates of themselves.
       const [duplicate] = await ctx.db
         .select({ id: channelsTable.id })
         .from(channelsTable)
         .where(and(
           eq(channelsTable.buildunit_id, input.buildunit_id),
-          sql`CAST(${channelsTable.name} AS text) = ${JSON.stringify(input.name)}`
+          sql`CAST(${channelsTable.name} AS text) = ${JSON.stringify(input.name)}`,
+          ne(channelsTable.id, input.id),
         ))
       if (duplicate) {
         throw new TRPCError({ code: `CONFLICT`, message: `A ${input.name} channel already exists in this build unit` })
@@ -48,23 +51,33 @@ export const channelsRouter = router({
 
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
-        const [newItem] = await tx
+        // ON CONFLICT DO NOTHING — outbox retries become idempotent.
+        const [inserted] = await tx
           .insert(channelsTable)
           .values(input)
+          .onConflictDoNothing()
           .returning()
 
-        // Auto-add the channel owner as a member with role 'owner'
-        await tx.insert(membershipTable).values({
-          id: crypto.randomUUID(),
-          user_id: ctx.session.user.id,
-          channel_id: newItem.id,
-          buildunit_id: input.buildunit_id,
-          project_id: buildUnit.project_id,
-          member_flag: true,
-          role: `owner`,
-        })
+        if (inserted) {
+          // Auto-add the channel owner as a member with role 'owner'.
+          // Only runs on fresh insert; on retry we skip to avoid duplicate memberships.
+          await tx.insert(membershipTable).values({
+            id: crypto.randomUUID(),
+            user_id: ctx.session.user.id,
+            channel_id: inserted.id,
+            buildunit_id: input.buildunit_id,
+            project_id: buildUnit.project_id,
+            member_flag: true,
+            role: `owner`,
+          })
+          return { item: inserted, txid }
+        }
 
-        return { item: newItem, txid }
+        const [existing] = await tx
+          .select()
+          .from(channelsTable)
+          .where(eq(channelsTable.id, input.id))
+        return { item: existing, txid }
       })
 
       return result

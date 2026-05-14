@@ -8,6 +8,8 @@ import { resetMessageActions } from "../../application/actions/messages"
 import { resetResourceActions } from "../../application/actions/resources"
 import { resetPropertyActions } from "../../application/actions/properties"
 import { resetTeamActions } from "../../application/actions/teams"
+import { resetBuildUnitActions } from "../../application/actions/buildunits"
+import { resetChannelActions } from "../../application/actions/channels"
 
 /**
  * Better Auth Client Configuration
@@ -52,6 +54,8 @@ export async function signOutAndDispose(): Promise<void> {
   resetResourceActions()
   resetPropertyActions()
   resetTeamActions()
+  resetBuildUnitActions()
+  resetChannelActions()
   await disposePersistence()
 }
 
