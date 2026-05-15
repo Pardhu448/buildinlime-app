@@ -87,26 +87,8 @@ function _makeTeamsCollection(
         },
         schema: selectTeamSchema,
         getKey: (item) => item.id,
-        onInsert: async ({ transaction }) => {
-          const { modified: t } = transaction.mutations[0]
-          const result = await trpc.teams.create.mutate({
-            id: t.id,
-            name: t.name,
-            description: t.description,
-            owner_id: t.owner_id,
-            project_id: t.project_id,
-            member_ids: t.member_ids ?? [],
-          })
-          return { txid: result.txid }
-        },
-        onUpdate: async ({ transaction }) => {
-          const { modified: t } = transaction.mutations[0]
-          const result = await trpc.teams.update.mutate({
-            id: t.id,
-            data: { name: t.name, description: t.description, member_ids: t.member_ids },
-          })
-          return { txid: result.txid }
-        },
+        // onInsert/onUpdate removed — routed through
+        // @tanstack/offline-transactions (see application/actions/teams.ts).
         onDelete: async ({ transaction }) => {
           const { original: t } = transaction.mutations[0]
           const result = await trpc.teams.delete.mutate({ id: t.id })

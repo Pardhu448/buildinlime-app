@@ -1,0 +1,321 @@
+import { NonRetriableError } from "@tanstack/offline-transactions"
+import { trpc } from "../trpc/client"
+import { coerceBool } from "../../application/collections/_shared"
+
+// NOTE: we intentionally do NOT call `collection.utils.awaitTxId(result.txid)`
+// after the tRPC mutation. Doing so jams the offline-transactions executor
+// because awaiting the txid through a `persistedCollectionOptions`-wrapped
+// Electric collection never resolves, so the outbox entry stays "pending"
+// forever, the FIFO queue grows, and the page event loop ends up starved.
+// Electric's normal stream reconciles the optimistic row by id; the brief
+// pre-reconciliation window is harmless.
+
+type MutationFn = (params: {
+  transaction: { mutations: Array<{ modified: unknown; original: unknown }> }
+  idempotencyKey: string
+}) => Promise<unknown>
+
+const NON_RETRIABLE_TRPC_CODES = new Set([
+  "BAD_REQUEST",
+  "UNAUTHORIZED",
+  "FORBIDDEN",
+  "NOT_FOUND",
+  "CONFLICT",
+  "PRECONDITION_FAILED",
+  "PAYLOAD_TOO_LARGE",
+  "UNPROCESSABLE_CONTENT",
+])
+
+function wrapTrpcError(err: unknown): never {
+  const code = (err as { data?: { code?: string } } | null)?.data?.code
+  if (code && NON_RETRIABLE_TRPC_CODES.has(code)) {
+    throw new NonRetriableError(
+      err instanceof Error ? err.message : String(err),
+    )
+  }
+  throw err instanceof Error ? err : new Error(String(err))
+}
+
+// -------------------- tasks --------------------
+
+const createTask: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const t = modified as Record<string, unknown>
+  try {
+    await trpc.tasks.create.mutate({
+      id: t.id as string,
+      name: t.name as string,
+      description: t.description as string,
+      completed: coerceBool(t.completed),
+      channel_id: t.channel_id as string,
+      buildunit_id: t.buildunit_id as string,
+      createdby_id: t.createdby_id as string,
+      assignee_id: (t.assignee_id as string | null) ?? null,
+    })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+const updateTask: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const t = modified as Record<string, unknown>
+  try {
+    await trpc.tasks.update.mutate({
+      id: t.id as string,
+      data: {
+        name: t.name as string,
+        description: t.description as string,
+        completed: coerceBool(t.completed),
+        assignee_id: (t.assignee_id as string | null) ?? null,
+      },
+    })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+const deleteTask: MutationFn = async ({ transaction }) => {
+  const { original } = transaction.mutations[0]
+  const t = original as Record<string, unknown>
+  try {
+    await trpc.tasks.delete.mutate({ id: t.id as string })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+// -------------------- projects --------------------
+
+const createProject: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const p = modified as Record<string, unknown>
+  try {
+    await trpc.projects.create.mutate({
+      id: p.id as string,
+      name: p.name as string,
+      description: p.description as string,
+      owner_id: p.owner_id as string,
+    })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+// -------------------- messages --------------------
+
+const createMessage: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const m = modified as Record<string, unknown>
+  try {
+    await trpc.messages.create.mutate({
+      id: m.id as string,
+      text: m.text as string,
+      channel_id: m.channel_id as string,
+      buildunit_id: m.buildunit_id as string,
+      project_id: m.project_id as string,
+      createdby_id: m.createdby_id as string,
+      mention_ids: (m.mention_ids as string[] | undefined) ?? [],
+      resource_ids: (m.resource_ids as string[] | undefined) ?? [],
+      parent_id: (m.parent_id as string | null) ?? null,
+    })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+// -------------------- resources --------------------
+
+const deleteResource: MutationFn = async ({ transaction }) => {
+  const { original } = transaction.mutations[0]
+  const r = original as Record<string, unknown>
+  try {
+    await trpc.resources.delete.mutate({ id: r.id as string })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+// -------------------- properties --------------------
+
+const createProperty: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const p = modified as Record<string, unknown>
+  try {
+    await trpc.properties.create.mutate({
+      id: p.id as string,
+      type: p.type,
+      entity: p.entity,
+      entity_id: p.entity_id as string,
+      status_value: p.status_value ?? null,
+      priority_value: p.priority_value ?? null,
+      target_date: (p.target_date as string | null) ?? null,
+      start_date: (p.start_date as string | null) ?? null,
+      pending_task: (p.pending_task as string | null) ?? null,
+      label_value: (p.label_value as string | null) ?? null,
+    })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+const deleteProperty: MutationFn = async ({ transaction }) => {
+  const { original } = transaction.mutations[0]
+  const p = original as Record<string, unknown>
+  try {
+    await trpc.properties.delete.mutate({ id: p.id as string })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+// -------------------- teams --------------------
+
+const createTeam: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const t = modified as Record<string, unknown>
+  try {
+    await trpc.teams.create.mutate({
+      id: t.id as string,
+      name: t.name as string,
+      description: (t.description as string | null) ?? null,
+      owner_id: t.owner_id as string,
+      project_id: t.project_id as string,
+      member_ids: (t.member_ids as string[] | undefined) ?? [],
+    })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+const updateTeam: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const t = modified as Record<string, unknown>
+  try {
+    await trpc.teams.update.mutate({
+      id: t.id as string,
+      data: {
+        name: t.name as string,
+        description: (t.description as string | null) ?? null,
+        member_ids: (t.member_ids as string[] | undefined) ?? [],
+      },
+    })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+// -------------------- build units --------------------
+
+const createBuildUnit: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const b = modified as Record<string, unknown>
+  try {
+    await trpc.buildUnits.create.mutate({
+      id: b.id as string,
+      name: b.name as string,
+      description: (b.description as string | null) ?? null,
+      project_id: b.project_id as string,
+      owner_id: b.owner_id as string,
+    })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+const updateBuildUnit: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const b = modified as Record<string, unknown>
+  try {
+    await trpc.buildUnits.update.mutate({
+      id: b.id as string,
+      data: {
+        name: b.name as string,
+        description: (b.description as string | null) ?? null,
+      },
+    })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+const deleteBuildUnit: MutationFn = async ({ transaction }) => {
+  const { original } = transaction.mutations[0]
+  const b = original as Record<string, unknown>
+  try {
+    await trpc.buildUnits.delete.mutate({ id: b.id as string })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+// -------------------- channels --------------------
+
+const createChannel: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const c = modified as Record<string, unknown>
+  try {
+    await trpc.channels.create.mutate({
+      id: c.id as string,
+      name: c.name,
+      description: (c.description as string | null) ?? null,
+      buildunit_id: c.buildunit_id as string,
+      owner_id: c.owner_id as string,
+    })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+const updateChannel: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const c = modified as Record<string, unknown>
+  try {
+    await trpc.channels.update.mutate({
+      id: c.id as string,
+      data: {
+        name: c.name,
+        description: (c.description as string | null) ?? null,
+      },
+    })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+const deleteChannel: MutationFn = async ({ transaction }) => {
+  const { original } = transaction.mutations[0]
+  const c = original as Record<string, unknown>
+  try {
+    await trpc.channels.delete.mutate({ id: c.id as string })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+export const mutationFns = {
+  // tasks
+  createTask,
+  updateTask,
+  deleteTask,
+  // projects
+  createProject,
+  // messages
+  createMessage,
+  // resources
+  deleteResource,
+  // properties
+  createProperty,
+  deleteProperty,
+  // teams
+  createTeam,
+  updateTeam,
+  // build units
+  createBuildUnit,
+  updateBuildUnit,
+  deleteBuildUnit,
+  // channels
+  createChannel,
+  updateChannel,
+  deleteChannel,
+}

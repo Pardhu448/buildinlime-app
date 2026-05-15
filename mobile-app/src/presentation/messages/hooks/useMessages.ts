@@ -1,15 +1,14 @@
 import { useLiveQuery, eq } from "@tanstack/react-db"
-import { useProjectContext } from "@/src/application/context/ProjectContext"
+import { messagesCollection } from "@/src/application/collections/communication"
 import type { Message } from "@buildinlime/domain-types"
 
 export function useMessages(channelId: string) {
-  const { collections } = useProjectContext()
   const { data, isLoading } = useLiveQuery(
     (q) =>
       q
-        .from({ messagesCollection: collections!.messagesCollection })
+        .from({ messagesCollection })
         .where(({ messagesCollection: m }) => eq(m.channel_id, channelId)),
-    [collections, channelId]
+    [channelId]
   )
   const toMs = (d: Date | string | undefined): number => {
     if (!d) return 0

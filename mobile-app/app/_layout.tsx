@@ -24,8 +24,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler"
 import "react-native-reanimated"
 
 import { useColorScheme } from "@/components/useColorScheme"
-import { useSession } from "@/src/infrastructure/auth/client"
-import { ProjectProvider } from "@/src/application/context/ProjectContext"
+import { useSession, signOutAndDispose, clearAuthCookies } from "@/src/infrastructure/auth/client"
+import { ProjectProvider, useProjectContext } from "@/src/application/context/ProjectContext"
 
 export { ErrorBoundary } from "expo-router"
 
@@ -78,6 +78,7 @@ function RootLayoutNav() {
 
 function AuthGuard() {
   const { data: session, isPending, error } = useSession()
+  const { clearProject } = useProjectContext()
   const segments = useSegments()
   const router = useRouter()
   const [isSigningOut, setIsSigningOut] = useState(false)
@@ -93,6 +94,29 @@ function AuthGuard() {
       router.replace("/(tabs)")
     }
   }, [session, isPending, error, segments])
+
+  // Sign-out teardown. This effect runs only AFTER the render that swaps the
+  // <Stack> for the spinner has committed — so the (tabs) tree and all its
+  // live queries are already unmounted. Tearing down collections any earlier
+  // triggers "source collection cleaned up while live query depends on it".
+  useEffect(() => {
+    if (!isSigningOut) return
+    let cancelled = false
+    void (async () => {
+      console.log(">>> signOut: start")
+      await clearProject()
+      if (cancelled) return
+      // signOut needs cookies to reach the server, so dispose BEFORE clearing.
+      await signOutAndDispose()
+      if (cancelled) return
+      await clearAuthCookies()
+      console.log(">>> signOut: complete")
+      // AuthGuard's session effect detects !session and navigates to login.
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isSigningOut])
 
   if (isPending || isSigningOut) {
     return (

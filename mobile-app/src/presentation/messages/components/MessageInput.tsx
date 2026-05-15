@@ -1,9 +1,10 @@
 import { View, TextInput, TouchableOpacity, StyleSheet, Text } from "react-native"
 import { useState } from "react"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import NetInfo from "@react-native-community/netinfo"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { colors } from "@/src/presentation/shared/colors"
-import { useProjectContext } from "@/src/application/context/ProjectContext"
+import { createMessageAction } from "@/src/application/actions/messages"
 
 interface MessageInputProps {
   channelId: string
@@ -15,26 +16,22 @@ export function MessageInput({ channelId, buildUnitId, projectId }: MessageInput
   const [text, setText] = useState("")
   const { bottom } = useSafeAreaInsets()
   const { data: session } = useSession()
-  const { collections } = useProjectContext()
 
-  async function handleSend() {
+  function handleSend() {
     const trimmed = text.trim()
-    if (!trimmed || !session?.user?.id || !collections) return
+    if (!trimmed || !session?.user?.id) return
 
-    const id = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+    NetInfo.fetch().then((s) =>
+      console.log("[netinfo]", { isConnected: s.isConnected, isInternetReachable: s.isInternetReachable, type: s.type }),
+    )
 
     try {
-      await collections.messagesCollection.insert({
-        id,
+      createMessageAction({
         text: trimmed,
         channel_id: channelId,
         buildunit_id: buildUnitId,
         project_id: projectId,
         createdby_id: session.user.id,
-        mention_ids: [],
-        resource_ids: [],
-        parent_id: null,
-        created_at: new Date(),
       })
       setText("")
     } catch (err) {

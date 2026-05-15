@@ -17,6 +17,9 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Home", route: "/(tabs)/", icon: "⌂" },
   { label: "My Tasks", route: "/(tabs)/my-tasks", icon: "✓" },
   { label: "Inbox", route: "/(tabs)/inbox", icon: "✉" },
+  ...(__DEV__
+    ? [{ label: "Offline Debug", route: "/(tabs)/offline-debug", icon: "⚙" }]
+    : []),
 ]
 
 export default function DrawerContent(_props: DrawerContentComponentProps) {

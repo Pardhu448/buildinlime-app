@@ -3,6 +3,9 @@ import { createAuthClient } from "better-auth/react"
 import { clearAuthCookies, createCookieFetch } from "./cookie-fetch"
 import { resetAllCollections } from "../../application/collections/init"
 import { disposePersistence } from "../persistence/expo-persistence"
+import { disposeOfflineExecutor } from "../offline/executor"
+import { disposeOutboxDb } from "../offline/storage"
+import { resetAllOfflineActions } from "../../application/actions"
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://10.0.2.2:3000"
 console.log(">>> AUTH API URL:", apiUrl)
@@ -34,8 +37,13 @@ export async function signOutAndDispose(): Promise<void> {
   // because authClient.signOut() updates session state which triggers
   // the AuthGuard to navigate to login — at that point the cleanup
   // must already be complete so re-login can init from a clean slate.
+  disposeOfflineExecutor()
+  resetAllOfflineActions()
   resetAllCollections()
   await disposePersistence()
+  // Outbox lives in its own DB — dispose it after the executor is gone so the
+  // next user's session doesn't replay this user's pending mutations.
+  await disposeOutboxDb()
   // Fire-and-forget: local state is already clean, don't block on
   // a slow/unreachable server. The old session expires naturally.
   authClient.signOut().catch(() => {})

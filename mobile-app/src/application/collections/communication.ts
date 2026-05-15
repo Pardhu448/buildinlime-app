@@ -100,38 +100,8 @@ function _makeTasksCollection(
         },
         schema: selectTaskSchema,
         getKey: (item) => item.id,
-        onInsert: async ({ transaction }) => {
-          const { modified: t } = transaction.mutations[0]
-          const result = await trpc.tasks.create.mutate({
-            id: t.id,
-            name: t.name,
-            description: t.description,
-            completed: t.completed,
-            channel_id: t.channel_id,
-            buildunit_id: t.buildunit_id,
-            createdby_id: t.createdby_id,
-            assignee_id: t.assignee_id ?? null,
-          })
-          return { txid: result.txid }
-        },
-        onUpdate: async ({ transaction }) => {
-          const { modified: t } = transaction.mutations[0]
-          const result = await trpc.tasks.update.mutate({
-            id: t.id,
-            data: {
-              name: t.name,
-              description: t.description,
-              completed: coerceBool(t.completed),
-              assignee_id: t.assignee_id,
-            },
-          })
-          return { txid: result.txid }
-        },
-        onDelete: async ({ transaction }) => {
-          const { original: t } = transaction.mutations[0]
-          const result = await trpc.tasks.delete.mutate({ id: t.id })
-          return { txid: result.txid }
-        },
+        // onInsert/onUpdate/onDelete removed — routed through
+        // @tanstack/offline-transactions (see application/actions/tasks.ts).
       }),
       persistence,
       schemaVersion: TASKS_SCHEMA_VERSION,
@@ -162,21 +132,8 @@ function _makeMessagesCollection(
         },
         schema: selectMessageSchema,
         getKey: (item) => item.id,
-        onInsert: async ({ transaction }) => {
-          const { modified: m } = transaction.mutations[0]
-          const result = await trpc.messages.create.mutate({
-            id: m.id,
-            text: m.text,
-            channel_id: m.channel_id,
-            buildunit_id: m.buildunit_id,
-            project_id: m.project_id,
-            createdby_id: m.createdby_id,
-            mention_ids: m.mention_ids,
-            resource_ids: m.resource_ids,
-            parent_id: m.parent_id ?? null,
-          })
-          return { txid: result.txid }
-        },
+        // onInsert removed — routed through @tanstack/offline-transactions
+        // (see application/actions/messages.ts → createMessageAction).
         onDelete: async ({ transaction }) => {
           const { original: m } = transaction.mutations[0]
           const result = await trpc.messages.delete.mutate({ id: m.id })
@@ -206,11 +163,8 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
       },
       schema: selectResourceSchema,
       getKey: (item) => item.id,
-      onDelete: async ({ transaction }) => {
-        const { original: r } = transaction.mutations[0]
-        const result = await trpc.resources.delete.mutate({ id: r.id })
-        return { txid: result.txid }
-      },
+      // onDelete removed — routed through @tanstack/offline-transactions
+      // (see application/actions/resources.ts → deleteResourceAction).
     })
   )
 }
@@ -247,22 +201,8 @@ function _makePropertiesCollection(
         },
         schema: selectPropertySchema,
         getKey: (item) => item.id,
-        onInsert: async ({ transaction }) => {
-          const { modified: p } = transaction.mutations[0]
-          const result = await trpc.properties.create.mutate({
-            id: p.id,
-            type: p.type,
-            entity: p.entity,
-            entity_id: p.entity_id,
-            status_value: p.status_value,
-            priority_value: p.priority_value,
-            target_date: p.target_date,
-            start_date: p.start_date,
-            pending_task: p.pending_task,
-            label_value: p.label_value,
-          })
-          return { txid: result.txid }
-        },
+        // onInsert removed — routed through @tanstack/offline-transactions
+        // (see application/actions/properties.ts → createPropertyAction).
         onUpdate: async ({ transaction }) => {
           const { modified: p } = transaction.mutations[0]
           const result = await trpc.properties.update.mutate({
@@ -277,11 +217,8 @@ function _makePropertiesCollection(
           })
           return { txid: result.txid }
         },
-        onDelete: async ({ transaction }) => {
-          const { original: p } = transaction.mutations[0]
-          const result = await trpc.properties.delete.mutate({ id: p.id })
-          return { txid: result.txid }
-        },
+        // onDelete removed — routed through @tanstack/offline-transactions
+        // (see application/actions/properties.ts → deletePropertyAction).
       }),
       persistence,
       schemaVersion: PROPERTIES_SCHEMA_VERSION,
