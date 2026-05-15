@@ -24,9 +24,15 @@ export function getPersistence(): PersistenceTrio {
 
   const database = openDatabaseSync(DATABASE_NAME)
 
-  // Enable WAL mode to reduce lock contention when multiple collections
-  // sync simultaneously — allows concurrent reads with a single writer.
-  database.execSync(`PRAGMA journal_mode=WAL;`)
+  // WAL mode allows concurrent reads with a single writer. busy_timeout makes
+  // a writer that can't immediately acquire the lock WAIT (up to 5s) instead
+  // of failing with SQLITE_BUSY ("database is locked") — needed because the
+  // Electric sync persistence and the offline-transactions outbox both write
+  // this DB and can contend.
+  database.execSync(`
+    PRAGMA journal_mode=WAL;
+    PRAGMA busy_timeout=5000;
+  `)
 
   const persistence = createExpoSQLitePersistence({
     database: database as unknown as ExpoSQLiteDatabaseLike,
@@ -57,6 +63,13 @@ export function getPersistence(): PersistenceTrio {
 // Wipes the SQLite database so the next user logging in on the same device
 // does not see the previous user's cached rows on first paint. Best-effort
 // — never blocks sign-out.
+//
+// EXPECTED NOISE: closing/deleting the DB here can race Electric sync writes
+// still in flight from collections that haven't been GC'd yet, producing a
+// one-off "Failed to persist wrapped sync transaction: no such table:
+// applied_tx" warning. It is harmless — the DB is being destroyed anyway and
+// a fresh login rebuilds everything. Fully eliminating it means aborting
+// every collection's sync stream before this runs (deliberately not done).
 export async function disposePersistence(): Promise<void> {
   if (!_trio) return
   if (__DEV__) console.log(`[SQLite] Disposing persistence…`)

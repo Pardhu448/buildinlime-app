@@ -4,7 +4,8 @@ import { Drawer } from "expo-router/drawer"
 import DrawerContent from "@/src/presentation/shared/components/DrawerContent"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { initBootstrapCollections, initProjectCollections } from "@/src/application/collections/init"
-import { reconcileOnStartup } from "@/src/application/attachments/store"
+import { initOfflineExecutor } from "@/src/infrastructure/offline/executor"
+import { resetAllOfflineActions } from "@/src/application/actions"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { colors } from "@/src/presentation/shared/colors"
 
@@ -52,9 +53,14 @@ export default function DrawerLayout() {
 
     if (__DEV__) console.log(`[layout] Initializing project collections for: ${projectId}`)
     initProjectCollections(projectId)
-      .then(() => {
-        reconcileOnStartup()
-        if (__DEV__) console.log(`[layout] Project collections ready`)
+      .then(async () => {
+        // Executor must init AFTER project collections so it can register them.
+        // Re-runs on project switch — initOfflineExecutor disposes the previous
+        // instance internally before constructing a new one; clear cached
+        // action references so the next call binds against the new executor.
+        resetAllOfflineActions()
+        await initOfflineExecutor()
+        if (__DEV__) console.log(`[layout] Project collections + offline executor ready`)
         setProjectReady(true)
       })
       .catch((err) => {
@@ -101,6 +107,10 @@ export default function DrawerLayout() {
       <Drawer.Screen name="projects" options={{ drawerItemStyle: { display: "none" } }} />
       <Drawer.Screen name="project" options={{ drawerItemStyle: { display: "none" } }} />
       <Drawer.Screen name="two" options={{ drawerItemStyle: { display: "none" } }} />
+      <Drawer.Screen
+        name="offline-debug"
+        options={{ drawerItemStyle: { display: "none" }, title: "Offline Debug" }}
+      />
     </Drawer>
   )
 }

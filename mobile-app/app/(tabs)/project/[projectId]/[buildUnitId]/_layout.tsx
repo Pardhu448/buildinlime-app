@@ -6,7 +6,7 @@ export default function BuildUnitLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen
         name="[channelId]"
-        getId={({ params }) => params?.channelId}
+        dangerouslySingular={(_name, params) => params?.channelId}
       />
     </Stack>
   )

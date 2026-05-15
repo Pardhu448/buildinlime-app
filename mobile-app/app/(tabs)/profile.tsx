@@ -1,29 +1,17 @@
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native"
-import { useRouter } from "expo-router"
-import { useSession, clearAuthCookies, signOutAndDispose } from "@/src/infrastructure/auth/client"
-import { useProjectContext } from "@/src/application/context/ProjectContext"
+import { useSession } from "@/src/infrastructure/auth/client"
 import { useSignOut } from "../_layout"
 
 export default function ProfileScreen() {
-  const router = useRouter()
   const { data: session, isPending } = useSession()
-  const { clearProject } = useProjectContext()
   const { startSignOut } = useSignOut()
 
-  async function handleSignOut() {
-    // Show full-screen spinner immediately (via _layout.tsx SignOutContext).
-    // This unmounts all tab screens and their live queries, making it safe
-    // to tear down the SQLite database without "collection was cleaned up" errors.
+  // Shows the full-screen spinner (via _layout.tsx SignOutContext), which
+  // unmounts every tab screen and its live queries. The actual teardown
+  // (collections + SQLite) runs in an effect in AuthGuard, sequenced AFTER
+  // that unmount commits — see app/_layout.tsx.
+  function handleSignOut() {
     startSignOut()
-    console.log(">>> signOut: start")
-    await clearProject()
-    console.log(">>> signOut: project selection cleared")
-    // signOut needs cookies to call the server, so dispose BEFORE clearing cookies.
-    await signOutAndDispose()
-    console.log(">>> signOut: session invalidated, persistence disposed")
-    await clearAuthCookies()
-    console.log(">>> signOut: cookies cleared")
-    // AuthGuard detects !session and navigates to /(auth)/login automatically.
   }
 
   if (isPending) {

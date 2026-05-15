@@ -6,7 +6,7 @@ export default function ProjectLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen
         name="[buildUnitId]"
-        getId={({ params }) => params?.buildUnitId}
+        dangerouslySingular={(_name, params) => params?.buildUnitId}
       />
     </Stack>
   )
