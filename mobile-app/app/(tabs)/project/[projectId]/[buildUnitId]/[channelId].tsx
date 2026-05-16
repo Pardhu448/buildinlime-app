@@ -108,7 +108,11 @@ export default function ChannelScreen() {
       )}
 
       {/* Collapsible resources */}
-      <ResourcesSection channelId={channelId} />
+      <ResourcesSection
+        channelId={channelId}
+        buildUnitId={buildUnitId}
+        projectId={projectId}
+      />
 
       {/* Messages */}
       {isLoading ? (
@@ -117,6 +121,7 @@ export default function ChannelScreen() {
         </View>
       ) : (
         <MessageList
+          channelId={channelId}
           messages={messages}
           currentUserId={currentUserId}
           usersMap={usersMap}

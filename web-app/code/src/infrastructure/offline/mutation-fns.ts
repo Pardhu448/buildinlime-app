@@ -111,6 +111,10 @@ const createMessage: MutationFn = async ({ transaction }) => {
     await trpc.messages.create.mutate({
       id: m.id as string,
       text: m.text as string,
+      // Forward the client's optimistic send time so the synced row keeps the
+      // same created_at the UI sorted on — see createMessageSchema. Serialised
+      // through the outbox as an ISO string; the server coerces it back.
+      created_at: m.created_at as string,
       channel_id: m.channel_id as string,
       buildunit_id: m.buildunit_id as string,
       project_id: m.project_id as string,
