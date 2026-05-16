@@ -1,11 +1,15 @@
 import { View, Text, StyleSheet } from "react-native"
 import { colors } from "@/src/presentation/shared/colors"
-import type { Message } from "@buildinlime/domain-types"
+import { MessageAttachments } from "@/src/presentation/resources/components/MessageAttachments"
+import type { PendingUpload } from "@/src/infrastructure/offline/upload-manager"
+import type { Message, Resource } from "@buildinlime/domain-types"
 
 interface MessageBubbleProps {
   message: Message
   senderName: string
   isOwn: boolean
+  attachments: Resource[]
+  pendingAttachments: PendingUpload[]
 }
 
 function formatTime(date: Date | string | undefined): string {
@@ -15,8 +19,15 @@ function formatTime(date: Date | string | undefined): string {
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`
 }
 
-export function MessageBubble({ message, senderName, isOwn }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  senderName,
+  isOwn,
+  attachments,
+  pendingAttachments,
+}: MessageBubbleProps) {
   const initial = senderName.charAt(0).toUpperCase()
+  const hasText = !!message.text?.trim()
 
   return (
     <View style={[styles.container, isOwn ? styles.containerOwn : styles.containerOther]}>
@@ -29,9 +40,16 @@ export function MessageBubble({ message, senderName, isOwn }: MessageBubbleProps
         {!isOwn && (
           <Text style={styles.senderName}>{senderName}</Text>
         )}
-        <Text style={[styles.messageText, isOwn ? styles.messageTextOwn : styles.messageTextOther]}>
-          {message.text}
-        </Text>
+        {hasText && (
+          <Text style={[styles.messageText, isOwn ? styles.messageTextOwn : styles.messageTextOther]}>
+            {message.text}
+          </Text>
+        )}
+        <MessageAttachments
+          resources={attachments}
+          pendingUploads={pendingAttachments}
+          isOwn={isOwn}
+        />
         <Text style={[styles.timestamp, isOwn ? styles.timestampOwn : styles.timestampOther]}>
           {formatTime(message.created_at)}
         </Text>

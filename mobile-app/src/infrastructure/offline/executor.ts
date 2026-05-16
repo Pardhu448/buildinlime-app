@@ -14,7 +14,7 @@ import {
 import { teamsCollection } from "../../application/collections/admin"
 import { mutationFns } from "./mutation-fns"
 import { sqliteStorageAdapter } from "./storage"
-import { createOnlineDetector } from "./online-detector"
+import { getOnlineDetector } from "./online-detector"
 
 // NOTE: this module deliberately does NOT import the actions barrel, since
 // each action module imports `getOfflineExecutor` from here — pulling the
@@ -48,8 +48,9 @@ export async function initOfflineExecutor(): Promise<OfflineExecutor> {
     storage: sqliteStorageAdapter,
     // Custom detector — the built-in ReactNativeOnlineDetector notifies the
     // executor before updating its online flag, so offline-queued transactions
-    // never drain on reconnect. See online-detector.ts.
-    onlineDetector: createOnlineDetector(),
+    // never drain on reconnect. Shared singleton with the upload manager; see
+    // online-detector.ts.
+    onlineDetector: getOnlineDetector(),
   })
   await executor.waitForInit()
   _executor = executor

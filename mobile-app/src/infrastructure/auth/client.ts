@@ -5,6 +5,8 @@ import { resetAllCollections } from "../../application/collections/init"
 import { disposePersistence } from "../persistence/expo-persistence"
 import { disposeOfflineExecutor } from "../offline/executor"
 import { disposeOutboxDb } from "../offline/storage"
+import { disposeUploadManager } from "../offline/upload-manager"
+import { disposeOnlineDetector } from "../offline/online-detector"
 import { resetAllOfflineActions } from "../../application/actions"
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://10.0.2.2:3000"
@@ -38,6 +40,12 @@ export async function signOutAndDispose(): Promise<void> {
   // the AuthGuard to navigate to login — at that point the cleanup
   // must already be complete so re-login can init from a clean slate.
   disposeOfflineExecutor()
+  // Dispose the upload manager BEFORE disposePersistence() — it deletes its
+  // pending_attachments rows from the main DB and removes copied local files.
+  await disposeUploadManager()
+  // Both connectivity consumers (executor + upload manager) are gone now, so
+  // the shared detector can be torn down for real.
+  disposeOnlineDetector()
   resetAllOfflineActions()
   resetAllCollections()
   await disposePersistence()

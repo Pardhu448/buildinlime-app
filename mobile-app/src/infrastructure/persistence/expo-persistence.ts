@@ -38,22 +38,10 @@ export function getPersistence(): PersistenceTrio {
     database: database as unknown as ExpoSQLiteDatabaseLike,
   })
 
-  database.execSync(`
-    CREATE TABLE IF NOT EXISTS pending_attachments (
-      resource_id TEXT PRIMARY KEY NOT NULL,
-      uri TEXT NOT NULL,
-      name TEXT NOT NULL,
-      mime_type TEXT NOT NULL,
-      channel_id TEXT NOT NULL,
-      buildunit_id TEXT NOT NULL,
-      project_id TEXT NOT NULL,
-      createdby_id TEXT NOT NULL,
-      message_id TEXT,
-      status TEXT NOT NULL,
-      scheduled_at TEXT,
-      error_message TEXT
-    );
-  `)
+  // NOTE: the upload manager's `pending_attachments` table deliberately lives
+  // in its OWN database file (see pending-uploads-db.ts), not here — sharing
+  // this connection caused "database is locked" failures against Electric's
+  // sync-persistence transactions.
 
   if (__DEV__) console.log(`[SQLite] Persistence ready in ${Date.now() - t0}ms`)
   _trio = { database, persistence }

@@ -130,6 +130,11 @@ export const createMessageSchema = createInsertSchema(messagesTable).omit({
   created_at: true,
 }).extend({
   parent_id: z.string().nullish(),
+  // Accept the client's optimistic send time. Without it, offline-transactions
+  // replay stamps the row with the (much later) server insert time, so a
+  // message jumps position when it transitions optimistic→synced. Optional —
+  // falls back to the column's defaultNow() when the client omits it.
+  created_at: z.coerce.date().optional(),
 })
 export const updateMessageSchema = createUpdateSchema(messagesTable)
 

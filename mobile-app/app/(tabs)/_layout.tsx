@@ -5,6 +5,7 @@ import DrawerContent from "@/src/presentation/shared/components/DrawerContent"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { initBootstrapCollections, initProjectCollections } from "@/src/application/collections/init"
 import { initOfflineExecutor } from "@/src/infrastructure/offline/executor"
+import { initUploadManager } from "@/src/infrastructure/offline/upload-manager"
 import { resetAllOfflineActions } from "@/src/application/actions"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { colors } from "@/src/presentation/shared/colors"
@@ -60,6 +61,10 @@ export default function DrawerLayout() {
         // action references so the next call binds against the new executor.
         resetAllOfflineActions()
         await initOfflineExecutor()
+        // Upload manager: a separate service from the executor (binaries do not
+        // belong in the outbox). initUploadManager is idempotent, so re-running
+        // it on project switch is a no-op.
+        await initUploadManager()
         if (__DEV__) console.log(`[layout] Project collections + offline executor ready`)
         setProjectReady(true)
       })

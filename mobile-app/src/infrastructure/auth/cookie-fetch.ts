@@ -37,6 +37,20 @@ export async function getAuthCookieHeader(): Promise<string> {
 }
 
 /**
+ * Auth headers (session cookie + Origin) for requests that CANNOT go through
+ * createCookieFetch — e.g. FileSystem.downloadAsync / uploadAsync, which take
+ * a plain headers map and do their own native networking. Keeping this as the
+ * single header-builder means cookieFetch and the file-transfer paths can't
+ * drift apart on what auth headers they send.
+ */
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { Origin: ORIGIN }
+  const cookieHeader = await getAuthCookieHeader()
+  if (cookieHeader) headers.Cookie = cookieHeader
+  return headers
+}
+
+/**
  * Parses a raw Set-Cookie header string into a name=value pair.
  * Strips directives like Path, HttpOnly, SameSite, Expires, Max-Age, Domain.
  */
@@ -58,18 +72,12 @@ function parseSetCookieHeader(raw: string): { name: string; value: string } | nu
  */
 export function createCookieFetch(): typeof fetch {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    // 1. Load stored cookies and build Cookie header
-    const cookieMap = await loadCookies()
-    const cookieHeader = Object.entries(cookieMap)
-      .map(([k, v]) => `${k}=${v}`)
-      .join("; ")
-
+    // 1. Attach stored cookies + Origin (the latter so Better Auth's CSRF
+    //    check passes in React Native). Shared builder — see getAuthHeaders.
     const headers = new Headers(init?.headers)
-    if (cookieHeader) {
-      headers.set("Cookie", cookieHeader)
+    for (const [key, value] of Object.entries(await getAuthHeaders())) {
+      headers.set(key, value)
     }
-    // Inject Origin so Better Auth's CSRF check passes in React Native
-    headers.set("Origin", ORIGIN)
 
     // 2. Make the actual request
     const response = await fetch(input, { ...init, headers })
