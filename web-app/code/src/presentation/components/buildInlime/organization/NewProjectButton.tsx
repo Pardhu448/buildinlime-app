@@ -2,7 +2,7 @@ import { Plus, X } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useSession } from "%/infrastructure/auth/client";
-import { createProjectAction } from "%/application/actions/projects";
+import { projectsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 
 interface NewProjectFormData {
   name: string;
@@ -33,10 +33,12 @@ export function NewProjectButton() {
     setOfflineError(false);
     setIsSubmitting(true);
     try {
-      createProjectAction({
+      await projectsCollection.insert({
+        id: crypto.randomUUID(),
         name: formData.name,
         description: formData.description,
         owner_id: session.user.id,
+        created_at: new Date(),
       });
       setFormData({ name: "", description: "" });
       setIsPopupOpen(false);

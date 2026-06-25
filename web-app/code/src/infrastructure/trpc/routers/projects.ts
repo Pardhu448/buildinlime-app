@@ -22,18 +22,11 @@ export const projectsRouter = router({
 
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
-        // ON CONFLICT DO NOTHING — outbox retries become idempotent.
-        const [inserted] = await tx
+        const [newItem] = await tx
           .insert(projectsTable)
           .values(input)
-          .onConflictDoNothing()
           .returning()
-        if (inserted) return { item: inserted, txid }
-        const [existing] = await tx
-          .select()
-          .from(projectsTable)
-          .where(eq(projectsTable.id, input.id))
-        return { item: existing, txid }
+        return { item: newItem, txid }
       })
 
       return result

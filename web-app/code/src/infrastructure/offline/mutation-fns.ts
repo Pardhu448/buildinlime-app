@@ -84,23 +84,6 @@ const deleteTask: MutationFn = async ({ transaction }) => {
   }
 }
 
-// -------------------- projects --------------------
-
-const createProject: MutationFn = async ({ transaction }) => {
-  const { modified } = transaction.mutations[0]
-  const p = modified as Record<string, unknown>
-  try {
-    await trpc.projects.create.mutate({
-      id: p.id as string,
-      name: p.name as string,
-      description: p.description as string,
-      owner_id: p.owner_id as string,
-    })
-  } catch (err) {
-    wrapTrpcError(err)
-  }
-}
-
 // -------------------- messages --------------------
 
 const createMessage: MutationFn = async ({ transaction }) => {
@@ -217,8 +200,6 @@ export const mutationFns = {
   createTask,
   updateTask,
   deleteTask,
-  // projects
-  createProject,
   // messages
   createMessage,
   // resources

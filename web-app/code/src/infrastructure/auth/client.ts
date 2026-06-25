@@ -3,7 +3,6 @@ import { emailOTPClient } from "better-auth/client/plugins"
 import { disposePersistence } from "../persistence/browser-persistence"
 import { disposeOfflineExecutor } from "../offline/executor"
 import { resetTaskActions } from "../../application/actions/tasks"
-import { resetProjectActions } from "../../application/actions/projects"
 import { resetMessageActions } from "../../application/actions/messages"
 import { resetResourceActions } from "../../application/actions/resources"
 import { resetPropertyActions } from "../../application/actions/properties"
@@ -47,7 +46,6 @@ export async function signOutAndDispose(): Promise<void> {
   await authClient.signOut()
   disposeOfflineExecutor()
   resetTaskActions()
-  resetProjectActions()
   resetMessageActions()
   resetResourceActions()
   resetPropertyActions()
