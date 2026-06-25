@@ -31,6 +31,7 @@ interface NewChannelButtonProps {
 export function NewChannelButton({ buildUnitId, addPending, removePending, onTrpcComplete }: NewChannelButtonProps) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [duplicateError, setDuplicateError] = useState(false);
+  const [offlineError, setOfflineError] = useState(false);
   const [formData, setFormData] = useState<NewChannelFormData>({
     name: "Requirements",
     description: "",
@@ -56,6 +57,13 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
     e.preventDefault();
     if (!session?.user || !buildUnitId) return;
 
+    // Channels are created online-only. Surface a clear message and keep the
+    // form open instead of silently rolling back the optimistic insert.
+    if (!navigator.onLine) {
+      setOfflineError(true);
+      return;
+    }
+
     const payload = {
       id: crypto.randomUUID(),
       name: formData.name,
@@ -67,6 +75,7 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
 
     setFormData({ name: "Requirements", description: "" });
     setDuplicateError(false);
+    setOfflineError(false);
     setIsPopupOpen(false);
 
     addPending({ id: payload.id, name: payload.name, description: payload.description });
@@ -76,7 +85,13 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
       (err: Error) => {
         removePending(payload.id);
         setFormData({ name: payload.name, description: payload.description });
-        setDuplicateError(err.message.includes(`already exists`));
+        // If the connection dropped mid-request, explain that rather than
+        // showing a misleading duplicate-name error.
+        if (!navigator.onLine) {
+          setOfflineError(true);
+        } else {
+          setDuplicateError(err.message.includes(`already exists`));
+        }
         setIsPopupOpen(true);
       },
     );
@@ -87,6 +102,7 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+    setOfflineError(false);
     if (name === "name") {
       setDuplicateError(false);
       setFormData((prev) => ({ ...prev, name: value as NewChannelFormData["name"] }));
@@ -100,7 +116,11 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
   return (
     <>
       <button
-        onClick={() => setIsPopupOpen(true)}
+        onClick={() => {
+          setDuplicateError(false);
+          setOfflineError(false);
+          setIsPopupOpen(true);
+        }}
         className="bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
       >
         <Plus className="w-4 h-4" />
@@ -185,6 +205,14 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
                 />
               </div>
+
+              {/* Offline notice */}
+              {offlineError && (
+                <p className="text-sm text-red-600">
+                  Channels can&apos;t be created while offline. Reconnect to the
+                  internet and try again.
+                </p>
+              )}
 
               {/* Submit Button */}
               <button

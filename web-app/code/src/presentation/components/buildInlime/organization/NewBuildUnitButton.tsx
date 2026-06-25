@@ -22,6 +22,7 @@ interface NewBuildUnitButtonProps {
 export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }: NewBuildUnitButtonProps) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [duplicateError, setDuplicateError] = useState(false);
+  const [offlineError, setOfflineError] = useState(false);
   const [formData, setFormData] = useState<NewBuildUnitFormData>({
     name: "",
     description: "",
@@ -42,6 +43,13 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
     e.preventDefault();
     if (!session?.user || !projectId) return;
 
+    // Build units are created online-only. Surface a clear message and keep the
+    // form open instead of silently rolling back the optimistic insert.
+    if (!navigator.onLine) {
+      setOfflineError(true);
+      return;
+    }
+
     const payload = {
       id: crypto.randomUUID(),
       name: formData.name,
@@ -54,6 +62,7 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
     // Close modal immediately for instant feedback
     setFormData({ name: "", description: "" });
     setDuplicateError(false);
+    setOfflineError(false);
     setIsPopupOpen(false);
 
     // Register callback: success is a no-op (ProjectRoute detects Electric sync and
@@ -66,7 +75,13 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
       (err: Error) => {
         removePending(payload.id);
         setFormData({ name: payload.name, description: payload.description });
-        setDuplicateError(err.message.includes(`already exists`));
+        // If the connection dropped mid-request, explain that rather than
+        // showing a misleading duplicate-name error.
+        if (!navigator.onLine) {
+          setOfflineError(true);
+        } else {
+          setDuplicateError(err.message.includes(`already exists`));
+        }
         setIsPopupOpen(true);
       },
     );
@@ -78,6 +93,7 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
   ) => {
     const { name, value } = e.target;
     if (name === "name") setDuplicateError(false);
+    setOfflineError(false);
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -86,7 +102,11 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
   return (
     <>
       <button
-        onClick={() => setIsPopupOpen(true)}
+        onClick={() => {
+          setDuplicateError(false);
+          setOfflineError(false);
+          setIsPopupOpen(true);
+        }}
         className="bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
       >
         <Plus className="w-4 h-4" />
@@ -167,6 +187,14 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
                 />
               </div>
+
+              {/* Offline notice */}
+              {offlineError && (
+                <p className="text-sm text-red-600">
+                  Build units can&apos;t be created while offline. Reconnect to the
+                  internet and try again.
+                </p>
+              )}
 
               {/* Submit Button */}
               <button
