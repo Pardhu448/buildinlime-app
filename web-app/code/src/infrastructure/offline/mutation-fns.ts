@@ -20,7 +20,6 @@ const NON_RETRIABLE_TRPC_CODES = new Set([
   "UNAUTHORIZED",
   "FORBIDDEN",
   "NOT_FOUND",
-  "CONFLICT",
   "PRECONDITION_FAILED",
   "PAYLOAD_TOO_LARGE",
   "UNPROCESSABLE_CONTENT",
@@ -213,96 +212,6 @@ const updateTeam: MutationFn = async ({ transaction }) => {
   }
 }
 
-// -------------------- build units --------------------
-
-const createBuildUnit: MutationFn = async ({ transaction }) => {
-  const { modified } = transaction.mutations[0]
-  const b = modified as Record<string, unknown>
-  try {
-    await trpc.buildUnits.create.mutate({
-      id: b.id as string,
-      name: b.name as string,
-      description: (b.description as string | null) ?? null,
-      project_id: b.project_id as string,
-      owner_id: b.owner_id as string,
-    })
-  } catch (err) {
-    wrapTrpcError(err)
-  }
-}
-
-const updateBuildUnit: MutationFn = async ({ transaction }) => {
-  const { modified } = transaction.mutations[0]
-  const b = modified as Record<string, unknown>
-  try {
-    await trpc.buildUnits.update.mutate({
-      id: b.id as string,
-      data: {
-        name: b.name as string,
-        description: (b.description as string | null) ?? null,
-      },
-    })
-  } catch (err) {
-    wrapTrpcError(err)
-  }
-}
-
-const deleteBuildUnit: MutationFn = async ({ transaction }) => {
-  const { original } = transaction.mutations[0]
-  const b = original as Record<string, unknown>
-  try {
-    await trpc.buildUnits.delete.mutate({ id: b.id as string })
-  } catch (err) {
-    wrapTrpcError(err)
-  }
-}
-
-// -------------------- channels --------------------
-
-const createChannel: MutationFn = async ({ transaction }) => {
-  const { modified } = transaction.mutations[0]
-  const c = modified as Record<string, unknown>
-  try {
-    await trpc.channels.create.mutate({
-      id: c.id as string,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      name: c.name as any,
-      description: (c.description as string | null) ?? null,
-      buildunit_id: c.buildunit_id as string,
-      owner_id: c.owner_id as string,
-    })
-  } catch (err) {
-    wrapTrpcError(err)
-  }
-}
-
-const updateChannel: MutationFn = async ({ transaction }) => {
-  const { modified } = transaction.mutations[0]
-  const c = modified as Record<string, unknown>
-  try {
-    await trpc.channels.update.mutate({
-      id: c.id as string,
-      data: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        name: c.name as any,
-        description: (c.description as string | null) ?? null,
-      },
-    })
-  } catch (err) {
-    wrapTrpcError(err)
-  }
-}
-
-const deleteChannel: MutationFn = async ({ transaction }) => {
-  const { original } = transaction.mutations[0]
-  const c = original as Record<string, unknown>
-  try {
-    await trpc.channels.delete.mutate({ id: c.id as string })
-  } catch (err) {
-    wrapTrpcError(err)
-  }
-}
-
 export const mutationFns = {
   // tasks
   createTask,
@@ -320,12 +229,4 @@ export const mutationFns = {
   // teams
   createTeam,
   updateTeam,
-  // build units
-  createBuildUnit,
-  updateBuildUnit,
-  deleteBuildUnit,
-  // channels
-  createChannel,
-  updateChannel,
-  deleteChannel,
 }

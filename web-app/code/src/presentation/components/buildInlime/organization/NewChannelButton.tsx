@@ -3,8 +3,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useLiveQuery, eq } from "@tanstack/react-db";
 import { useSession } from "%/infrastructure/auth/client";
-import { buildUnitsCollection, projectsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
-import { createChannelAction } from "%/application/actions/channels";
+import { buildUnitsCollection, channelsCollection, projectsCollection, registerChannelInsertCallback } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 import type { PendingItem } from "%/presentation/hooks/use-pending-items";
 
 interface NewChannelFormData {
@@ -63,6 +62,7 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
       description: formData.description,
       buildunit_id: buildUnitId,
       owner_id: session.user.id,
+      created_at: new Date(),
     };
 
     setFormData({ name: "Requirements", description: "" });
@@ -70,21 +70,17 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
     setIsPopupOpen(false);
 
     addPending({ id: payload.id, name: payload.name, description: payload.description });
-
-    // Queue via @tanstack/offline-transactions. On NonRetriableError (e.g.
-    // duplicate channel name → CONFLICT) the optimistic insert is rolled back
-    // and we reopen the form so the user can retry.
-    const tx = createChannelAction(payload);
-    tx.isPersisted.promise.then(
+    registerChannelInsertCallback(
+      payload.id,
       () => onTrpcComplete(payload.id),
-      (err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err);
+      (err: Error) => {
         removePending(payload.id);
         setFormData({ name: payload.name, description: payload.description });
-        setDuplicateError(message.includes(`already exists`));
+        setDuplicateError(err.message.includes(`already exists`));
         setIsPopupOpen(true);
       },
     );
+    channelsCollection.insert(payload);
   };
 
   const handleInputChange = (

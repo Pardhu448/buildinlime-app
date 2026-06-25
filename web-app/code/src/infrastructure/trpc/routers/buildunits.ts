@@ -1,7 +1,7 @@
 import { router, authedProcedure, generateTxId } from "../lib/trpc"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
-import { eq, and, ne, ilike } from "drizzle-orm"
+import { eq, and, ilike } from "drizzle-orm"
 import {
   buildUnitsTable,
   projectsTable,
@@ -25,16 +25,13 @@ export const buildUnitsRouter = router({
         throw new TRPCError({ code: `FORBIDDEN`, message: `Only project owners can create build units` })
       }
 
-      // Prevent duplicate build unit names within the same project (case-insensitive).
-      // Exclude the same id so offline-transactions retries (which re-send the
-      // same row id) are not flagged as duplicates of themselves.
+      // Prevent duplicate build unit names within the same project (case-insensitive)
       const [duplicate] = await ctx.db
         .select({ id: buildUnitsTable.id })
         .from(buildUnitsTable)
         .where(and(
           eq(buildUnitsTable.project_id, input.project_id),
           ilike(buildUnitsTable.name, input.name),
-          ne(buildUnitsTable.id, input.id),
         ))
       if (duplicate) {
         throw new TRPCError({ code: `CONFLICT`, message: `A build unit named "${input.name}" already exists in this project` })
@@ -42,18 +39,11 @@ export const buildUnitsRouter = router({
 
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
-        // ON CONFLICT DO NOTHING — outbox retries become idempotent.
-        const [inserted] = await tx
+        const [newItem] = await tx
           .insert(buildUnitsTable)
           .values(input)
-          .onConflictDoNothing()
           .returning()
-        if (inserted) return { item: inserted, txid }
-        const [existing] = await tx
-          .select()
-          .from(buildUnitsTable)
-          .where(eq(buildUnitsTable.id, input.id))
-        return { item: existing, txid }
+        return { item: newItem, txid }
       })
 
       return result
