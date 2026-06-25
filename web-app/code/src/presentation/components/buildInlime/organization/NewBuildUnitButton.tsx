@@ -4,14 +4,14 @@ import type { FormEvent } from "react";
 import { useParams } from "@tanstack/react-router";
 import { useLiveQuery, eq } from "@tanstack/react-db";
 import { useSession } from "%/infrastructure/auth/client";
-import { projectsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
-import { createBuildUnitAction } from "%/application/actions/buildunits";
-import type { PendingBuildUnit } from "%/presentation/hooks/use-pending-build-units";
+import { projectsCollection, buildUnitsCollection, registerBuildUnitInsertCallback } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 
 interface NewBuildUnitFormData {
   name: string;
   description: string;
 }
+
+import type { PendingBuildUnit } from "%/presentation/hooks/use-pending-build-units";
 
 interface NewBuildUnitButtonProps {
   addPending: (item: PendingBuildUnit) => void;
@@ -22,6 +22,7 @@ interface NewBuildUnitButtonProps {
 export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }: NewBuildUnitButtonProps) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [duplicateError, setDuplicateError] = useState(false);
+  const [offlineError, setOfflineError] = useState(false);
   const [formData, setFormData] = useState<NewBuildUnitFormData>({
     name: "",
     description: "",
@@ -42,36 +43,49 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
     e.preventDefault();
     if (!session?.user || !projectId) return;
 
+    // Build units are created online-only. Surface a clear message and keep the
+    // form open instead of silently rolling back the optimistic insert.
+    if (!navigator.onLine) {
+      setOfflineError(true);
+      return;
+    }
+
     const payload = {
       id: crypto.randomUUID(),
       name: formData.name,
       description: formData.description,
       project_id: projectId,
       owner_id: session.user.id,
+      created_at: new Date(),
     };
 
     // Close modal immediately for instant feedback
     setFormData({ name: "", description: "" });
     setDuplicateError(false);
+    setOfflineError(false);
     setIsPopupOpen(false);
 
-    addPending({ id: payload.id, name: payload.name, description: payload.description ?? null });
-
-    // Queue via @tanstack/offline-transactions. On success the spinner is removed
-    // (ProjectRoute also detects Electric sync). On NonRetriableError (e.g.
-    // duplicate name → CONFLICT) the optimistic insert is rolled back and we
+    // Register callback: success is a no-op (ProjectRoute detects Electric sync and
+    // removes the spinner); on error the optimistic insert is rolled back and we
     // reopen the form so the user can retry.
-    const tx = createBuildUnitAction(payload);
-    tx.isPersisted.promise.then(
+    addPending({ id: payload.id, name: payload.name, description: payload.description ?? null });
+    registerBuildUnitInsertCallback(
+      payload.id,
       () => onTrpcComplete(payload.id),
-      (err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err);
+      (err: Error) => {
         removePending(payload.id);
         setFormData({ name: payload.name, description: payload.description });
-        setDuplicateError(message.includes(`already exists`));
+        // If the connection dropped mid-request, explain that rather than
+        // showing a misleading duplicate-name error.
+        if (!navigator.onLine) {
+          setOfflineError(true);
+        } else {
+          setDuplicateError(err.message.includes(`already exists`));
+        }
         setIsPopupOpen(true);
       },
     );
+    buildUnitsCollection.insert(payload);
   };
 
   const handleInputChange = (
@@ -79,6 +93,7 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
   ) => {
     const { name, value } = e.target;
     if (name === "name") setDuplicateError(false);
+    setOfflineError(false);
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -87,7 +102,11 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
   return (
     <>
       <button
-        onClick={() => setIsPopupOpen(true)}
+        onClick={() => {
+          setDuplicateError(false);
+          setOfflineError(false);
+          setIsPopupOpen(true);
+        }}
         className="bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
       >
         <Plus className="w-4 h-4" />
@@ -168,6 +187,14 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
                 />
               </div>
+
+              {/* Offline notice */}
+              {offlineError && (
+                <p className="text-sm text-red-600">
+                  Build units can&apos;t be created while offline. Reconnect to the
+                  internet and try again.
+                </p>
+              )}
 
               {/* Submit Button */}
               <button

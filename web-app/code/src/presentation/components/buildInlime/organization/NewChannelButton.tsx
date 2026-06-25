@@ -3,8 +3,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useLiveQuery, eq } from "@tanstack/react-db";
 import { useSession } from "%/infrastructure/auth/client";
-import { buildUnitsCollection, projectsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
-import { createChannelAction } from "%/application/actions/channels";
+import { buildUnitsCollection, channelsCollection, projectsCollection, registerChannelInsertCallback } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 import type { PendingItem } from "%/presentation/hooks/use-pending-items";
 
 interface NewChannelFormData {
@@ -32,6 +31,7 @@ interface NewChannelButtonProps {
 export function NewChannelButton({ buildUnitId, addPending, removePending, onTrpcComplete }: NewChannelButtonProps) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [duplicateError, setDuplicateError] = useState(false);
+  const [offlineError, setOfflineError] = useState(false);
   const [formData, setFormData] = useState<NewChannelFormData>({
     name: "Requirements",
     description: "",
@@ -57,40 +57,52 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
     e.preventDefault();
     if (!session?.user || !buildUnitId) return;
 
+    // Channels are created online-only. Surface a clear message and keep the
+    // form open instead of silently rolling back the optimistic insert.
+    if (!navigator.onLine) {
+      setOfflineError(true);
+      return;
+    }
+
     const payload = {
       id: crypto.randomUUID(),
       name: formData.name,
       description: formData.description,
       buildunit_id: buildUnitId,
       owner_id: session.user.id,
+      created_at: new Date(),
     };
 
     setFormData({ name: "Requirements", description: "" });
     setDuplicateError(false);
+    setOfflineError(false);
     setIsPopupOpen(false);
 
     addPending({ id: payload.id, name: payload.name, description: payload.description });
-
-    // Queue via @tanstack/offline-transactions. On NonRetriableError (e.g.
-    // duplicate channel name → CONFLICT) the optimistic insert is rolled back
-    // and we reopen the form so the user can retry.
-    const tx = createChannelAction(payload);
-    tx.isPersisted.promise.then(
+    registerChannelInsertCallback(
+      payload.id,
       () => onTrpcComplete(payload.id),
-      (err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err);
+      (err: Error) => {
         removePending(payload.id);
         setFormData({ name: payload.name, description: payload.description });
-        setDuplicateError(message.includes(`already exists`));
+        // If the connection dropped mid-request, explain that rather than
+        // showing a misleading duplicate-name error.
+        if (!navigator.onLine) {
+          setOfflineError(true);
+        } else {
+          setDuplicateError(err.message.includes(`already exists`));
+        }
         setIsPopupOpen(true);
       },
     );
+    channelsCollection.insert(payload);
   };
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+    setOfflineError(false);
     if (name === "name") {
       setDuplicateError(false);
       setFormData((prev) => ({ ...prev, name: value as NewChannelFormData["name"] }));
@@ -104,7 +116,11 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
   return (
     <>
       <button
-        onClick={() => setIsPopupOpen(true)}
+        onClick={() => {
+          setDuplicateError(false);
+          setOfflineError(false);
+          setIsPopupOpen(true);
+        }}
         className="bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
       >
         <Plus className="w-4 h-4" />
@@ -189,6 +205,14 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
                 />
               </div>
+
+              {/* Offline notice */}
+              {offlineError && (
+                <p className="text-sm text-red-600">
+                  Channels can&apos;t be created while offline. Reconnect to the
+                  internet and try again.
+                </p>
+              )}
 
               {/* Submit Button */}
               <button

@@ -2,7 +2,7 @@ import { Plus, X } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useSession } from "%/infrastructure/auth/client";
-import { createProjectAction } from "%/application/actions/projects";
+import { projectsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 
 interface NewProjectFormData {
   name: string;
@@ -12,6 +12,7 @@ interface NewProjectFormData {
 export function NewProjectButton() {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [offlineError, setOfflineError] = useState(false);
   const [formData, setFormData] = useState<NewProjectFormData>({
     name: "",
     description: "",
@@ -22,12 +23,22 @@ export function NewProjectButton() {
     e.preventDefault();
     if (!session?.user) return;
 
+    // Projects can only be created while online. Surface a clear message and
+    // keep the form open instead of queueing the creation offline.
+    if (!navigator.onLine) {
+      setOfflineError(true);
+      return;
+    }
+
+    setOfflineError(false);
     setIsSubmitting(true);
     try {
-      createProjectAction({
+      await projectsCollection.insert({
+        id: crypto.randomUUID(),
         name: formData.name,
         description: formData.description,
         owner_id: session.user.id,
+        created_at: new Date(),
       });
       setFormData({ name: "", description: "" });
       setIsPopupOpen(false);
@@ -40,13 +51,17 @@ export function NewProjectButton() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
+    setOfflineError(false);
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   return (
     <>
       <button
-        onClick={() => setIsPopupOpen(true)}
+        onClick={() => {
+          setOfflineError(false);
+          setIsPopupOpen(true);
+        }}
         className="bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
       >
         <Plus className="w-4 h-4" />
@@ -122,6 +137,14 @@ export function NewProjectButton() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
                 />
               </div>
+
+              {/* Offline notice */}
+              {offlineError && (
+                <p className="text-sm text-red-600">
+                  Projects can&apos;t be created while offline. Reconnect to the
+                  internet and try again.
+                </p>
+              )}
 
               {/* Submit Button */}
               <button
