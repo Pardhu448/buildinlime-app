@@ -123,7 +123,7 @@ export function TaskPage({
             <ChannelHeader icon={Hammer} title={taskName} description={taskDescription} />
 
             {/* Properties inline */}
-            <PropertiesInline properties={properties} buildUnitId={taskId} entity="task" />
+            <PropertiesInline properties={properties} entityId={taskId} entity="task" channelId={channelId} />
 
             {/* Assigned To */}
             <AssignedToSection
@@ -172,7 +172,7 @@ export function TaskPage({
                       }
                     </button>
                     {taskPropsOpen && (
-                      <PropertiesPanel properties={properties} buildUnitId={taskId} hideLabel />
+                      <PropertiesPanel properties={properties} entityId={taskId} hideLabel hideAddButton />
                     )}
                   </div>
                 )}

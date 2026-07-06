@@ -138,7 +138,7 @@ export function ChannelPage({
             <ChannelHeader icon={icon} title={title} description={description} />
 
             {/* Properties inline */}
-            <PropertiesInline properties={properties} buildUnitId={channelId} entity="channel" />
+            <PropertiesInline properties={properties} entityId={channelId} entity="channel" />
 
             {/* Add Task + Add People */}
             <div className="relative">
@@ -245,7 +245,7 @@ export function ChannelPage({
                         }
                       </button>
                       {channelPropsOpen && (
-                        <PropertiesPanel properties={properties} buildUnitId={channelId} hideLabel />
+                        <PropertiesPanel properties={properties} entityId={channelId} hideLabel hideAddButton />
                       )}
                     </div>
                     {/* Build Unit sub-section */}
@@ -261,7 +261,7 @@ export function ChannelPage({
                         }
                       </button>
                       {buildUnitPropsOpen && (
-                        <PropertiesPanel properties={buildUnitProperties} buildUnitId={buildUnitId} hideAddButton label={buildUnitName} />
+                        <PropertiesPanel properties={buildUnitProperties} entityId={buildUnitId} hideAddButton label={buildUnitName} />
                       )}
                     </div>
                   </div>

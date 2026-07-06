@@ -107,6 +107,13 @@ export const propertiesTable = pgTable(`properties`, {
   type: jsonb(`type`).$type<typeof PROPERTY_TYPES[number]>().notNull(),
   entity: jsonb(`entity`).$type<typeof ENTITY_TYPES[number]>().notNull(),
   entity_id: text(`entity_id`).notNull(),
+  // Denormalized channel scope. Set for channel- and task-entity properties
+  // (channel_id = the channel itself, or the task's channel); NULL for
+  // project/build-unit properties. Lets the properties shape sync channel and
+  // task properties by channel_id — the same scope as tasks/messages — instead
+  // of a per-task id snapshot, so a new task's properties in a visible channel
+  // are covered with no collection rebuild.
+  channel_id: text(`channel_id`).references(() => channelsTable.id, { onDelete: `cascade` }),
   status_value: jsonb(`status_value`).$type<typeof STATUS_VALUES[number]>(),
   priority_value: jsonb(`priority_value`).$type<typeof PRIORITY_VALUES[number]>(),
   target_date: text(`target_date`),
@@ -158,6 +165,7 @@ export const selectPropertySchema = createSelectSchema(propertiesTable).extend({
   start_date: z.string().nullish(),
   pending_task: z.string().nullish(),
   label_value: z.string().nullish(),
+  channel_id: z.string().nullish(),
 })
 export const createPropertySchema = createInsertSchema(propertiesTable).omit({ created_at: true })
 export const updatePropertySchema = createUpdateSchema(propertiesTable)

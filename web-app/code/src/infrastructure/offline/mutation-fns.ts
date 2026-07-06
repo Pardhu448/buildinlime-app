@@ -135,6 +135,9 @@ const createProperty: MutationFn = async ({ transaction }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       entity: p.entity as any,
       entity_id: p.entity_id as string,
+      // Denormalized channel scope — must reach the server or channel/task
+      // properties would persist with a null channel_id and never sync back.
+      channel_id: (p.channel_id as string | null) ?? null,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       status_value: (p.status_value ?? null) as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
