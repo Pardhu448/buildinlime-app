@@ -99,10 +99,14 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
   )
 }
 
-// Bumped 1 → 2: the properties row shape gained `channel_id` and the shape
-// scope changed (channel/task properties now sync by channel_id instead of a
-// member_task_ids snapshot), so the OPFS cache must be invalidated.
-const PROPERTIES_SCHEMA_VERSION = 2
+// MUST stay equal to every other collection's schema version. The persistence
+// coordinator holds ONE adapter shared across all collections, and adapters are
+// cached/keyed by schemaVersion — a different value here spawns a second adapter
+// that overwrites the coordinator's, which then drives the other collections'
+// offset/data through the wrong namespace and strands them on reload (Electric
+// reports "up-to-date" but OPFS has no rows). The nullable channel_id addition
+// is re-synced from Electric, so no cache-invalidation bump is needed.
+const PROPERTIES_SCHEMA_VERSION = 1
 
 function _makePropertiesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
