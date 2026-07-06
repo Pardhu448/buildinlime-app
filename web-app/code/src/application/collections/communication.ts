@@ -99,7 +99,10 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
   )
 }
 
-const PROPERTIES_SCHEMA_VERSION = 1
+// Bumped 1 → 2: the properties row shape gained `channel_id` and the shape
+// scope changed (channel/task properties now sync by channel_id instead of a
+// member_task_ids snapshot), so the OPFS cache must be invalidated.
+const PROPERTIES_SCHEMA_VERSION = 2
 
 function _makePropertiesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -107,14 +110,12 @@ function _makePropertiesCollection(
     memberProjectIds: string[]
     memberBuildunitIds: string[]
     memberChannelIds: string[]
-    memberTaskIds: string[]
   },
 ) {
   const url = new URL(`/api/properties`, origin)
   if (params.memberProjectIds.length > 0) url.searchParams.set(`member_project_ids`, params.memberProjectIds.join(`,`))
   if (params.memberBuildunitIds.length > 0) url.searchParams.set(`member_buildunit_ids`, params.memberBuildunitIds.join(`,`))
   if (params.memberChannelIds.length > 0) url.searchParams.set(`member_channel_ids`, params.memberChannelIds.join(`,`))
-  if (params.memberTaskIds.length > 0) url.searchParams.set(`member_task_ids`, params.memberTaskIds.join(`,`))
   return createCollection(
     persistedCollectionOptions({
       ...electricCollectionOptions({
@@ -196,14 +197,13 @@ export async function initializeCommunicationCollections(params: {
   if (import.meta.env.DEV) console.log(`[OPFS:comm] Collections created in ${(performance.now() - t0).toFixed(0)}ms`)
 }
 
-// Must be called AFTER tasksCollection has been preloaded so task IDs are known.
-// Task IDs are a snapshot — new tasks created after load won't have their
-// properties stream until the page is reloaded.
+// Properties sync by membership id sets only (project/build-unit via entity_id,
+// channel/task via the denormalized channel_id), so there is no longer a task-id
+// dependency — this can init alongside the other collections.
 export async function initializePropertiesCollection(params: {
   memberProjectIds: string[]
   memberBuildunitIds: string[]
   memberChannelIds: string[]
-  memberTaskIds: string[]
 }) {
   const { persistence } = await getPersistence()
   propertiesCollection = _makePropertiesCollection(persistence, params)

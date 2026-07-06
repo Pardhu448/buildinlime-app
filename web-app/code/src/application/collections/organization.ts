@@ -56,6 +56,57 @@ export async function initializeMembershipsCollection() {
 }
 
 // ---------------------------------------------------------------------------
+// Channel-members (roster) collection — a read-only view of every active
+// membership for the channels the user can see. Shares the memberships table
+// and schema with the self stream above, but syncs a DIFFERENT Electric shape
+// (/api/channel-members, filtered by baked channel_ids derived from the
+// already-synced self-membership rows). Used only for roster display
+// (member lists, add/remove UI, assignee pickers). No mutation handlers — the
+// membership table is written via the channels tRPC router. Recreated by the
+// membership-change trigger when the visible channel set changes (Phase 4).
+// ---------------------------------------------------------------------------
+
+const CHANNEL_MEMBERS_SCHEMA_VERSION = 1
+
+function _makeChannelMembersCollection(
+  persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
+  channelIds: string[],
+) {
+  const url = new URL(`/api/channel-members`, origin)
+  if (channelIds.length > 0) url.searchParams.set(`channel_ids`, channelIds.join(`,`))
+  return createCollection(
+    persistedCollectionOptions({
+      ...electricCollectionOptions({
+        id: `channel-members`,
+        shapeOptions: {
+          url: url.toString(),
+          onError: retryOnError,
+          parser: {
+            timestamptz: (date: string) => new Date(date),
+          },
+        },
+        schema: electricMembershipSchema,
+        getKey: (item) => item.id,
+      }),
+      persistence,
+      schemaVersion: CHANNEL_MEMBERS_SCHEMA_VERSION,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any,
+  )
+}
+
+// Deferred export — initialized by initializeChannelMembersCollection().
+export let channelMembersCollection: ReturnType<typeof _makeChannelMembersCollection> = null!
+
+export async function initializeChannelMembersCollection(params: { channelIds: string[] }) {
+  if (import.meta.env.DEV) console.log(`[OPFS:channel-members] Initializing persisted collection…`)
+  const t0 = performance.now()
+  const { persistence } = await getPersistence()
+  channelMembersCollection = _makeChannelMembersCollection(persistence, params.channelIds)
+  if (import.meta.env.DEV) console.log(`[OPFS:channel-members] Collection created in ${(performance.now() - t0).toFixed(0)}ms`)
+}
+
+// ---------------------------------------------------------------------------
 // Factory functions — collections are created AFTER memberships load so that
 // membership-derived IDs can be baked into the shape URLs.  This eliminates
 // the per-poll membership table scan on the server side.

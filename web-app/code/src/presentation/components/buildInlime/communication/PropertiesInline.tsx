@@ -9,8 +9,14 @@ import { useSession } from "%/infrastructure/auth/client";
 export interface PropertiesInlineProps {
   properties: Property[];
   onAddProperty?: () => void;
-  buildUnitId: string;
-  entity?: typeof ENTITY_TYPES[number];
+  entityId: string;
+  // The entity these properties belong to. Required so a caller can never
+  // silently fall back to "buildUnit" and mis-scope a channel/task property.
+  entity: typeof ENTITY_TYPES[number];
+  // The enclosing channel's id. Required only for task-entity properties, whose
+  // denormalized channel_id must be the task's channel (channel-entity
+  // properties derive it from entity_id; build-unit/project have none).
+  channelId?: string;
 }
 
 // Short labels shown inside inline pills
@@ -139,7 +145,7 @@ const DEFAULT_VALUE_STATE: ValueState = {
 
 const VISIBLE_LIMIT = 4;
 
-export function PropertiesInline({ properties, onAddProperty, buildUnitId, entity = "buildUnit" }: PropertiesInlineProps) {
+export function PropertiesInline({ properties, onAddProperty, entityId, entity, channelId }: PropertiesInlineProps) {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedType, setSelectedType] = useState<typeof PROPERTY_TYPES[number]>("status");
@@ -251,7 +257,7 @@ export function PropertiesInline({ properties, onAddProperty, buildUnitId, entit
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!session?.user || !buildUnitId) return;
+    if (!session?.user || !entityId) return;
     if (existingTypes.has(selectedType)) return;
 
     setIsSubmitting(true);
@@ -260,7 +266,7 @@ export function PropertiesInline({ properties, onAddProperty, buildUnitId, entit
         id: crypto.randomUUID(),
         type: selectedType,
         entity: entity,
-        entity_id: buildUnitId,
+        entity_id: entityId,
         created_at: new Date(),
         status_value: undefined as typeof STATUS_VALUES[number] | undefined,
         priority_value: undefined as typeof PRIORITY_VALUES[number] | undefined,
@@ -297,6 +303,13 @@ export function PropertiesInline({ properties, onAddProperty, buildUnitId, entit
         type: base.type,
         entity: base.entity,
         entity_id: base.entity_id,
+        // Denormalized channel scope for the properties shape: the channel
+        // itself for channel props, the task's channel for task props, null for
+        // build-unit/project props.
+        channel_id:
+          entity === "channel" ? base.entity_id
+          : entity === "task" ? (channelId ?? null)
+          : null,
         status_value: base.status_value ?? null,
         priority_value: base.priority_value ?? null,
         target_date: base.target_date ?? null,

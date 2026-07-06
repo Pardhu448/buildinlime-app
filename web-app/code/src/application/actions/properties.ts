@@ -11,6 +11,10 @@ export type CreatePropertyInput = {
   type: string
   entity: string
   entity_id: string
+  // Denormalized channel scope: the channel itself for channel-entity
+  // properties, the task's channel for task-entity properties, null for
+  // project/build-unit properties. Drives the channel-scoped properties shape.
+  channel_id?: string | null
   status_value?: string | null
   priority_value?: string | null
   target_date?: string | null

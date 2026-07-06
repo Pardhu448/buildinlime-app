@@ -1,0 +1,2 @@
+ALTER TABLE "properties" ADD COLUMN "channel_id" text;--> statement-breakpoint
+ALTER TABLE "properties" ADD CONSTRAINT "properties_channel_id_channels_id_fk" FOREIGN KEY ("channel_id") REFERENCES "public"."channels"("id") ON DELETE cascade ON UPDATE no action;

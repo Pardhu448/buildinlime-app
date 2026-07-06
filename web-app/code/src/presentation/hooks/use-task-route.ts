@@ -3,7 +3,7 @@ import { useSession } from '%/infrastructure/auth/client'
 import {
   tasksCollection,
   propertiesCollection,
-  membershipsCollection,
+  channelMembersCollection,
 } from '%/infrastructure/database/tanstack-db-electric/admincollections'
 import { unwrapJsonb } from '%/presentation/lib/utils'
 import type { Property } from '%/domain/communication/types'
@@ -32,7 +32,7 @@ export function useTaskRoute(channelId: string, taskName: string) {
   )
 
   const { data: channelMembershipsData } = useLiveQuery(
-    (q) => q.from({ membershipsCollection }).where(({ membershipsCollection: m }) => eq(m.channel_id, channelId)),
+    (q) => q.from({ channelMembersCollection }).where(({ channelMembersCollection: m }) => eq(m.channel_id, channelId)),
     [channelId]
   )
 

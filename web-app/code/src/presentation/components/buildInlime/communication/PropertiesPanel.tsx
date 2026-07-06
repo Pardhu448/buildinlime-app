@@ -8,7 +8,7 @@ import { useSession } from "%/infrastructure/auth/client";
 
 export interface PropertiesPanelProps {
   properties: Property[];
-  buildUnitId: string;
+  entityId: string;
   hideAddButton?: boolean;
   hideLabel?: boolean;
   label?: string;
@@ -152,7 +152,7 @@ const DEFAULT_VALUE_STATE: ValueState = {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function PropertiesPanel({ properties, buildUnitId, hideAddButton = false, hideLabel = false, label = "Properties" }: PropertiesPanelProps) {
+export function PropertiesPanel({ properties, entityId, hideAddButton = false, hideLabel = false, label = "Properties" }: PropertiesPanelProps) {
   const [isPopupOpen, setIsPopupOpen]   = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedType, setSelectedType] = useState<typeof PROPERTY_TYPES[number]>("status");
@@ -176,7 +176,7 @@ export function PropertiesPanel({ properties, buildUnitId, hideAddButton = false
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!session?.user || !buildUnitId) return;
+    if (!session?.user || !entityId) return;
     if (existingTypes.has(selectedType)) return;
 
     setIsSubmitting(true);
@@ -185,7 +185,7 @@ export function PropertiesPanel({ properties, buildUnitId, hideAddButton = false
         id:             crypto.randomUUID(),
         type:           selectedType,
         entity:         "buildUnit" as const,
-        entity_id:      buildUnitId,
+        entity_id:      entityId,
         created_at:     new Date(),
         status_value:   undefined as typeof STATUS_VALUES[number]   | undefined,
         priority_value: undefined as typeof PRIORITY_VALUES[number] | undefined,

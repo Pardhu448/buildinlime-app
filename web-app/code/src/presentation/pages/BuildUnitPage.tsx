@@ -53,7 +53,7 @@ export function BuildUnitPage({ projectId, buildUnitName, buildUnitId, projectNa
               />
 
               {/* Properties inline */}
-              {<PropertiesInline properties={dbProperties ?? []} buildUnitId={buildUnitId} />}
+              {<PropertiesInline properties={dbProperties ?? []} entityId={buildUnitId} entity="buildUnit" />}
 
               {/* Resources */}
               {/* <ResourceDisplay
@@ -81,7 +81,7 @@ export function BuildUnitPage({ projectId, buildUnitName, buildUnitId, projectNa
                 {/* Properties */}
                 <PropertiesPanel
                   properties={dbProperties ?? []}
-                  buildUnitId={buildUnitId}
+                  entityId={buildUnitId}
                 />
 
                 {/* Activity */}
