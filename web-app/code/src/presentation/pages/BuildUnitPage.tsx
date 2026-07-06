@@ -82,6 +82,7 @@ export function BuildUnitPage({ projectId, buildUnitName, buildUnitId, projectNa
                 <PropertiesPanel
                   properties={dbProperties ?? []}
                   entityId={buildUnitId}
+                  hideAddButton
                 />
 
                 {/* Activity */}
