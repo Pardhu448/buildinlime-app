@@ -15,6 +15,13 @@
       "when": 1783345271870,
       "tag": "0001_striped_punisher",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783362775307,
+      "tag": "0002_slow_king_bedlam",
+      "breakpoints": true
     }
   ]
 }

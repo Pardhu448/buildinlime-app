@@ -114,6 +114,11 @@ export const propertiesTable = pgTable(`properties`, {
   // of a per-task id snapshot, so a new task's properties in a visible channel
   // are covered with no collection rebuild.
   channel_id: text(`channel_id`).references(() => channelsTable.id, { onDelete: `cascade` }),
+  // The user who created the property. Acts as an owner escape hatch in the
+  // properties shape (OR createdby_id = me), so properties on an entity you own
+  // but that has no membership yet — e.g. a build-unit/project with no channel —
+  // still sync. Mirrors the `owner_id = me` clause on the entity shapes.
+  createdby_id: text(`createdby_id`).references(() => users.id, { onDelete: `cascade` }),
   status_value: jsonb(`status_value`).$type<typeof STATUS_VALUES[number]>(),
   priority_value: jsonb(`priority_value`).$type<typeof PRIORITY_VALUES[number]>(),
   target_date: text(`target_date`),
@@ -166,6 +171,7 @@ export const selectPropertySchema = createSelectSchema(propertiesTable).extend({
   pending_task: z.string().nullish(),
   label_value: z.string().nullish(),
   channel_id: z.string().nullish(),
+  createdby_id: z.string().nullish(),
 })
 export const createPropertySchema = createInsertSchema(propertiesTable).omit({ created_at: true })
 export const updatePropertySchema = createUpdateSchema(propertiesTable)

@@ -33,10 +33,14 @@ const serve = async ({ request }: { request: Request }) => {
   if (channelIds.length > 0) {
     clauses.push(`channel_id = ANY(ARRAY[${channelIds.map(id => `'${id}'`).join(`,`)}]::text[])`)
   }
+  // Owner escape hatch (always present, session-derived): properties YOU created
+  // sync even on an entity with no membership yet — e.g. a build-unit or project
+  // that has no channel. Mirrors the `owner_id = me` clause on the entity shapes.
+  clauses.push(`createdby_id = '${session.user.id}'`)
 
   const originUrl = prepareElectricUrl(request.url)
   originUrl.searchParams.set(`table`, `properties`)
-  originUrl.searchParams.set(`where`, clauses.length === 0 ? `1 = 0` : clauses.join(` OR `))
+  originUrl.searchParams.set(`where`, clauses.join(` OR `))
 
   return proxyElectricRequest(originUrl)
 }

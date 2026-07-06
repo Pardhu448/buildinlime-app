@@ -15,9 +15,12 @@ export const propertiesRouter = router({
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
         // ON CONFLICT DO NOTHING — outbox retries become idempotent.
+        // createdby_id is stamped server-side (never trusted from the client)
+        // so the properties shape's `OR createdby_id = me` owner escape hatch is
+        // reliable.
         const [inserted] = await tx
           .insert(propertiesTable)
-          .values(input)
+          .values({ ...input, createdby_id: ctx.session.user.id })
           .onConflictDoNothing()
           .returning()
         if (inserted) return { item: inserted, txid }
