@@ -97,7 +97,7 @@ export async function handleFileUpload(request: Request): Promise<Response> {
       )
       const txid = parseInt(txidResult.rows[0]?.txid as string, 10)
 
-      const [resource] = await tx
+      const [inserted] = await tx
         .insert(resourcesTable)
         .values({
           id: resourceId,
@@ -113,16 +113,34 @@ export async function handleFileUpload(request: Request): Promise<Response> {
           project_id: projectId,
           createdby_id: session.user.id,
         })
+        .onConflictDoNothing()
         .returning()
 
-      await tx.insert(resourcesRawTable).values({
-        id: rawId,
-        resource_id: resourceId,
-        storage_path: storagePath,
-        original_filename: originalFilename,
-        mime_type: mimeType,
-        file_size_bytes: fileSizeBytes,
-      })
+      // Idempotent retry: a prior attempt may have already committed this
+      // resource — the client never received the 201 and retried, or a remount
+      // / reconnect re-fired the upload. onConflictDoNothing turns the duplicate
+      // into a no-op; we reuse the existing row and skip the raw insert rather
+      // than PK-conflicting. The old behavior threw here → 500 → the catch
+      // deleted the file → the pending entry stayed "failed" next to the already
+      // synced resource (the reported double entry).
+      let resource = inserted
+      if (resource) {
+        await tx.insert(resourcesRawTable).values({
+          id: rawId,
+          resource_id: resourceId,
+          storage_path: storagePath,
+          original_filename: originalFilename,
+          mime_type: mimeType,
+          file_size_bytes: fileSizeBytes,
+        })
+      } else {
+        const [existing] = await tx
+          .select()
+          .from(resourcesTable)
+          .where(eq(resourcesTable.id, resourceId))
+          .limit(1)
+        resource = existing
+      }
 
       return { resource, txid }
     })
