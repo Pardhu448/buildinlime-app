@@ -1,9 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { auth } from "../../../infrastructure/auth/server"
 import { prepareElectricUrl, proxyElectricRequest } from "../../../infrastructure/database/electric-proxy"
-import { db } from "../../../infrastructure/database/connection"
-import { membershipTable, channelsTable } from "../../../infrastructure/database/schema/admin-schema"
-import { eq, and } from "drizzle-orm"
 
 const serve = async ({ request }: { request: Request }) => {
   const session = await auth.api.getSession({ headers: request.headers })
@@ -14,35 +11,25 @@ const serve = async ({ request }: { request: Request }) => {
     })
   }
 
-  // Find channels the user belongs to OR owns
-  const [userMemberships, ownedChannels] = await Promise.all([
-    db
-      .select({ channel_id: membershipTable.channel_id })
-      .from(membershipTable)
-      .where(and(
-        eq(membershipTable.user_id, session.user.id),
-        eq(membershipTable.member_flag, true)
-      )),
-    db
-      .select({ id: channelsTable.id })
-      .from(channelsTable)
-      .where(eq(channelsTable.owner_id, session.user.id)),
-  ])
-
-  const channelIds = [...new Set([
-    ...userMemberships.map(m => m.channel_id),
-    ...ownedChannels.map(c => c.id),
-  ])]
-  if (channelIds.length === 0) {
-    return new Response(`[]`, { status: 200, headers: { "content-type": "application/json" } })
-  }
-
-  // Return all active memberships for those channels (all members, not just current user)
+  // STABLE self-membership stream.
+  //
+  // The where clause depends only on session.user.id — a value that never
+  // changes for the life of the session — so it is byte-identical on every
+  // long-poll. That keeps Electric's shape handle stable (no churn / 409
+  // must-refetch), and ANY new membership row for this user, on ANY channel
+  // (including one they were just added to), matches immediately and streams
+  // in live. This is the bootstrap source that drives membership-derived
+  // visibility and the downstream recreation trigger.
+  //
+  // Roster display ("who else is in this channel", i.e. OTHER users' rows) is
+  // served separately by /api/channel-members so this hot path needs no DB
+  // query. session.user.id is server-issued, same trust level as the existing
+  // `owner_id = '${session.user.id}'` interpolation in the other shape routes.
   const originUrl = prepareElectricUrl(request.url)
   originUrl.searchParams.set(`table`, `memberships`)
   originUrl.searchParams.set(
     `where`,
-    `channel_id = ANY(ARRAY[${channelIds.map(id => `'${id}'`).join(`,`)}]::text[]) AND member_flag = true`
+    `user_id = '${session.user.id}' AND member_flag = true`,
   )
 
   return proxyElectricRequest(originUrl)

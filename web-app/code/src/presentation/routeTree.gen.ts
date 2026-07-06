@@ -21,6 +21,7 @@ import { Route as ApiProjectsRouteImport } from './routes/api/projects'
 import { Route as ApiMessagesRouteImport } from './routes/api/messages'
 import { Route as ApiMembershipsRouteImport } from './routes/api/memberships'
 import { Route as ApiChannelsRouteImport } from './routes/api/channels'
+import { Route as ApiChannelMembersRouteImport } from './routes/api/channel-members'
 import { Route as ApiBuildunitsRouteImport } from './routes/api/buildunits'
 import { Route as AuthenticatedMyTasksRouteImport } from './routes/_authenticated/my-tasks'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
@@ -94,6 +95,11 @@ const ApiMembershipsRoute = ApiMembershipsRouteImport.update({
 const ApiChannelsRoute = ApiChannelsRouteImport.update({
   id: '/api/channels',
   path: '/api/channels',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiChannelMembersRoute = ApiChannelMembersRouteImport.update({
+  id: '/api/channel-members',
+  path: '/api/channel-members',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiBuildunitsRoute = ApiBuildunitsRouteImport.update({
@@ -193,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/inbox': typeof AuthenticatedInboxRoute
   '/my-tasks': typeof AuthenticatedMyTasksRoute
   '/api/buildunits': typeof ApiBuildunitsRoute
+  '/api/channel-members': typeof ApiChannelMembersRoute
   '/api/channels': typeof ApiChannelsRoute
   '/api/memberships': typeof ApiMembershipsRoute
   '/api/messages': typeof ApiMessagesRoute
@@ -221,6 +228,7 @@ export interface FileRoutesByTo {
   '/inbox': typeof AuthenticatedInboxRoute
   '/my-tasks': typeof AuthenticatedMyTasksRoute
   '/api/buildunits': typeof ApiBuildunitsRoute
+  '/api/channel-members': typeof ApiChannelMembersRoute
   '/api/channels': typeof ApiChannelsRoute
   '/api/memberships': typeof ApiMembershipsRoute
   '/api/messages': typeof ApiMessagesRoute
@@ -248,6 +256,7 @@ export interface FileRoutesById {
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
   '/_authenticated/my-tasks': typeof AuthenticatedMyTasksRoute
   '/api/buildunits': typeof ApiBuildunitsRoute
+  '/api/channel-members': typeof ApiChannelMembersRoute
   '/api/channels': typeof ApiChannelsRoute
   '/api/memberships': typeof ApiMembershipsRoute
   '/api/messages': typeof ApiMessagesRoute
@@ -278,6 +287,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/my-tasks'
     | '/api/buildunits'
+    | '/api/channel-members'
     | '/api/channels'
     | '/api/memberships'
     | '/api/messages'
@@ -306,6 +316,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/my-tasks'
     | '/api/buildunits'
+    | '/api/channel-members'
     | '/api/channels'
     | '/api/memberships'
     | '/api/messages'
@@ -332,6 +343,7 @@ export interface FileRouteTypes {
     | '/_authenticated/inbox'
     | '/_authenticated/my-tasks'
     | '/api/buildunits'
+    | '/api/channel-members'
     | '/api/channels'
     | '/api/memberships'
     | '/api/messages'
@@ -360,6 +372,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   ApiBuildunitsRoute: typeof ApiBuildunitsRoute
+  ApiChannelMembersRoute: typeof ApiChannelMembersRoute
   ApiChannelsRoute: typeof ApiChannelsRoute
   ApiMembershipsRoute: typeof ApiMembershipsRoute
   ApiMessagesRoute: typeof ApiMessagesRoute
@@ -457,6 +470,13 @@ declare module '@tanstack/react-router' {
       path: '/api/channels'
       fullPath: '/api/channels'
       preLoaderRoute: typeof ApiChannelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/channel-members': {
+      id: '/api/channel-members'
+      path: '/api/channel-members'
+      fullPath: '/api/channel-members'
+      preLoaderRoute: typeof ApiChannelMembersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/buildunits': {
@@ -659,6 +679,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   ApiBuildunitsRoute: ApiBuildunitsRoute,
+  ApiChannelMembersRoute: ApiChannelMembersRoute,
   ApiChannelsRoute: ApiChannelsRoute,
   ApiMembershipsRoute: ApiMembershipsRoute,
   ApiMessagesRoute: ApiMessagesRoute,

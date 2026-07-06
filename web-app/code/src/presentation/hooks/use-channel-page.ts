@@ -2,7 +2,7 @@ import { useState } from "react"
 import type { FormEvent } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { useLiveQuery, eq } from "@tanstack/react-db"
-import { tasksCollection, channelsCollection, usersCollection, membershipsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
+import { tasksCollection, channelsCollection, usersCollection, channelMembersCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
 import { trpc } from "%/infrastructure/trpc/lib/trpc-client"
 import { useSession } from "%/infrastructure/auth/client"
 import { createTaskAction } from "%/application/actions/tasks"
@@ -33,7 +33,7 @@ export function useChannelPage(channelId: string, buildUnitId: string, projectId
   const { data: allUsers } = useLiveQuery((q) => q.from({ usersCollection }), [])
 
   const { data: channelMemberships } = useLiveQuery(
-    (q) => q.from({ membershipsCollection }).where(({ membershipsCollection: m }) => eq(m.channel_id, channelId)),
+    (q) => q.from({ channelMembersCollection }).where(({ channelMembersCollection: m }) => eq(m.channel_id, channelId)),
     [channelId]
   )
 
