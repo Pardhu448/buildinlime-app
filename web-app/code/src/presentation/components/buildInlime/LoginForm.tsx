@@ -24,10 +24,16 @@ export function LoginForm() {
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError("");
     setSuccessMessage("");
     setShowSignupPrompt(false);
+    // Sending a code needs the network. Surface a clear message instead of
+    // proceeding to the verify view with a misleading "code sent" success state.
+    if (!navigator.onLine) {
+      setError("You're offline. Connect to the internet to receive a verification code.");
+      return;
+    }
+    setLoading(true);
     try {
       if (isSignup) {
         const { exists } = await trpc.users.checkEmail.query({ email });
@@ -89,9 +95,13 @@ export function LoginForm() {
   };
 
   const handleResendOTP = async () => {
-    setLoading(true);
     setError("");
     setSuccessMessage("");
+    if (!navigator.onLine) {
+      setError("You're offline. Connect to the internet to receive a verification code.");
+      return;
+    }
+    setLoading(true);
     try {
       const { error: resendError } = await authClient.emailOtp.sendVerificationOtp({
         email,

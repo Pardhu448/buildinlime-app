@@ -30,10 +30,16 @@ export const auth = betterAuth({
       overrideDefaultEmailVerification: true,
       disableSignUp: true,
       async sendVerificationOTP({ email, otp, type }) {
-        // TODO: Implement actual email sending
-        // Options: Resend, SendGrid, AWS SES, Nodemailer, etc.
-        //console.log(`OTP for ${email} (${type}): ${otp}`)
-        await sendVerificationOtp({ email, otp, type })
+        // sendVerificationOtp swallows delivery failures and returns
+        // { success: false }. If we ignore that, better-auth resolves the
+        // callback and reports success to the client even though no email was
+        // sent (e.g. Resend unreachable while offline) — the login form then
+        // shows a misleading "Verification code sent!". Throw so better-auth
+        // surfaces a real error the client can display.
+        const { success, error } = await sendVerificationOtp({ email, otp, type })
+        if (!success) {
+          throw new Error(error || "Failed to send verification code")
+        }
       },
       otpLength: 6,
       expiresIn: 300,
