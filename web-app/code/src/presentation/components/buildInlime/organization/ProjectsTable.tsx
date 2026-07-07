@@ -1,4 +1,4 @@
-import { Package } from "lucide-react";
+import { Boxes } from "lucide-react";
 
 type Project = {
   id: string;
@@ -98,7 +98,7 @@ export function ProjectsTable({ projects, onProjectClick }: ProjectsTableProps) 
             >
               <td className="px-6 py-4">
                 <div className="flex items-center gap-2">
-                  <Package className="w-4 h-4 text-[#976623]" />
+                  <Boxes className="w-4 h-4 text-[#976623]" />
                   <span
                     className="font-['Instrument_Sans',sans-serif] text-[14px] text-[#1e1e1e]"
                     style={{ fontVariationSettings: "'wdth' 100" }}

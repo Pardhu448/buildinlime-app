@@ -1,6 +1,14 @@
 // organization/
 export { BuildUnitsNav, type BuildUnitsNavProps } from "./organization/BuildUnitsNav";
-export { BuildUnitsTable } from "./organization/BuildUnitsTable";
+export { BuildUnitsTable, type BuildUnit } from "./organization/BuildUnitsTable";
+export { BuildUnitCard } from "./organization/BuildUnitCard";
+export { BuildUnitsGrid } from "./organization/BuildUnitsGrid";
+export {
+  BuildUnitsFilterPanel,
+  applyBuildUnitFilters,
+  EMPTY_BUILD_UNIT_FILTERS,
+  type BuildUnitFilters,
+} from "./organization/BuildUnitsFilterPanel";
 export { BuildUnitsTeamNav } from "./organization/BuildUnitsTeamNav";
 export { ChannelCard } from "./organization/ChannelCard";
 export { ChannelHeader, type ChannelHeaderProps } from "./organization/ChannelHeader";

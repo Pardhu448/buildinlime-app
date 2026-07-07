@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import imgBrickPattern from "../../assets/044683d680bab81b91974a32f614f0acede8855d.png";
+import imgBrickPattern from "../../assets/brick-logo-brown.png";
 
 export function LoginHeader() {
   return (

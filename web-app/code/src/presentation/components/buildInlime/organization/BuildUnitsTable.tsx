@@ -1,7 +1,7 @@
 import { Package } from "lucide-react";
 import { useState } from "react";
 
-type BuildUnit = {
+export type BuildUnit = {
   id: string;
   name: string;
   health: "On track" | "At risk" | "Off track";

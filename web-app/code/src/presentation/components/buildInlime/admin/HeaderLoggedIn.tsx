@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import imgBrickPattern from "../../../assets/044683d680bab81b91974a32f614f0acede8855d.png";
+import imgBrickPattern from "../../../assets/brick-logo-brown.png";
 
 interface HeaderLoggedInProps {
   onSignOut?: () => void;
@@ -15,8 +15,8 @@ export function HeaderLoggedIn({ onSignOut }: HeaderLoggedInProps) {
   return (
     <header className="w-full bg-white py-[24px] border-b border-[#ac7f5e]">
       <div className="max-w-[1440px] mx-auto px-6 flex items-center gap-8">
-        {/* Logo */}
-        <div className="flex items-center gap-[12px]">
+        {/* Logo — links to the home page */}
+        <Link to="/" className="flex items-center gap-[12px] hover:opacity-80 transition-opacity">
           <img
             src={imgBrickPattern}
             alt="BuildInLime"
@@ -27,7 +27,7 @@ export function HeaderLoggedIn({ onSignOut }: HeaderLoggedInProps) {
           >
             BuildInLime
           </span>
-        </div>
+        </Link>
 
         {/* Navigation - aligned closer to CTA buttons */}
         <nav className="flex items-center gap-8 ml-auto">

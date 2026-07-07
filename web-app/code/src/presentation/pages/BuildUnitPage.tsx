@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from '@tanstack/react-router';
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Package } from "lucide-react";
 import {
   Sidebar,
   ProjectHeader,
@@ -50,6 +50,7 @@ export function BuildUnitPage({ projectId, buildUnitName, buildUnitId, projectNa
               <ProjectHeader
                 title={buildUnitName}
                 description={buildUnitDesc}
+                icon={Package}
               />
 
               {/* Properties inline */}
