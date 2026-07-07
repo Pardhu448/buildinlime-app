@@ -1,17 +1,18 @@
-import imgBrickPattern from "../../assets/044683d680bab81b91974a32f614f0acede8855d.png";
+import { Link } from "@tanstack/react-router";
+import imgBrickPattern from "../../assets/brick-logo-brown.png";
 
 export function Footer() {
   return (
     <footer className="w-full px-[120px] py-[56px] border-t border-[#ac7f5e] mt-auto">
       <div className="max-w-[1268px] mx-auto flex items-start gap-[109px]">
-        {/* Logo */}
-        <div className="shrink-0">
+        {/* Logo — links to the home page */}
+        <Link to="/" className="shrink-0 hover:opacity-80 transition-opacity">
           <img
             src={imgBrickPattern}
             alt="BuildInLime"
             className="w-[54px] h-[34px] object-cover"
           />
-        </div>
+        </Link>
 
         {/* Resources */}
         <div className="flex flex-col gap-[16px] w-[284.15px]">
