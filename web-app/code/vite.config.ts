@@ -65,6 +65,13 @@ const config = defineConfig({
         routesDirectory: './routes',
         generatedRouteTree: './routeTree.gen.ts',
       },
+      // SPA mode: emit a static, route-agnostic client-boot shell
+      // (dist/client/_shell.html) and serve it for every route. This makes
+      // direct-URL / refresh work for all routes online (server serves the
+      // shell) and — paired with the service worker below — offline too. The
+      // authenticated tree is already ssr:false; this only drops SSR from the
+      // public `/` and `/login` pages, which we don't server-render in prod.
+      spa: { enabled: true },
     }),
     viteReact(),
   ],
@@ -87,7 +94,11 @@ const config = defineConfig({
   },
   ssr: {
     // Keep server-only Node packages external so they are never bundled for the browser
-    external: [`pg`, `pg-native`, `@dotenvx/dotenvx`, `drizzle-kit`],
+    // better-auth must resolve its own nested @noble/ciphers@2 at runtime (the
+    // hoisted root copy is v1 and lacks `managedNonce`), so keep it external
+    // instead of bundling it into the server. Without this the built server
+    // crashes on any auth crypto — and SPA prerender fails at build time.
+    external: [`pg`, `pg-native`, `@dotenvx/dotenvx`, `drizzle-kit`, `better-auth`],
     noExternal: [`zod`, `drizzle-orm`],
   },
   
