@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "set-lan-ip": "bash scripts/set-lan-ip.sh",
+    "start:lan": "pnpm set-lan-ip && expo start --host lan --clear",
+    "reverse": "adb reverse tcp:8081 tcp:8081 && adb reverse tcp:3000 tcp:3000",
+    "start:usb": "LAN_IP=localhost pnpm set-lan-ip && pnpm reverse && expo start --clear",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
