@@ -5,7 +5,7 @@ import { z } from "zod"
 import { CHANNEL_NAMES } from "@buildinlime/domain-types"
 import { trpc } from "../../infrastructure/trpc/client"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
-import { apiUrl, cookieFetch, retryOnError, unwrapJsonb, parser } from "./_shared"
+import { apiUrl, cookieFetch, retryOnError, unwrapJsonb, parser, NEVER_GC, safeCleanup } from "./_shared"
 
 // --- Schemas ---
 
@@ -73,6 +73,7 @@ function _makeProjectsCollection(
         },
         schema: selectProjectSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // onInsert removed — routed through @tanstack/offline-transactions
         // (see application/actions/projects.ts → createProjectAction).
         onUpdate: async ({ transaction }) => {
@@ -118,6 +119,7 @@ function _makeBuildUnitsCollection(
         },
         schema: selectBuildUnitSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // onInsert/onUpdate/onDelete removed — routed through
         // @tanstack/offline-transactions (see application/actions/buildunits.ts).
       }),
@@ -150,6 +152,7 @@ function _makeChannelsCollection(
         },
         schema: selectChannelSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // onInsert/onUpdate/onDelete removed — routed through
         // @tanstack/offline-transactions (see application/actions/channels.ts).
       }),
@@ -186,11 +189,43 @@ export function initializeOrganizationCollections(params: {
   if (!projectsCollection) {
     projectsCollection = _makeProjectsCollection(persistence, params.memberProjectIds)
   }
+  // On a project switch these hold the previous project's collections; stop
+  // their sync before replacing (GC is disabled, so it won't happen for us).
+  safeCleanup(buildUnitsCollection)
+  safeCleanup(channelsCollection)
+  buildUnitsCollection = _makeBuildUnitsCollection(persistence, params.memberBuildunitIds)
+  channelsCollection = _makeChannelsCollection(persistence, params.memberChannelIds)
+}
+
+// Rebuild ONLY the projects collection with a fresh (global) member-project id
+// set. Used by resyncProjectCollections when the user's visible project list
+// changes at runtime. Stops the previous instance's sync before replacing it.
+export function reinitializeProjectsCollection(memberProjectIds: string[]) {
+  const { persistence } = getPersistence()
+  safeCleanup(projectsCollection)
+  projectsCollection = _makeProjectsCollection(persistence, memberProjectIds)
+}
+
+// Rebuild the build-units + channels collections for the currently-selected
+// project with a fresh (scoped) member-id set. Used by resyncProjectCollections
+// when the user's visible build-unit/channel set changes at runtime. Stops the
+// previous instances' sync before replacing them.
+export function reinitializeScopedOrganizationCollections(params: {
+  memberBuildunitIds: string[]
+  memberChannelIds: string[]
+}) {
+  const { persistence } = getPersistence()
+  safeCleanup(buildUnitsCollection)
+  safeCleanup(channelsCollection)
   buildUnitsCollection = _makeBuildUnitsCollection(persistence, params.memberBuildunitIds)
   channelsCollection = _makeChannelsCollection(persistence, params.memberChannelIds)
 }
 
 export function resetOrganizationCollections() {
+  // Stop sync before dropping the references (GC won't do it — it's disabled).
+  safeCleanup(projectsCollection)
+  safeCleanup(buildUnitsCollection)
+  safeCleanup(channelsCollection)
   projectsCollection = null!
   buildUnitsCollection = null!
   channelsCollection = null!

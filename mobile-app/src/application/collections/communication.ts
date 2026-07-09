@@ -10,7 +10,7 @@ import {
 } from "@buildinlime/domain-types"
 import { trpc } from "../../infrastructure/trpc/client"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
-import { apiUrl, cookieFetch, retryOnError, coerceBool, unwrapJsonb, parser } from "./_shared"
+import { apiUrl, cookieFetch, retryOnError, coerceBool, unwrapJsonb, parser, NEVER_GC, safeCleanup } from "./_shared"
 
 // --- Schemas ---
 
@@ -100,6 +100,7 @@ function _makeTasksCollection(
         },
         schema: selectTaskSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // onInsert/onUpdate/onDelete removed — routed through
         // @tanstack/offline-transactions (see application/actions/tasks.ts).
       }),
@@ -132,6 +133,7 @@ function _makeMessagesCollection(
         },
         schema: selectMessageSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // onInsert removed — routed through @tanstack/offline-transactions
         // (see application/actions/messages.ts → createMessageAction).
         onDelete: async ({ transaction }) => {
@@ -163,6 +165,7 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
       },
       schema: selectResourceSchema,
       getKey: (item) => item.id,
+      gcTime: NEVER_GC,
       // onDelete removed — routed through @tanstack/offline-transactions
       // (see application/actions/resources.ts → deleteResourceAction).
     })
@@ -177,9 +180,14 @@ function _makePropertiesCollection(
     memberProjectIds: string[]
     memberBuildunitIds: string[]
     memberChannelIds: string[]
-    memberTaskIds: string[]
   },
 ) {
+  // The /api/properties shape OR's two scopes: project/build-unit properties by
+  // entity_id (member_project_ids ∪ member_buildunit_ids), and channel + TASK
+  // properties by the denormalized channel_id (member_channel_ids). Task
+  // properties therefore ride the same channel scope as tasks/messages — a new
+  // task's properties in a visible channel sync with no rebuild, so no
+  // member_task_ids snapshot is needed (server ignores it).
   const url = new URL(`/api/properties`, apiUrl)
   if (params.memberProjectIds.length > 0)
     url.searchParams.set(`member_project_ids`, params.memberProjectIds.join(`,`))
@@ -187,8 +195,6 @@ function _makePropertiesCollection(
     url.searchParams.set(`member_buildunit_ids`, params.memberBuildunitIds.join(`,`))
   if (params.memberChannelIds.length > 0)
     url.searchParams.set(`member_channel_ids`, params.memberChannelIds.join(`,`))
-  if (params.memberTaskIds.length > 0)
-    url.searchParams.set(`member_task_ids`, params.memberTaskIds.join(`,`))
   return createCollection(
     persistedCollectionOptions({
       ...electricCollectionOptions({
@@ -201,6 +207,7 @@ function _makePropertiesCollection(
         },
         schema: selectPropertySchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // onInsert removed — routed through @tanstack/offline-transactions
         // (see application/actions/properties.ts → createPropertyAction).
         onUpdate: async ({ transaction }) => {
@@ -240,25 +247,35 @@ export function initializeCommunicationCollections(params: {
   memberChannelIds: string[]
 }) {
   const { persistence } = getPersistence()
+  // On a project switch / channel-set resync these hold the previous instances;
+  // stop their sync before replacing (GC is disabled, so nothing else will).
+  safeCleanup(tasksCollection)
+  safeCleanup(messagesCollection)
+  safeCleanup(resourcesCollection)
   tasksCollection = _makeTasksCollection(persistence, params.memberChannelIds)
   messagesCollection = _makeMessagesCollection(persistence, params.memberChannelIds)
   resourcesCollection = _makeResourcesCollection(params.memberChannelIds)
 }
 
-// Must be called AFTER tasksCollection has preloaded so task IDs are known.
-// Task IDs are a snapshot — tasks created after load won't have their
-// properties stream until the app is reloaded.
+// Properties are scoped by entity_id (project/build-unit) and channel_id
+// (channel/task) only — no task-id dependency — so this can init in parallel
+// with the other channel-scoped collections (no need to wait for tasks).
 export function initializePropertiesCollection(params: {
   memberProjectIds: string[]
   memberBuildunitIds: string[]
   memberChannelIds: string[]
-  memberTaskIds: string[]
 }) {
   const { persistence } = getPersistence()
+  safeCleanup(propertiesCollection)
   propertiesCollection = _makePropertiesCollection(persistence, params)
 }
 
 export function resetCommunicationCollections() {
+  // Stop sync before dropping the references (GC won't do it — it's disabled).
+  safeCleanup(tasksCollection)
+  safeCleanup(messagesCollection)
+  safeCleanup(resourcesCollection)
+  safeCleanup(propertiesCollection)
   tasksCollection = null!
   messagesCollection = null!
   resourcesCollection = null!

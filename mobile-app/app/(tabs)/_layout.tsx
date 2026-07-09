@@ -3,7 +3,13 @@ import { ActivityIndicator, View } from "react-native"
 import { Drawer } from "expo-router/drawer"
 import DrawerContent from "@/src/presentation/shared/components/DrawerContent"
 import { useSession } from "@/src/infrastructure/auth/client"
-import { initBootstrapCollections, initProjectCollections } from "@/src/application/collections/init"
+import {
+  initBootstrapCollections,
+  initProjectCollections,
+  membershipSetsChanged,
+  resyncProjectCollections,
+} from "@/src/application/collections/init"
+import { membershipsCollection } from "@/src/application/collections/admin"
 import { initOfflineExecutor } from "@/src/infrastructure/offline/executor"
 import { initUploadManager } from "@/src/infrastructure/offline/upload-manager"
 import { resetAllOfflineActions } from "@/src/application/actions"
@@ -18,6 +24,13 @@ export default function DrawerLayout() {
   const [projectReady, setProjectReady] = useState(false)
   const bootstrapStarted = useRef(false)
   const projectInitStarted = useRef<string | null>(null)
+
+  // Runtime scope-change handling (membership-staleness rework). When the
+  // current user's visible scope changes, `resyncing` unmounts the content
+  // (spinner) so collections can be rebuilt safely, then `dataVersion` re-keys
+  // the Drawer so remounted live queries read the freshly-built collections.
+  const [resyncing, setResyncing] = useState(false)
+  const [dataVersion, setDataVersion] = useState(0)
 
   // Phase 1: Bootstrap collections (memberships + projects + users)
   useEffect(() => {
@@ -74,13 +87,62 @@ export default function DrawerLayout() {
       })
   }, [bootstrapReady, projectCtxReady, projectId])
 
+  // Watch the SELF membership stream (server-scoped to user_id = me), so this
+  // fires only when THIS user's memberships change — creating a channel, being
+  // added to / removed from one — never on roster churn from other users. When
+  // the derived visibility/channel sets actually drift from what the live
+  // collections were built with, flag a resync (debounced to coalesce bursts).
+  useEffect(() => {
+    if (!projectReady) return
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const sub = membershipsCollection.subscribeChanges(() => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        if (membershipSetsChanged(projectId)) setResyncing(true)
+      }, 400)
+    })
+    return () => {
+      if (timer) clearTimeout(timer)
+      sub.unsubscribe()
+    }
+  }, [projectReady, projectId])
+
+  // Run the resync only AFTER the content has unmounted (resyncing=true renders
+  // the spinner), so cleanup() never runs against collections a mounted live
+  // query still references. Rebind the offline executor to the freshly-built
+  // instances (it captured the old ones by value), then bump dataVersion to
+  // re-key the Drawer so remounted queries read the new collections.
+  useEffect(() => {
+    if (!resyncing) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const changed = await resyncProjectCollections(projectId)
+        if (cancelled) return
+        if (changed) {
+          resetAllOfflineActions()
+          await initOfflineExecutor()
+          if (cancelled) return
+          setDataVersion((v) => v + 1)
+        }
+      } catch (err) {
+        console.error("[layout] Resync failed:", err)
+      } finally {
+        if (!cancelled) setResyncing(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [resyncing, projectId])
+
   // Show spinner while bootstrap or project collections are loading.
   // The third condition catches the one-render gap where projectId just
   // changed (e.g. user picked a project) but the Phase 2 effect hasn't
   // fired yet to set projectReady=false — without it, children would
   // render with null collections for one frame.
   const pendingProjectInit = !!projectId && projectInitStarted.current !== projectId
-  if (!bootstrapReady || !projectReady || pendingProjectInit) {
+  if (!bootstrapReady || !projectReady || pendingProjectInit || resyncing) {
     return (
       <View
         style={{
@@ -97,6 +159,7 @@ export default function DrawerLayout() {
 
   return (
     <Drawer
+      key={dataVersion}
       drawerContent={(props) => <DrawerContent {...props} />}
       screenOptions={{
         headerShown: false,

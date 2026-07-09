@@ -5,7 +5,7 @@ import { z } from "zod"
 import { MEMBERSHIP_ROLES } from "@buildinlime/domain-types"
 import { trpc } from "../../infrastructure/trpc/client"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
-import { apiUrl, cookieFetch, retryOnError, coerceBool, parser } from "./_shared"
+import { apiUrl, cookieFetch, retryOnError, coerceBool, parser, NEVER_GC, safeCleanup } from "./_shared"
 
 // --- Schemas ---
 
@@ -62,6 +62,7 @@ function _makeUsersCollection(
         },
         schema: electricUsersSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
       }),
       persistence,
       schemaVersion: USERS_SCHEMA_VERSION,
@@ -87,6 +88,7 @@ function _makeTeamsCollection(
         },
         schema: selectTeamSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // onInsert/onUpdate removed — routed through
         // @tanstack/offline-transactions (see application/actions/teams.ts).
         onDelete: async ({ transaction }) => {
@@ -119,6 +121,7 @@ function _makeMembershipsCollection(
         },
         schema: electricMembershipSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
       }),
       persistence,
       schemaVersion: MEMBERSHIPS_SCHEMA_VERSION,
@@ -137,20 +140,27 @@ export let membershipsCollection: ReturnType<typeof _makeMembershipsCollection> 
 
 export function initializeUsersCollection() {
   const { persistence } = getPersistence()
+  safeCleanup(usersCollection)
   usersCollection = _makeUsersCollection(persistence)
 }
 
 export function initializeTeamsCollection() {
   const { persistence } = getPersistence()
+  safeCleanup(teamsCollection)
   teamsCollection = _makeTeamsCollection(persistence)
 }
 
 export function initializeMembershipsCollection() {
   const { persistence } = getPersistence()
+  safeCleanup(membershipsCollection)
   membershipsCollection = _makeMembershipsCollection(persistence)
 }
 
 export function resetAdminCollections() {
+  // Stop sync before dropping the references (GC won't do it — it's disabled).
+  safeCleanup(usersCollection)
+  safeCleanup(teamsCollection)
+  safeCleanup(membershipsCollection)
   usersCollection = null!
   teamsCollection = null!
   membershipsCollection = null!
