@@ -16,7 +16,7 @@ import {
   READ_ITEM_TYPES,
 } from "%/infrastructure/database/schema/admin-schema"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
-import { retryOnError, coerceBool, origin } from "./_shared"
+import { retryOnError, coerceBool, origin, NEVER_GC } from "./_shared"
 
 // Electric SQL returns jsonb columns as JSON-encoded strings (e.g. '"critical"').
 // z.preprocess unwraps them before Zod enum validation runs.
@@ -67,6 +67,7 @@ function _makeTasksCollection(
         },
         schema: electricTaskSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // Task writes go through @tanstack/offline-transactions — see
         // application/actions/tasks.ts. Direct collection.insert/update/delete
         // calls outside an offline transaction will fail with "no handler",
@@ -101,6 +102,7 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
         ),
       }),
       getKey: (item) => item.id,
+      gcTime: NEVER_GC,
       // Resource deletes go through @tanstack/offline-transactions —
       // see application/actions/resources.ts.
     })
@@ -148,6 +150,7 @@ function _makePropertiesCollection(
         },
         schema: electricPropertySchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // Property writes go through @tanstack/offline-transactions —
         // see application/actions/properties.ts (create / update / delete).
       }),
@@ -181,6 +184,7 @@ function _makeMessagesCollection(
         },
         schema: selectMessageSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // Message writes go through @tanstack/offline-transactions —
         // see application/actions/messages.ts. Delete is not currently
         // used by UI; add a mutationFn + action when needed.

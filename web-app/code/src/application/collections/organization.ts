@@ -11,7 +11,7 @@ import {
 } from "%/infrastructure/database/schema/admin-schema"
 import { trpc } from "%/infrastructure/trpc/lib/trpc-client"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
-import { retryOnError, coerceBool, origin } from "./_shared"
+import { retryOnError, coerceBool, origin, NEVER_GC } from "./_shared"
 
 const electricMembershipSchema = selectMembershipSchema.extend({
   member_flag: z.preprocess(coerceBool, z.boolean()),
@@ -36,6 +36,7 @@ function _makeMembershipsCollection(
         },
         schema: electricMembershipSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
       }),
       persistence,
       schemaVersion: MEMBERSHIPS_SCHEMA_VERSION,
@@ -87,6 +88,7 @@ function _makeChannelMembersCollection(
         },
         schema: electricMembershipSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
       }),
       persistence,
       schemaVersion: CHANNEL_MEMBERS_SCHEMA_VERSION,
@@ -135,6 +137,7 @@ function _makeProjectsCollection(
         },
         schema: selectProjectSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         onInsert: async ({ transaction }) => {
           const { modified: newProject } = transaction.mutations[0]
           const result = await trpc.projects.create.mutate({
@@ -210,6 +213,7 @@ function _makeBuildUnitsCollection(
         },
         schema: selectBuildUnitSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         onInsert: async ({ transaction }) => {
           const { modified: newBuildUnit } = transaction.mutations[0]
           try {
@@ -293,6 +297,7 @@ function _makeChannelsCollection(
         },
         schema: selectChannelSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         onInsert: async ({ transaction }) => {
           const { modified: newChannel } = transaction.mutations[0]
           try {
