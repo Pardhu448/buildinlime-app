@@ -80,7 +80,27 @@ export function createCookieFetch(): typeof fetch {
     }
 
     // 2. Make the actual request
-    const response = await fetch(input, { ...init, headers })
+    // TEMP DEBUG (sync-stall investigation): log every shape/API request +
+    // status so a stalled Electric long-poll (repeated errors, 401/403/409, or
+    // a network failure) shows up in the Metro logs. Remove once resolved.
+    const _dbgUrl =
+      typeof input === "string" ? input : input instanceof URL ? input.toString() : (input as Request).url
+    const _dbgIsApi = __DEV__ && _dbgUrl.includes("/api/") && !_dbgUrl.includes("/api/auth")
+    const _dbgT0 = _dbgIsApi ? Date.now() : 0
+    let response: Response
+    try {
+      response = await fetch(input, { ...init, headers })
+    } catch (err) {
+      if (_dbgIsApi) {
+        console.log(`[fetch-error] ${_dbgUrl.replace(API_URL, "")} -> ${String((err as Error)?.message ?? err)}`)
+      }
+      throw err
+    }
+    if (_dbgIsApi) {
+      const path = _dbgUrl.replace(API_URL, "")
+      const ct = response.headers.get("electric-up-to-date") !== null ? " up-to-date" : ""
+      console.log(`[fetch] ${response.status} (${Date.now() - _dbgT0}ms)${ct} ${path.slice(0, 140)}`)
+    }
 
     // 3. Parse Set-Cookie headers and persist them
     // In React Native, Headers.getAll is not available; we use get() which
