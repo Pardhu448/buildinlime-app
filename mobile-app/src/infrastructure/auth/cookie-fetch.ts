@@ -66,6 +66,42 @@ function parseSetCookieHeader(raw: string): { name: string; value: string } | nu
   return { name, value }
 }
 
+// TEMP DEBUG (sync-stall investigation): in-flight request tracker.
+//
+// Hypothesis under test: React Native's HTTP stack caps concurrent requests per
+// host (OkHttp Dispatcher.maxRequestsPerHost = 5 on Android; NSURLSession's
+// HTTPMaximumConnectionsPerHost = 4 on iOS). The app keeps ~10 Electric live
+// long-polls open at once, so those slots are permanently occupied and a tRPC
+// mutation POST sits in the client's queue until one long-poll returns — which
+// is why a message sent from mobile takes ~20s to reach other devices.
+//
+// What to look for in the Metro logs:
+//   1. `inflight=` on `[net] →` lines climbing and PINNING at 5 (or 4 on iOS)
+//      actually-issued requests while more are outstanding.
+//   2. A `[net] ←` line for /api/trpc/messages.create with a multi-second time,
+//      immediately preceded by a `[net] ←` for a shape poll — i.e. the POST
+//      only ran once a slot freed.
+//   3. The `[net] SLOW` block, which dumps everything that was outstanding when
+//      the slow request finished, with each entry's age.
+//
+// If the messages.create POST instead returns in ~50ms, the hypothesis is WRONG
+// and the latency is downstream (Postgres → Electric → web). Remove once resolved.
+type InFlightEntry = { path: string; t0: number; live: boolean }
+const _inFlight = new Map<number, InFlightEntry>()
+let _reqSeq = 0
+
+/** A request this slow is the symptom we're hunting — dump the pool state. */
+const SLOW_MS = 1000
+
+function dumpInFlight(label: string): void {
+  const now = Date.now()
+  const rows = [..._inFlight.values()]
+    .sort((a, b) => a.t0 - b.t0)
+    .map((e) => `    ${e.live ? "live" : "    "} ${now - e.t0}ms  ${e.path}`)
+    .join(`\n`)
+  console.log(`[net] ${label} — ${_inFlight.size} still in flight:\n${rows}`)
+}
+
 /**
  * Returns a fetch-compatible function that attaches stored cookies to every
  * request and persists any Set-Cookie values from every response.
@@ -80,26 +116,46 @@ export function createCookieFetch(): typeof fetch {
     }
 
     // 2. Make the actual request
-    // TEMP DEBUG (sync-stall investigation): log every shape/API request +
-    // status so a stalled Electric long-poll (repeated errors, 401/403/409, or
-    // a network failure) shows up in the Metro logs. Remove once resolved.
+    // TEMP DEBUG (sync-stall investigation): log every shape/API request, its
+    // status, and how many other API requests were outstanding alongside it —
+    // see the in-flight tracker above for what the numbers mean. Remove once
+    // resolved.
     const _dbgUrl =
       typeof input === "string" ? input : input instanceof URL ? input.toString() : (input as Request).url
     const _dbgIsApi = __DEV__ && _dbgUrl.includes("/api/") && !_dbgUrl.includes("/api/auth")
-    const _dbgT0 = _dbgIsApi ? Date.now() : 0
+    const _dbgPath = _dbgIsApi ? _dbgUrl.replace(API_URL, "").slice(0, 140) : ""
+    // Electric's live long-poll — the request we suspect is hogging the pool.
+    const _dbgLive = _dbgIsApi && _dbgUrl.includes("live=true")
+    const _dbgId = _dbgIsApi ? ++_reqSeq : 0
+    const _dbgT0 = Date.now()
+    if (_dbgIsApi) {
+      _inFlight.set(_dbgId, { path: _dbgPath, t0: _dbgT0, live: _dbgLive })
+      console.log(`[net] → inflight=${_inFlight.size} ${_dbgLive ? "live " : ""}${_dbgPath}`)
+    }
     let response: Response
     try {
       response = await fetch(input, { ...init, headers })
     } catch (err) {
       if (_dbgIsApi) {
-        console.log(`[fetch-error] ${_dbgUrl.replace(API_URL, "")} -> ${String((err as Error)?.message ?? err)}`)
+        _inFlight.delete(_dbgId)
+        console.log(
+          `[net] ✗ (${Date.now() - _dbgT0}ms) ${_dbgPath} -> ${String((err as Error)?.message ?? err)}`,
+        )
       }
       throw err
     }
     if (_dbgIsApi) {
-      const path = _dbgUrl.replace(API_URL, "")
-      const ct = response.headers.get("electric-up-to-date") !== null ? " up-to-date" : ""
-      console.log(`[fetch] ${response.status} (${Date.now() - _dbgT0}ms)${ct} ${path.slice(0, 140)}`)
+      _inFlight.delete(_dbgId)
+      const elapsed = Date.now() - _dbgT0
+      const utd = response.headers.get("electric-up-to-date") !== null ? " up-to-date" : ""
+      console.log(
+        `[net] ← ${response.status} (${elapsed}ms) inflight=${_inFlight.size}${utd} ${_dbgPath}`,
+      )
+      // A non-live request that took this long was almost certainly waiting for
+      // a connection slot, not for the server. Show what it was waiting behind.
+      if (!_dbgLive && elapsed >= SLOW_MS) {
+        dumpInFlight(`SLOW ${elapsed}ms ${_dbgPath}`)
+      }
     }
 
     // 3. Parse Set-Cookie headers and persist them
