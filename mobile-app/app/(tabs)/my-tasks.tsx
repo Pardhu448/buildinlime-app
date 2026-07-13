@@ -1,17 +1,53 @@
-import { View, Text, FlatList, ActivityIndicator, StyleSheet } from "react-native"
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+} from "react-native"
+import { useRouter } from "expo-router"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { CheckSquare, Square } from "lucide-react-native"
 import { ScreenHeader } from "@/src/presentation/shared/components/ScreenHeader"
+import { Breadcrumb } from "@/src/presentation/shared/components/Breadcrumb"
+import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
+import { useLookups } from "@/src/presentation/shared/hooks/useLookups"
 import { useTasks } from "@/src/presentation/tasks/hooks/useTasks"
 import { useSession } from "@/src/infrastructure/auth/client"
+import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { colors } from "@/src/presentation/shared/colors"
 import type { Task } from "@buildinlime/domain-types"
 
-function TaskItem({ task }: { task: Task }) {
+function TaskRow({
+  task,
+  lookups,
+  onPress,
+}: {
+  task: Task
+  lookups: ReturnType<typeof useLookups>
+  onPress: () => void
+}) {
+  const { getChannel, getBuildUnit, getProject } = lookups
+
+  const channel = getChannel(task.channel_id)
+  const buildUnit = getBuildUnit(task.buildunit_id)
+  const project = getProject(buildUnit?.project_id)
+
   return (
-    <View style={styles.taskItem}>
-      <View style={[styles.statusCircle, task.completed && styles.statusCircleCompleted]}>
-        {task.completed && <Text style={styles.checkmark}>✓</Text>}
+    <TouchableOpacity
+      style={[styles.row, task.completed && styles.rowCompleted]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
+      <View style={styles.checkbox}>
+        {task.completed ? (
+          <CheckSquare size={16} color={colors.primary} strokeWidth={2} />
+        ) : (
+          <Square size={16} color={colors.primary} strokeWidth={2} />
+        )}
       </View>
-      <View style={styles.taskContent}>
+      <View style={styles.rowBody}>
         <Text
           style={[styles.taskName, task.completed && styles.taskNameCompleted]}
           numberOfLines={2}
@@ -19,19 +55,38 @@ function TaskItem({ task }: { task: Task }) {
           {task.name}
         </Text>
         {task.description ? (
-          <Text style={styles.taskDescription} numberOfLines={2}>
+          <Text style={styles.taskDescription} numberOfLines={1}>
             {task.description}
           </Text>
         ) : null}
+        <Text style={styles.taskDate}>
+          {task.completed
+            ? `Completed ${formatDateTime(task.closed_at)}`
+            : `Opened ${formatDateTime(task.opened_at)}`}
+        </Text>
+        <Breadcrumb
+          projectName={project?.name}
+          buildUnitName={buildUnit?.name}
+          channelName={channel?.name}
+        />
       </View>
-    </View>
+    </TouchableOpacity>
   )
 }
 
 function MyTasksContent() {
+  const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
   const { tasks, isLoading } = useTasks(currentUserId)
+  const lookups = useLookups()
+
+  // Open tasks first, newest first within each group.
+  const sorted = [...tasks].sort((a, b) => {
+    if (a.completed !== b.completed) return a.completed ? 1 : -1
+    return new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
+  })
 
   if (isLoading) {
     return (
@@ -40,29 +95,73 @@ function MyTasksContent() {
       </View>
     )
   }
-  if (tasks.length === 0) {
+
+  if (sorted.length === 0) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.emptyText}>No tasks assigned to you.</Text>
+        <CheckSquare size={40} color={colors.cardBorder} strokeWidth={1.5} />
+        <Text style={styles.emptyTitle}>No tasks assigned to you</Text>
+        <Text style={styles.emptyText}>Tasks assigned to you will appear here.</Text>
       </View>
     )
   }
+
   return (
     <FlatList
-      data={tasks}
+      data={sorted}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.listContent}
-      renderItem={({ item }) => <TaskItem task={item} />}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 24 }]}
+      ItemSeparatorComponent={() => <View style={styles.gap} />}
+      renderItem={({ item }) => (
+        <TaskRow
+          task={item}
+          lookups={lookups}
+          onPress={() => {
+            const buildUnit = lookups.getBuildUnit(item.buildunit_id)
+            if (!buildUnit || !item.channel_id) return
+            router.push(
+              `/(tabs)/project/${buildUnit.project_id}/${item.buildunit_id}/${item.channel_id}` as any
+            )
+          }}
+        />
+      )}
       showsVerticalScrollIndicator={false}
     />
   )
 }
 
+function MyTasksHeader() {
+  const { data: session } = useSession()
+  const { tasks } = useTasks(session?.user?.id)
+  const openCount = tasks.filter((t) => !t.completed).length
+  const doneCount = tasks.length - openCount
+
+  return (
+    <ScreenHeader
+      title="My Tasks"
+      subtitle={`${openCount} open · ${doneCount} done`}
+    />
+  )
+}
+
 export default function MyTasksScreen() {
+  const { projectId } = useProjectContext()
+
+  // Scoped collections are null until a project is initialized.
+  if (!projectId) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="My Tasks" subtitle="Your assigned tasks" />
+        <View style={styles.centered}>
+          <Text style={styles.emptyText}>Select a project to see your tasks.</Text>
+        </View>
+      </View>
+    )
+  }
+
   return (
     <View style={styles.container}>
-      <ScreenHeader title="My Tasks" subtitle="Your assigned tasks" />
+      <MyTasksHeader />
       <MyTasksContent />
     </View>
   )
@@ -78,53 +177,53 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
+    gap: 6,
+  },
+  emptyTitle: {
+    fontSize: 14,
+    fontFamily: "InstrumentSans_600SemiBold",
+    color: colors.mutedForeground,
+    marginTop: 6,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: "InstrumentSans_400Regular",
     color: colors.mutedForeground,
     textAlign: "center",
   },
   listContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 16,
   },
-  taskItem: {
+  gap: {
+    height: 8,
+  },
+  row: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 12,
+    paddingHorizontal: 14,
     paddingVertical: 12,
+    backgroundColor: colors.cardSurface,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: 12,
   },
-  statusCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 1,
-    flexShrink: 0,
+  rowCompleted: {
+    backgroundColor: colors.background,
+    opacity: 0.6,
   },
-  statusCircleCompleted: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  checkbox: {
+    marginTop: 2,
   },
-  checkmark: {
-    color: colors.primaryForeground,
-    fontSize: 12,
-    fontFamily: "InstrumentSans_700Bold",
-    lineHeight: 14,
-  },
-  taskContent: {
+  rowBody: {
     flex: 1,
-    gap: 3,
   },
   taskName: {
-    fontSize: 14,
-    fontFamily: "InstrumentSans_500Medium",
+    fontSize: 13,
+    fontFamily: "InstrumentSans_600SemiBold",
     color: colors.foreground,
-    lineHeight: 20,
+    lineHeight: 19,
   },
   taskNameCompleted: {
     color: colors.mutedForeground,
@@ -134,11 +233,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "InstrumentSans_400Regular",
     color: colors.mutedForeground,
-    lineHeight: 17,
+    marginTop: 2,
   },
-  separator: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginLeft: 34,
+  taskDate: {
+    fontSize: 11,
+    fontFamily: "InstrumentSans_400Regular",
+    color: colors.mutedForeground,
+    marginTop: 3,
   },
 })

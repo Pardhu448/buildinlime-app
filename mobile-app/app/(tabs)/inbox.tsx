@@ -1,38 +1,73 @@
-import { View, Text, FlatList, ActivityIndicator, StyleSheet } from "react-native"
-import { ScreenHeader } from "@/src/presentation/shared/components/ScreenHeader"
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+} from "react-native"
+import { useRouter } from "expo-router"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLiveQuery } from "@tanstack/react-db"
+import { MessageSquare } from "lucide-react-native"
+import { ScreenHeader } from "@/src/presentation/shared/components/ScreenHeader"
+import { Breadcrumb } from "@/src/presentation/shared/components/Breadcrumb"
+import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
+import { useLookups } from "@/src/presentation/shared/hooks/useLookups"
 import { useSession } from "@/src/infrastructure/auth/client"
+import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { messagesCollection } from "@/src/application/collections/communication"
 import { colors } from "@/src/presentation/shared/colors"
 import type { Message } from "@buildinlime/domain-types"
 
-function formatTime(date: Date | string): string {
-  const d = typeof date === "string" ? new Date(date) : date
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-}
+function MentionRow({
+  message,
+  lookups,
+  onPress,
+}: {
+  message: Message
+  lookups: ReturnType<typeof useLookups>
+  onPress: () => void
+}) {
+  const { getUserName, getChannel, getBuildUnit, getProject } = lookups
 
-function MentionItem({ message }: { message: Message }) {
+  const senderName = getUserName(message.createdby_id)
+  const initial = (senderName[0] ?? "?").toUpperCase()
+  const channel = getChannel(message.channel_id)
+  const buildUnit = getBuildUnit(message.buildunit_id)
+  const project = getProject(message.project_id)
+
   return (
-    <View style={styles.mentionItem}>
-      <View style={styles.mentionDot} />
-      <View style={styles.mentionContent}>
-        <View style={styles.mentionHeader}>
-          <Text style={styles.channelLabel} numberOfLines={1}>
-            Channel message
+    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.75}>
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>{initial}</Text>
+      </View>
+      <View style={styles.rowBody}>
+        <View style={styles.rowHeader}>
+          <Text style={styles.sender} numberOfLines={1}>
+            {senderName}
           </Text>
-          <Text style={styles.timestamp}>{formatTime(message.created_at)}</Text>
+          <Text style={styles.timestamp}>{formatDateTime(message.created_at)}</Text>
         </View>
         <Text style={styles.messageText} numberOfLines={3}>
           {message.text}
         </Text>
+        <Breadcrumb
+          projectName={project?.name}
+          buildUnitName={buildUnit?.name}
+          channelName={channel?.name}
+        />
       </View>
-    </View>
+    </TouchableOpacity>
   )
 }
 
 function InboxContent() {
+  const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
+  const lookups = useLookups()
 
   const { data: rawMessages, isLoading } = useLiveQuery(
     (q) => q.from({ messagesCollection }),
@@ -55,30 +90,55 @@ function InboxContent() {
       </View>
     )
   }
+
   if (mentions.length === 0) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.emptyText}>No mentions yet.</Text>
+        <MessageSquare size={40} color={colors.cardBorder} strokeWidth={1.5} />
+        <Text style={styles.emptyTitle}>No one has mentioned you yet</Text>
+        <Text style={styles.emptyText}>
+          Messages where you're mentioned will appear here.
+        </Text>
       </View>
     )
   }
+
   return (
     <FlatList
       data={mentions}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.listContent}
-      renderItem={({ item }) => <MentionItem message={item} />}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 24 }]}
+      ItemSeparatorComponent={() => <View style={styles.gap} />}
+      renderItem={({ item }) => (
+        <MentionRow
+          message={item}
+          lookups={lookups}
+          onPress={() =>
+            router.push(
+              `/(tabs)/project/${item.project_id}/${item.buildunit_id}/${item.channel_id}` as any
+            )
+          }
+        />
+      )}
       showsVerticalScrollIndicator={false}
     />
   )
 }
 
 export default function InboxScreen() {
+  const { projectId } = useProjectContext()
+
   return (
     <View style={styles.container}>
       <ScreenHeader title="Inbox" subtitle="Your @mentions" />
-      <InboxContent />
+      {/* Scoped collections are null until a project is initialized. */}
+      {projectId ? (
+        <InboxContent />
+      ) : (
+        <View style={styles.centered}>
+          <Text style={styles.emptyText}>Select a project to see your mentions.</Text>
+        </View>
+      )}
     </View>
   )
 }
@@ -93,46 +153,67 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
+    gap: 6,
+  },
+  emptyTitle: {
+    fontSize: 14,
+    fontFamily: "InstrumentSans_600SemiBold",
+    color: colors.mutedForeground,
+    marginTop: 6,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: "InstrumentSans_400Regular",
     color: colors.mutedForeground,
     textAlign: "center",
   },
   listContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 16,
   },
-  mentionItem: {
+  gap: {
+    height: 8,
+  },
+  row: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 12,
+    paddingHorizontal: 14,
     paddingVertical: 12,
+    backgroundColor: colors.cardSurface,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: 12,
   },
-  mentionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-    marginTop: 6,
-    flexShrink: 0,
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.iconChip,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
   },
-  mentionContent: {
+  avatarText: {
+    fontSize: 12,
+    fontFamily: "InstrumentSans_600SemiBold",
+    color: colors.primary,
+  },
+  rowBody: {
     flex: 1,
-    gap: 4,
   },
-  mentionHeader: {
+  rowHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
+    marginBottom: 3,
   },
-  channelLabel: {
+  sender: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: "InstrumentSans_600SemiBold",
-    color: colors.primary,
+    color: colors.foreground,
   },
   timestamp: {
     fontSize: 11,
@@ -140,14 +221,9 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
   },
   messageText: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: "InstrumentSans_400Regular",
     color: colors.foreground,
-    lineHeight: 20,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginLeft: 20,
+    lineHeight: 19,
   },
 })
