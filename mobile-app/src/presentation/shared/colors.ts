@@ -17,6 +17,11 @@ export const colors = {
   border: "#ac7f5e",
   card: "#ffffff",
   cardForeground: "#1e1e1e",
+  // Card surfaces, matching the web cards (ChannelCard / BuildUnitCard).
+  cardSurface: "#fdf8f2",
+  cardBorder: "#e5d4c1",
+  cardSurfaceHover: "#f0e5d8",
+  iconChip: "#f0e5d8",
   destructive: "#d4183d",
   destructiveForeground: "#ffffff",
 } as const
