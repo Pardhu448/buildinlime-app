@@ -150,37 +150,46 @@ update the name baked into old mention rows unless they are refreshed. For a
 mentions feed this is fine; do not extend the pattern to anything where a stale name
 would mislead.
 
-### Read-state: `read_by_ids` on `messages`
+### ~~Read-state: `read_by_ids` on `messages`~~ — SUPERSEDED, and it already shipped
 
-**Decision (2026-07-13): read-state is a new column on the `messages` table** —
-`read_by_ids: string[]`, following the existing schema idiom (`mention_ids`,
-`resource_ids`). The `mentions` shape exposes the derived `is_read` (`me = ANY
-(read_by_ids)`), so the badge is a count over that one shape.
+**This section's plan is dead. A `reads` table shipped on web instead (migration
+0003, merged 2026-07-13). Do not build `read_by_ids`.**
 
-Rejected alternative: `last_read_at` on the membership row. It would have been a
-per-(user, channel) cursor for zero new shapes, but read-state is a property of a
-*message*, not of a membership, and hanging it off the membership table to save a
-migration is the kind of unrelated-column shortcut that gets expensive later.
+The original plan was a `read_by_ids: string[]` column on `messages`, and it warned
+that it only held up *because the Inbox counts mentions only* — that a general
+per-channel unread count would collapse it, since marking one message read writes to
+a row that every channel member syncs, and you would dirty a row per message.
 
-**Read semantics: a mention clears when its channel is opened** — not only when the
-mention is tapped from the Inbox. Tap-through-only is simpler, but it lets the badge
-show mentions the user has demonstrably already read, which destroys trust in the
-number. Clearing on channel-open is the truthful one, and it is what a badge is for.
+That general unread count was then asked for. The warning fired exactly as written.
 
-**On write-amplification (assessed and dismissed — do not re-litigate).** Read-state
-on a *shared* message row means marking one read is a write to a row every channel
-member syncs, so it fans out. This was investigated and is **not a problem here**,
-for one reason: **only messages that mention the user ever get written.** Mentions of
-any one person are rare, so opening a busy channel dirties one or two rows, not
-fifty. Fan-out per write is a single row to whoever currently has that channel open.
-Negligible.
+**What shipped instead:**
 
-⚠️ **This is precisely why the mentions-only intent matters.** If the Inbox ever
-grows a general per-channel unread count ("Channel C has 12 new messages"), this
-design collapses — you would dirty a row per message, and the correct model becomes a
-per-`(user, channel)` cursor ("read up to timestamp T"), which is one row per channel
-rather than one per message. A cursor does **not** belong on `messages`. Revisit this
-whole section before adding any non-mention unread count.
+```
+reads
+  user_id    text  FK users         ┐
+  item_type  jsonb 'message'|'task'  ├ PK (user_id, item_type, item_id)
+  item_id    text                   ┘
+  channel_id text  FK channels   -- denormalized sync scope
+  read_at    timestamptz
+```
+
+- One row per (user, item). Unread is derived by **absence** — no row means unread —
+  so there was nothing to backfill for existing content.
+- The Electric shape is scoped **`user_id = me`**, session-derived, with no parameter
+  able to widen it. **This is what defuses the write-amplification objection**: the
+  old design put read-state on the *shared* message row, so a write fanned out to
+  every member. These rows are private — marking read syncs to nobody else. The cost
+  becomes storage, not fan-out.
+- Messages are **bulk-marked** on channel open (one call, many ids); tasks are marked
+  individually on click. Nobody clicks each message, so a click-only rule would peg a
+  channel badge at hundreds forever and it could never reach zero.
+- Both sides are idempotent (server `ON CONFLICT DO NOTHING`; the optimistic write
+  skips ids already held) — marking read is inherently repeatable.
+
+**Consequence for the `mentions` shape (§6):** it no longer needs to expose a derived
+`is_read`, and `read_by_ids` should not be added to `messages`. The Inbox badge is a
+count of mention-messages with no `reads` row. Mobile does not subscribe to the
+`reads` shape yet — that is still to do, and it is additive.
 
 ---
 
@@ -361,9 +370,11 @@ server work. Split accordingly.
 
 ### Next: the `mentions` shape (schema + server)
 
-6. `read_by_ids: string[]` on `messages` — migration.
+6. ~~`read_by_ids: string[]` on `messages` — migration.~~ **Done differently, and
+   already shipped**: a `reads` table on web (migration 0003). See §3. Mobile still
+   has to subscribe to the `reads` shape — additive, no schema work.
 7. `mentions` shape endpoint: filter `mention_ids @> [me]`, denormalize author /
-   channel / build-unit names, expose derived `is_read`.
+   channel / build-unit names. (No derived `is_read` — read-state lives in `reads`.)
 8. Mutation to mark a channel's mentions read on channel-open.
 9. Rebuild `inbox.tsx` against it (§5), and add the Inbox badge.
 10. **Repay the §4 debt** — repoint Inbox at `mentions` (drops `users` + `channels`),
