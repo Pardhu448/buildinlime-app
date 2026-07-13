@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
-import { mimeEmoji } from "@/src/presentation/resources/lib/attachment-format"
+import { ResourceThumbnail } from "@/src/presentation/resources/components/ResourceThumbnail"
 import { useResourceDownload } from "@/src/presentation/resources/hooks/useResourceDownload"
 import type { PendingUpload } from "@/src/infrastructure/offline/upload-manager"
 import { colors } from "@/src/presentation/shared/colors"
@@ -46,7 +46,11 @@ function SyncedAttachment({
       disabled={downloading}
       activeOpacity={0.6}
     >
-      <Text style={styles.emoji}>{mimeEmoji(resource.mime_type)}</Text>
+      <ResourceThumbnail
+        fileLocation={resource.file_location}
+        mimeType={resource.mime_type}
+        size={32}
+      />
       <Text
         style={[styles.name, isOwn ? styles.textOwn : styles.textOther]}
         numberOfLines={1}
@@ -69,7 +73,7 @@ function PendingAttachment({
 }) {
   return (
     <View style={[styles.chip, isOwn ? styles.chipOwn : styles.chipOther]}>
-      <Text style={styles.emoji}>{mimeEmoji(upload.mimeType)}</Text>
+      <ResourceThumbnail localUri={upload.uri} mimeType={upload.mimeType} size={32} />
       <Text
         style={[styles.name, isOwn ? styles.textOwn : styles.textOther]}
         numberOfLines={1}
@@ -125,9 +129,6 @@ const styles = StyleSheet.create({
   },
   chipOther: {
     backgroundColor: colors.background,
-  },
-  emoji: {
-    fontSize: 14,
   },
   name: {
     flex: 1,

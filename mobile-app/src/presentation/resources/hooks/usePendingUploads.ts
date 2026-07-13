@@ -6,6 +6,7 @@ import {
   retryUpload,
   cancelUpload,
   scheduleUpload,
+  renameUpload,
   type PendingUpload,
 } from "@/src/infrastructure/offline/upload-manager"
 
@@ -40,6 +41,7 @@ export function usePendingUploads(filter: UsePendingUploadsFilter) {
     retry: retryUpload,
     cancel: cancelUpload,
     schedule: scheduleUpload,
+    rename: renameUpload,
   }
 }
 

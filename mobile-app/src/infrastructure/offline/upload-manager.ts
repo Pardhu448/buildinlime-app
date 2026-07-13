@@ -441,6 +441,29 @@ export async function scheduleUpload(
   armScheduleTimer(id, when)
 }
 
+/**
+ * Rename a pending upload before it goes out. `name` is sent as both the
+ * multipart filename and the `name` field (see doUpload), so this is what the
+ * resource ends up called on the server.
+ *
+ * Only meaningful before the bytes leave: once the status is `uploading` the
+ * form data is already built, so a rename would silently not apply. Callers get
+ * `false` in that case rather than a lie.
+ */
+export async function renameUpload(id: string, name: string): Promise<boolean> {
+  const upload = uploads.get(id)
+  if (!upload) return false
+  if (upload.status === "uploading") return false
+
+  const trimmed = name.trim()
+  if (!trimmed || trimmed === upload.name) return false
+
+  upload.name = trimmed
+  notify()
+  await put(uploadToRow(upload)).catch(() => {})
+  return true
+}
+
 /** Drop a pending upload — clears timers, the row, and the local file. */
 export async function cancelUpload(id: string): Promise<void> {
   const upload = uploads.get(id)
