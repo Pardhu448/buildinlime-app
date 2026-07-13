@@ -2,6 +2,7 @@ import { ArrowLeft, MessageSquare, ChevronRight } from "lucide-react";
 import { Sidebar } from "../components/buildInlime";
 import { unwrapJsonb } from "%/presentation/lib/utils";
 import { useInboxPage } from "../hooks/use-inbox-page";
+import { useReads } from "../hooks/use-reads";
 
 export function InboxPage() {
   const {
@@ -14,6 +15,11 @@ export function InboxPage() {
     formatTime,
     handleMessageClick,
   } = useInboxPage();
+
+  // Read rows stay in the list, de-emphasised. The Inbox is a record of what
+  // needed you, not a queue to drain — a mention you have read is still
+  // something you may need to find again.
+  const { isMessageUnread } = useReads();
 
   return (
     <div className="flex h-screen bg-white font-['Instrument_Sans',sans-serif]">
@@ -51,21 +57,37 @@ export function InboxPage() {
                 const project = getProject(msg.project_id);
                 const channelName = channel ? unwrapJsonb(channel.name) : null;
 
+                const unread = isMessageUnread(msg.id);
+
                 return (
                   <button
                     key={msg.id}
                     onClick={() => handleMessageClick(msg)}
-                    className="w-full flex items-start gap-3 px-4 py-3 bg-[#fdf8f2] border border-[#e5d4c1] rounded-lg hover:border-[#ac7f5e] hover:bg-[#f5ece0] transition-colors text-left"
+                    className={`w-full flex items-start gap-3 px-4 py-3 border rounded-lg hover:border-[#ac7f5e] hover:bg-[#f5ece0] transition-colors text-left ${
+                      unread
+                        ? "bg-[#f5ece0] border-[#ac7f5e]"
+                        : "bg-[#fdf8f2] border-[#e5d4c1]"
+                    }`}
                   >
                     <div className="w-8 h-8 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-semibold flex-shrink-0 mt-0.5">
                       {initial}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-sm font-medium text-[#1e1e1e]">{senderName}</span>
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          {/* Unread marker — only on unread rows, so it means something. */}
+                          {unread && (
+                            <span className="w-2 h-2 rounded-full bg-[#976623] flex-shrink-0" />
+                          )}
+                          <span className={`text-sm truncate ${unread ? "font-semibold text-[#1e1e1e]" : "font-medium text-[#1e1e1e]"}`}>
+                            {senderName}
+                          </span>
+                        </span>
                         <span className="text-xs text-[#717182] whitespace-nowrap">{formatTime(msg.created_at)}</span>
                       </div>
-                      <p className="text-sm text-[#1e1e1e] break-words">{msg.text}</p>
+                      <p className={`text-sm break-words ${unread ? "text-[#1e1e1e]" : "text-[#717182]"}`}>
+                        {msg.text}
+                      </p>
                       <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                         {project && (
                           <>
