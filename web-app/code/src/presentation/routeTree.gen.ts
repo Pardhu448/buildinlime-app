@@ -16,6 +16,7 @@ import { Route as ApiUsersRouteImport } from './routes/api/users'
 import { Route as ApiTeamsRouteImport } from './routes/api/teams'
 import { Route as ApiTasksRouteImport } from './routes/api/tasks'
 import { Route as ApiResourcesRouteImport } from './routes/api/resources'
+import { Route as ApiReadsRouteImport } from './routes/api/reads'
 import { Route as ApiPropertiesRouteImport } from './routes/api/properties'
 import { Route as ApiProjectsRouteImport } from './routes/api/projects'
 import { Route as ApiMessagesRouteImport } from './routes/api/messages'
@@ -70,6 +71,11 @@ const ApiTasksRoute = ApiTasksRouteImport.update({
 const ApiResourcesRoute = ApiResourcesRouteImport.update({
   id: '/api/resources',
   path: '/api/resources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReadsRoute = ApiReadsRouteImport.update({
+  id: '/api/reads',
+  path: '/api/reads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPropertiesRoute = ApiPropertiesRouteImport.update({
@@ -205,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/api/messages': typeof ApiMessagesRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/properties': typeof ApiPropertiesRoute
+  '/api/reads': typeof ApiReadsRoute
   '/api/resources': typeof ApiResourcesRouteWithChildren
   '/api/tasks': typeof ApiTasksRoute
   '/api/teams': typeof ApiTeamsRoute
@@ -234,6 +241,7 @@ export interface FileRoutesByTo {
   '/api/messages': typeof ApiMessagesRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/properties': typeof ApiPropertiesRoute
+  '/api/reads': typeof ApiReadsRoute
   '/api/resources': typeof ApiResourcesRouteWithChildren
   '/api/tasks': typeof ApiTasksRoute
   '/api/teams': typeof ApiTeamsRoute
@@ -262,6 +270,7 @@ export interface FileRoutesById {
   '/api/messages': typeof ApiMessagesRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/properties': typeof ApiPropertiesRoute
+  '/api/reads': typeof ApiReadsRoute
   '/api/resources': typeof ApiResourcesRouteWithChildren
   '/api/tasks': typeof ApiTasksRoute
   '/api/teams': typeof ApiTeamsRoute
@@ -293,6 +302,7 @@ export interface FileRouteTypes {
     | '/api/messages'
     | '/api/projects'
     | '/api/properties'
+    | '/api/reads'
     | '/api/resources'
     | '/api/tasks'
     | '/api/teams'
@@ -322,6 +332,7 @@ export interface FileRouteTypes {
     | '/api/messages'
     | '/api/projects'
     | '/api/properties'
+    | '/api/reads'
     | '/api/resources'
     | '/api/tasks'
     | '/api/teams'
@@ -349,6 +360,7 @@ export interface FileRouteTypes {
     | '/api/messages'
     | '/api/projects'
     | '/api/properties'
+    | '/api/reads'
     | '/api/resources'
     | '/api/tasks'
     | '/api/teams'
@@ -378,6 +390,7 @@ export interface RootRouteChildren {
   ApiMessagesRoute: typeof ApiMessagesRoute
   ApiProjectsRoute: typeof ApiProjectsRoute
   ApiPropertiesRoute: typeof ApiPropertiesRoute
+  ApiReadsRoute: typeof ApiReadsRoute
   ApiResourcesRoute: typeof ApiResourcesRouteWithChildren
   ApiTasksRoute: typeof ApiTasksRoute
   ApiTeamsRoute: typeof ApiTeamsRoute
@@ -435,6 +448,13 @@ declare module '@tanstack/react-router' {
       path: '/api/resources'
       fullPath: '/api/resources'
       preLoaderRoute: typeof ApiResourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/reads': {
+      id: '/api/reads'
+      path: '/api/reads'
+      fullPath: '/api/reads'
+      preLoaderRoute: typeof ApiReadsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/properties': {
@@ -685,6 +705,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMessagesRoute: ApiMessagesRoute,
   ApiProjectsRoute: ApiProjectsRoute,
   ApiPropertiesRoute: ApiPropertiesRoute,
+  ApiReadsRoute: ApiReadsRoute,
   ApiResourcesRoute: ApiResourcesRouteWithChildren,
   ApiTasksRoute: ApiTasksRoute,
   ApiTeamsRoute: ApiTeamsRoute,

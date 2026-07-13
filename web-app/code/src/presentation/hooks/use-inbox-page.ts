@@ -9,6 +9,7 @@ import {
   projectsCollection,
 } from "%/infrastructure/database/tanstack-db-electric/admincollections"
 import { unwrapJsonb, parseTextArray } from "%/presentation/lib/utils"
+import { formatDateTime } from "%/presentation/lib/datetime"
 
 export function useInboxPage() {
   const { data: session } = useSession()
@@ -38,10 +39,7 @@ export function useInboxPage() {
       return bTime - aTime
     })
 
-  const formatTime = (val: unknown) => {
-    const date = val instanceof Date ? val : new Date(val as string)
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
-  }
+  const formatTime = (val: unknown) => formatDateTime(val as Date | string)
 
   const handleMessageClick = (msg: NonNullable<typeof allMessages>[number]) => {
     const buildUnit = getBuildUnit(msg.buildunit_id)
@@ -54,6 +52,10 @@ export function useInboxPage() {
         buildUnitName: buildUnit.name,
         channelName: unwrapJsonb(channel.name),
       },
+      // Carry the message id so the channel can scroll to it. Without this the
+      // Inbox only ever landed you at the top of the channel, leaving you to
+      // hunt for the message you just clicked.
+      search: { messageId: msg.id },
     })
   }
 
