@@ -4,6 +4,7 @@ import {
   tasksCollection,
   propertiesCollection,
   channelMembersCollection,
+  usersCollection,
 } from '%/infrastructure/database/tanstack-db-electric/admincollections'
 import { unwrapJsonb } from '%/presentation/lib/utils'
 import type { Property } from '%/domain/communication/types'
@@ -36,6 +37,8 @@ export function useTaskRoute(channelId: string, taskName: string) {
     [channelId]
   )
 
+  const { data: allUsers } = useLiveQuery((q) => q.from({ usersCollection }), [])
+
   if (dbTasks === undefined) return { status: 'loading' as const }
   if (!task) return { status: 'not-found-task' as const }
 
@@ -43,12 +46,17 @@ export function useTaskRoute(channelId: string, taskName: string) {
   const currentAssigneeId = (task.assignee_id as string | null) ?? null
   const currentUserId = session?.user?.id ?? ''
 
+  const createdById = (task.createdby_id as string | null) ?? null
+  const creator = (allUsers ?? []).find((u) => u.id === createdById)
+  const createdByName = creator?.name || creator?.email || 'Unknown'
+
   const properties: Property[] = (dbTaskProperties ?? []).map((p) => ({
     ...p,
     type: unwrapJsonb(p.type) as Property['type'],
     entity: unwrapJsonb(p.entity) as Property['entity'],
     status_value: unwrapJsonb(p.status_value) as Property['status_value'],
     priority_value: unwrapJsonb(p.priority_value) as Property['priority_value'],
+    task_status_value: unwrapJsonb(p.task_status_value) as Property['task_status_value'],
   }))
 
   return {
@@ -59,5 +67,9 @@ export function useTaskRoute(channelId: string, taskName: string) {
     channelMemberIds,
     currentAssigneeId,
     currentUserId,
+    createdByName,
+    createdAt: task.opened_at as Date | string | undefined,
+    // Only the creator may assign — mirrored by a FORBIDDEN check in tasks.update.
+    canAssign: !!createdById && createdById === currentUserId,
   }
 }

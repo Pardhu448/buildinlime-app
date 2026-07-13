@@ -7,10 +7,16 @@ import { useBuildUnitContext, useChannelContext } from '../../../../../../contex
 export const Route = createFileRoute('/_authenticated/projects/$projectId/$buildUnitName/$channelName/')({
   component: ChannelRoute,
   pendingComponent: RoutePendingComponent,
+  // ?messageId= — set by the Inbox so a mention lands ON the message rather than
+  // at the top of the channel, leaving you to hunt for what you just clicked.
+  validateSearch: (search: Record<string, unknown>): { messageId?: string } => ({
+    messageId: typeof search.messageId === 'string' ? search.messageId : undefined,
+  }),
 })
 
 function ChannelRoute() {
   const { projectId, buildUnitName, channelName } = Route.useParams()
+  const { messageId } = Route.useSearch()
   const { buildUnitId, projectName } = useBuildUnitContext()
   const { channelId, channelDescription, channelIcon } = useChannelContext()
   const { properties, buildUnitProperties } = useChannelRoute(buildUnitId, channelId)
@@ -28,6 +34,7 @@ function ChannelRoute() {
       description={channelDescription}
       properties={properties}
       buildUnitProperties={buildUnitProperties}
+      focusMessageId={messageId}
     />
   )
 }

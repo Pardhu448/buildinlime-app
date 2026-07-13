@@ -142,10 +142,43 @@ const createProperty: MutationFn = async ({ transaction }) => {
       status_value: (p.status_value ?? null) as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       priority_value: (p.priority_value ?? null) as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      task_status_value: (p.task_status_value ?? null) as any,
       target_date: (p.target_date as string | null) ?? null,
       start_date: (p.start_date as string | null) ?? null,
       pending_task: (p.pending_task as string | null) ?? null,
+      percent_complete: (p.percent_complete as string | null) ?? null,
       label_value: (p.label_value as string | null) ?? null,
+    })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+/**
+ * Re-setting an existing property type edits it in place rather than adding a
+ * second row. Only the value columns are sent — `type`, `entity` and `entity_id`
+ * identify the property and must not be mutable through this path.
+ */
+const updateProperty: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const p = modified as Record<string, unknown>
+  try {
+    await trpc.properties.update.mutate({
+      id: p.id as string,
+      data: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        status_value: (p.status_value ?? null) as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        priority_value: (p.priority_value ?? null) as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        task_status_value: (p.task_status_value ?? null) as any,
+        target_date: (p.target_date as string | null) ?? null,
+        start_date: (p.start_date as string | null) ?? null,
+        pending_task: (p.pending_task as string | null) ?? null,
+        percent_complete: (p.percent_complete as string | null) ?? null,
+        label_value: (p.label_value as string | null) ?? null,
+      },
     })
   } catch (err) {
     wrapTrpcError(err)
@@ -198,7 +231,50 @@ const updateTeam: MutationFn = async ({ transaction }) => {
   }
 }
 
+// -------------------- reads --------------------
+
+/**
+ * Unlike every other mutationFn here, this reads ALL of the transaction's
+ * mutations rather than mutations[0]: marking a channel read inserts one row per
+ * message, and they must go to the server as a single call — not dropped down to
+ * whichever row happened to be first.
+ */
+const markRead: MutationFn = async ({ transaction }) => {
+  const rows = transaction.mutations.map(
+    (m) => m.modified as Record<string, unknown>,
+  )
+  if (rows.length === 0) return
+
+  // Grouped by (item_type, channel_id) rather than assuming the whole
+  // transaction shares them — one wrong assumption here would silently mark the
+  // wrong items read.
+  const groups = new Map<string, { item_type: string; channel_id: string; item_ids: string[] }>()
+  for (const r of rows) {
+    const item_type = r.item_type as string
+    const channel_id = r.channel_id as string
+    const key = `${item_type}:${channel_id}`
+    const group = groups.get(key)
+    if (group) group.item_ids.push(r.item_id as string)
+    else groups.set(key, { item_type, channel_id, item_ids: [r.item_id as string] })
+  }
+
+  try {
+    for (const g of groups.values()) {
+      await trpc.reads.markRead.mutate({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        item_type: g.item_type as any,
+        item_ids: g.item_ids,
+        channel_id: g.channel_id,
+      })
+    }
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
 export const mutationFns = {
+  // reads
+  markRead,
   // tasks
   createTask,
   updateTask,
@@ -209,6 +285,7 @@ export const mutationFns = {
   deleteResource,
   // properties
   createProperty,
+  updateProperty,
   deleteProperty,
   // teams
   createTeam,

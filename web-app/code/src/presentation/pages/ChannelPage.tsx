@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
+import { useReads } from "%/presentation/hooks/use-reads";
 import {
   ChevronRight,
   ChevronDown,
@@ -42,6 +43,8 @@ interface ChannelPageProps {
   description: string;
   properties: Property[];
   buildUnitProperties: Property[];
+  /** ?messageId= from the Inbox — scroll to and highlight this message. */
+  focusMessageId?: string;
 }
 
 export function ChannelPage({
@@ -56,6 +59,7 @@ export function ChannelPage({
   description,
   properties,
   buildUnitProperties,
+  focusMessageId,
 }: ChannelPageProps) {
   // UI-only toggle state
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
@@ -92,12 +96,33 @@ export function ChannelPage({
     handleTaskClick,
   } = useChannelPage(channelId, buildUnitId, projectId, buildUnitName, channelName);
 
+  // Tasks are marked opened by TaskPage itself, not here — that way every route
+  // into a task counts, not just the ones that remembered to call it.
+  const { isTaskUnread, markChannelMessagesRead, markMessageRead } = useReads();
+
+  // Arriving from the Inbox on a specific message marks that one read even if
+  // the bulk pass below has not caught it yet.
+  useEffect(() => {
+    if (!focusMessageId || !channelId) return;
+    markMessageRead(focusMessageId, channelId);
+  }, [focusMessageId, channelId, markMessageRead]);
+
+  // Opening a channel marks its messages read — bulk, because nobody clicks each
+  // message. Runs on every message change too, so messages that arrive while you
+  // are sitting in the channel are marked read as they land rather than
+  // accumulating an unread count on a channel you are literally looking at.
+  useEffect(() => {
+    if (!channelId) return;
+    markChannelMessagesRead(channelId);
+  }, [channelId, markChannelMessagesRead]);
+
   if (!dbTasksReady) return null;
 
   const onAddTask = async (e: FormEvent) => {
     await handleAddTask(e);
     setTaskFormOpen(false);
   };
+
 
   return (
     <>
@@ -211,6 +236,7 @@ export function ChannelPage({
                 projectId={projectId}
                 currentUserId={currentUserId}
                 memberIds={channelMembers.map(u => u.id)}
+                focusMessageId={focusMessageId}
               />
             </div>
           </div>
@@ -272,6 +298,7 @@ export function ChannelPage({
               <TasksRightPanel
                 tasks={tasks}
                 onTaskClick={handleTaskClick}
+                isUnread={isTaskUnread}
               />
 
               {/* Members */}

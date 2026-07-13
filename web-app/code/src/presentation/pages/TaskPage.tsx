@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useReads } from "%/presentation/hooks/use-reads";
 import {
   ChevronRight,
   ChevronDown,
@@ -16,6 +17,7 @@ import {
   AssignedToSection,
   PropertiesPanel,
 } from "../components/buildInlime";
+import { formatDateTime } from "%/presentation/lib/datetime";
 import type { Property } from "%/domain/communication/types";
 
 interface TaskPageProps {
@@ -32,6 +34,9 @@ interface TaskPageProps {
   channelMemberIds: string[];
   currentAssigneeId: string | null;
   currentUserId: string;
+  createdByName: string;
+  createdAt?: Date | string;
+  canAssign: boolean;
 }
 
 export function TaskPage({
@@ -48,9 +53,21 @@ export function TaskPage({
   channelMemberIds,
   currentAssigneeId,
   currentUserId,
+  createdByName,
+  createdAt,
+  canAssign,
 }: TaskPageProps) {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // A task counts as opened when its page is opened — whichever way you got here
+  // (My Tasks, the channel rail, a deep link, a pasted URL). Marking read at each
+  // call site instead would mean every new entry point silently forgets to.
+  const { markTaskRead } = useReads();
+  useEffect(() => {
+    if (!taskId || !channelId) return;
+    markTaskRead(taskId, channelId);
+  }, [taskId, channelId, markTaskRead]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -142,11 +159,24 @@ export function TaskPage({
             {/* Properties inline */}
             <PropertiesInline properties={properties} entityId={taskId} entity="task" channelId={channelId} />
 
+            {/* Who created this, and when. Also the basis for the assignment
+                restriction below — only the creator may assign. */}
+            <div className="flex items-center gap-0 py-2">
+              <span className="text-sm text-[#717182] w-32 shrink-0">Created By</span>
+              <span className="text-sm text-[#1e1e1e]">{createdByName}</span>
+              {createdAt && (
+                <span className="text-sm text-[#717182] ml-2">
+                  · {formatDateTime(createdAt)}
+                </span>
+              )}
+            </div>
+
             {/* Assigned To */}
             <AssignedToSection
               taskId={taskId}
               currentAssigneeId={currentAssigneeId}
               channelMemberIds={channelMemberIds}
+              canAssign={canAssign}
             />
 
             {/* Resources */}

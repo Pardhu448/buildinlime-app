@@ -7,6 +7,7 @@ import { deleteResourceAction } from "%/application/actions/resources"
 import { usePendingResources } from "%/application/hooks/use-pending-resources"
 import { AddResourceForm } from "./add-resource-form"
 import { UploadSchedulePopover } from "./upload-schedule-popover"
+import { formatDateTime } from "%/presentation/lib/datetime"
 
 export interface ResourcesSectionProps {
   channelId: string | null
@@ -184,7 +185,8 @@ export function ResourcesSection({
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-[#1e1e1e] truncate">{r.name}</p>
                 <p className="text-[10px] text-[#717182]">
-                  {formatBytes(r.file_size_bytes)}
+                  {formatDateTime(r.uploaded_at)}
+                  {` · ${formatBytes(r.file_size_bytes)}`}
                   {r.description ? ` · ${r.description}` : ""}
                 </p>
               </div>

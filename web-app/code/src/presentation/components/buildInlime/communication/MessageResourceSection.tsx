@@ -2,6 +2,7 @@ import { useRef } from "react"
 import { Paperclip, X, FileText, Image, Video, Music, File, Download } from "lucide-react"
 import { useLiveQuery, eq } from "@tanstack/react-db"
 import { resourcesCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
+import { formatDateTime } from "%/presentation/lib/datetime"
 export { parseTextArray } from "%/presentation/lib/utils"
 
 export interface PendingAttachment {
@@ -125,7 +126,9 @@ export function MessageResourceDisplay({ messageId }: { messageId: string }) {
           key={r.id}
           href={r.file_location}
           download
-          title={`Download ${r.name}`}
+          // The chip is too small for an inline date without crowding the name;
+          // the upload time lives in the tooltip instead.
+          title={`Download ${r.name} — uploaded ${formatDateTime(r.uploaded_at)}`}
           className="flex items-center gap-1.5 px-2 py-1 bg-[#fdf8f2] border border-[#e5d4c1] rounded text-xs text-[#1e1e1e] hover:bg-[#f0e5d8] transition-colors"
         >
           {mimeIcon(r.mime_type)}

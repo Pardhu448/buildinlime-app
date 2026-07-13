@@ -1,4 +1,4 @@
-import { useState, useRef } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useLiveQuery } from "@tanstack/react-db"
 import { MessageCircle, ChevronDown, ChevronRight, Send, X, Loader, RefreshCw } from "lucide-react"
 import {
@@ -15,6 +15,7 @@ import {
   mimeIcon,
   type PendingAttachment,
 } from "./MessageResourceSection"
+import { formatDateTime } from "%/presentation/lib/datetime"
 import type { Message } from "%/domain/communication/types"
 
 export interface CommentsSectionProps {
@@ -23,24 +24,11 @@ export interface CommentsSectionProps {
   projectId: string
   currentUserId: string
   memberIds: string[]
+  /** ?messageId= from the Inbox — scroll to and briefly highlight this message. */
+  focusMessageId?: string
 }
 
 type UserEntry = MentionUser
-
-function formatTimestamp(date: Date | string) {
-  const d = typeof date === "string" ? new Date(date) : date
-  const now = new Date()
-  const diffMs = now.getTime() - d.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-
-  if (diffMins < 1) return "just now"
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  return d.toLocaleDateString()
-}
 
 function displayName(user: UserEntry | undefined) {
   if (!user) return "Unknown"
@@ -59,6 +47,7 @@ interface MessageItemProps {
   onReply: (parentId: string, text: string, files: PendingAttachment[], mentionIds: string[]) => void
   onRetryUpload: (id: string) => void
   depth?: number
+  focusMessageId?: string
 }
 
 function MessageItem({
@@ -69,7 +58,9 @@ function MessageItem({
   onReply,
   onRetryUpload,
   depth = 0,
+  focusMessageId,
 }: MessageItemProps) {
+  const isFocused = focusMessageId === message.id
   const [showReplies, setShowReplies] = useState(true)
   const [showReplyInput, setShowReplyInput] = useState(false)
   const [replyText, setReplyText] = useState("")
@@ -140,7 +131,13 @@ function MessageItem({
   }
 
   return (
-    <div className={depth > 0 ? "ml-7 border-l-2 border-[#e5d4c1] pl-3 mt-1" : ""}>
+    <div
+      // Anchor for the Inbox deep-link (?messageId=). Also the highlight target.
+      id={`message-${message.id}`}
+      className={`${depth > 0 ? "ml-7 border-l-2 border-[#e5d4c1] pl-3 mt-1" : ""} ${
+        isFocused ? "bg-[#f5ece0] rounded transition-colors duration-1000" : ""
+      }`}
+    >
       <div className="flex gap-2 py-2">
         {/* Avatar */}
         <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
@@ -150,7 +147,7 @@ function MessageItem({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <span className="text-xs font-medium text-[#1e1e1e]">{displayName(author)}</span>
-            <span className="text-xs text-[#717182]">{formatTimestamp(message.created_at)}</span>
+            <span className="text-xs text-[#717182]">{formatDateTime(message.created_at)}</span>
           </div>
 
           <p className="text-xs text-[#1e1e1e] whitespace-pre-wrap break-words">
@@ -305,6 +302,7 @@ function MessageItem({
             onReply={onReply}
             onRetryUpload={onRetryUpload}
             depth={depth + 1}
+            focusMessageId={focusMessageId}
           />
         ))}
     </div>
@@ -317,6 +315,7 @@ export function CommentsSection({
   projectId,
   currentUserId,
   memberIds,
+  focusMessageId,
 }: CommentsSectionProps) {
   const { data: allMessages } = useLiveQuery(
     (q) => q.from({ messagesCollection }),
@@ -334,6 +333,17 @@ export function CommentsSection({
   const topLevelMessages = (allMessages ?? [])
     .filter((m) => m.channel_id === channelId && !m.parent_id)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  // Scroll the deep-linked message into view once it has actually rendered.
+  // Depends on allMessages: on a cold load the collection is still syncing when
+  // this first runs, so the element does not exist yet and a one-shot scroll on
+  // mount would silently do nothing.
+  useEffect(() => {
+    if (!focusMessageId) return
+    const el = document.getElementById(`message-${focusMessageId}`)
+    if (!el) return
+    el.scrollIntoView({ behavior: "smooth", block: "center" })
+  }, [focusMessageId, allMessages])
 
   const handleSendMessage = async (text: string, files: PendingAttachment[], mentionIds: string[]) => {
     const messageId = crypto.randomUUID()
@@ -423,6 +433,7 @@ export function CommentsSection({
               users={users ?? []}
               onReply={handleReply}
               onRetryUpload={retryUpload}
+              focusMessageId={focusMessageId}
             />
           ))}
         </div>

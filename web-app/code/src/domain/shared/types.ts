@@ -7,6 +7,7 @@ export {
   ENTITY_TYPES,
   STATUS_VALUES,
   PRIORITY_VALUES,
+  TASK_STATUS_VALUES,
 } from "@buildinlime/domain-types"
 export type {
   MembershipRole,
@@ -15,4 +16,5 @@ export type {
   EntityType,
   StatusValue,
   PriorityValue,
+  TaskStatusValue,
 } from "@buildinlime/domain-types"

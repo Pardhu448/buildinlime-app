@@ -27,7 +27,17 @@ function TaskRoute() {
     )
   }
 
-  const { taskId, taskDescription, properties, channelMemberIds, currentAssigneeId, currentUserId } = result
+  const {
+    taskId,
+    taskDescription,
+    properties,
+    channelMemberIds,
+    currentAssigneeId,
+    currentUserId,
+    createdByName,
+    createdAt,
+    canAssign,
+  } = result
 
   return (
     <TaskPage
@@ -44,6 +54,9 @@ function TaskRoute() {
       channelMemberIds={channelMemberIds}
       currentAssigneeId={currentAssigneeId}
       currentUserId={currentUserId}
+      createdByName={createdByName}
+      createdAt={createdAt}
+      canAssign={canAssign}
     />
   )
 }

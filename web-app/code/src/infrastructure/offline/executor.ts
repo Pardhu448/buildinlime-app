@@ -5,6 +5,7 @@ import {
   messagesCollection,
   resourcesCollection,
   propertiesCollection,
+  readsCollection,
 } from "%/application/collections/communication"
 import { teamsCollection } from "%/application/collections/admin"
 import { mutationFns } from "./mutation-fns"
@@ -20,6 +21,7 @@ export async function initOfflineExecutor(): Promise<OfflineExecutor> {
       resources: resourcesCollection,
       properties: propertiesCollection,
       teams: teamsCollection,
+      reads: readsCollection,
     },
     mutationFns,
   })

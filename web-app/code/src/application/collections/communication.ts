@@ -7,10 +7,13 @@ import {
   selectMessageSchema,
   selectResourceSchema,
   selectPropertySchema,
+  selectReadSchema,
   PROPERTY_TYPES,
   ENTITY_TYPES,
   STATUS_VALUES,
   PRIORITY_VALUES,
+  TASK_STATUS_VALUES,
+  READ_ITEM_TYPES,
 } from "%/infrastructure/database/schema/admin-schema"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
 import { retryOnError, coerceBool, origin } from "./_shared"
@@ -25,10 +28,15 @@ const electricPropertySchema = selectPropertySchema.extend({
   entity: z.preprocess(unwrapJsonb, z.enum(ENTITY_TYPES)),
   status_value: z.preprocess(unwrapJsonb, z.enum(STATUS_VALUES).nullish()),
   priority_value: z.preprocess(unwrapJsonb, z.enum(PRIORITY_VALUES).nullish()),
+  task_status_value: z.preprocess(unwrapJsonb, z.enum(TASK_STATUS_VALUES).nullish()),
 })
 
 const electricTaskSchema = selectTaskSchema.extend({
   completed: z.preprocess(coerceBool, z.boolean()),
+})
+
+const electricReadSchema = selectReadSchema.extend({
+  item_type: z.preprocess(unwrapJsonb, z.enum(READ_ITEM_TYPES)),
 })
 
 // ---------------------------------------------------------------------------
@@ -106,7 +114,12 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
 // offset/data through the wrong namespace and strands them on reload (Electric
 // reports "up-to-date" but OPFS has no rows). The nullable channel_id addition
 // is re-synced from Electric, so no cache-invalidation bump is needed.
-const PROPERTIES_SCHEMA_VERSION = 1
+//
+// v2: task_status_value + percent_complete columns. Persisted rows predating them
+// would validate against the new schema as undefined, and percent_complete rows
+// cached before the backfill still carry their value in pending_task — so the
+// local store must be discarded and re-synced rather than reused.
+const PROPERTIES_SCHEMA_VERSION = 2
 
 function _makePropertiesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -136,8 +149,7 @@ function _makePropertiesCollection(
         schema: electricPropertySchema,
         getKey: (item) => item.id,
         // Property writes go through @tanstack/offline-transactions —
-        // see application/actions/properties.ts. Update is not currently
-        // used by UI; add a mutationFn + action when needed.
+        // see application/actions/properties.ts (create / update / delete).
       }),
       persistence,
       schemaVersion: PROPERTIES_SCHEMA_VERSION,
@@ -180,6 +192,52 @@ function _makeMessagesCollection(
   )
 }
 
+const READS_SCHEMA_VERSION = 1
+
+/**
+ * The reads collection's key. Exported because the optimistic write in
+ * actions/reads.ts must check for an existing row before inserting, and a key
+ * built differently there would silently miss and throw "already exists".
+ */
+export const readKey = (userId: string, itemType: string, itemId: string) =>
+  `${userId}:${itemType}:${itemId}`
+
+/**
+ * The current user's read state. The shape is scoped `user_id = me` server-side
+ * (see routes/api/reads.ts) — there is no id set to pass, so unlike the other
+ * collections this needs no membership params and never rebuilds on scope change.
+ *
+ * The key is composite: one row per (user, item_type, item_id).
+ */
+function _makeReadsCollection(
+  persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
+) {
+  const url = new URL(`/api/reads`, origin)
+  return createCollection(
+    persistedCollectionOptions({
+      ...electricCollectionOptions({
+        id: `reads`,
+        shapeOptions: {
+          url: url.toString(),
+          onError: retryOnError,
+          parser: {
+            timestamptz: (date: string) => {
+              return new Date(date)
+            },
+          },
+        },
+        schema: electricReadSchema,
+        getKey: (item) => readKey(item.user_id, item.item_type, item.item_id),
+        // Reads are written through @tanstack/offline-transactions —
+        // see application/actions/reads.ts.
+      }),
+      persistence,
+      schemaVersion: READS_SCHEMA_VERSION,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any,
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Deferred exports — initialized by initializeCommunicationCollections()
 // called from the _authenticated loader after memberships preload.
@@ -188,6 +246,7 @@ export let tasksCollection: ReturnType<typeof _makeTasksCollection> = null!
 export let resourcesCollection: ReturnType<typeof _makeResourcesCollection> = null!
 export let propertiesCollection: ReturnType<typeof _makePropertiesCollection> = null!
 export let messagesCollection: ReturnType<typeof _makeMessagesCollection> = null!
+export let readsCollection: ReturnType<typeof _makeReadsCollection> = null!
 
 export async function initializeCommunicationCollections(params: {
   memberChannelIds: string[]
@@ -198,6 +257,11 @@ export async function initializeCommunicationCollections(params: {
   tasksCollection = _makeTasksCollection(persistence, params.memberChannelIds)
   messagesCollection = _makeMessagesCollection(persistence, params.memberChannelIds)
   resourcesCollection = _makeResourcesCollection(params.memberChannelIds)
+  // Reads are scoped `user_id = me` server-side, not by membership, so this is
+  // built once and deliberately NOT rebuilt on a membership resync (which
+  // re-enters this function) — rebuilding would orphan the live instance for no
+  // gain.
+  if (!readsCollection) readsCollection = _makeReadsCollection(persistence)
   if (import.meta.env.DEV) console.log(`[OPFS:comm] Collections created in ${(performance.now() - t0).toFixed(0)}ms`)
 }
 

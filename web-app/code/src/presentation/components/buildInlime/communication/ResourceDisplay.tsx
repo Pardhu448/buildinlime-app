@@ -3,6 +3,7 @@ import { useLiveQuery, eq } from "@tanstack/react-db"
 import { Download, FileText, Image, Video, Music, File, X } from "lucide-react"
 import { useSession } from "%/infrastructure/auth/client"
 import { resourcesCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
+import { formatDateTime } from "%/presentation/lib/datetime"
 
 export interface ResourceDisplayProps {
   channelId: string | null
@@ -80,9 +81,12 @@ export function ResourceDisplay({ channelId, buildunitId }: ResourceDisplayProps
           className="flex items-center gap-2 px-3 py-1.5 bg-[#fdf8f2] border border-[#e5d4c1] rounded text-sm min-w-[180px] max-w-[240px]"
         >
           {mimeIcon(r.mime_type)}
-          <span className="text-[#1e1e1e] truncate flex-1" title={r.name}>
-            {r.name}
-          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[#1e1e1e] truncate" title={r.name}>
+              {r.name}
+            </p>
+            <p className="text-[10px] text-[#717182]">{formatDateTime(r.uploaded_at)}</p>
+          </div>
           <a
             href={r.file_location}
             download
