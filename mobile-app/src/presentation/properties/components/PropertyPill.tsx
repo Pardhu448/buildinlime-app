@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from "react-native"
 import {
   AlertCircle,
   CalendarDays,
+  CheckCircle2,
   Circle,
   Flag,
   Percent,
@@ -94,15 +95,29 @@ function toPill(property: Property): Pill | null {
       if (!property.pending_task) return null
       return { icon: AlertCircle, color: "#ca8a04", text: property.pending_task }
 
-    // Web writes percent_complete into `pending_task` (see PropertiesInline's
-    // handleSubmit — it shares the branch with pendingTask), so read it there.
+    // percent_complete used to share the `pending_task` column with pendingTask.
+    // It has its own column as of migration 0003, which also backfilled the
+    // existing rows — so pending_task is now empty for this type.
     case "percent_complete":
-      if (!property.pending_task) return null
-      return { icon: Percent, color: colors.primary, text: `${property.pending_task}%` }
+      if (!property.percent_complete) return null
+      return { icon: Percent, color: colors.primary, text: `${property.percent_complete}%` }
 
     case "label":
       if (!property.label_value) return null
       return { icon: Tag, color: "#9333ea", text: property.label_value }
+
+    // Source of truth for task completion — the properties router writes
+    // tasks.completed through in the same transaction, so this pill and the
+    // My Tasks badge can never disagree.
+    case "taskStatus": {
+      if (!property.task_status_value) return null
+      const done = property.task_status_value === "completed"
+      return {
+        icon: CheckCircle2,
+        color: done ? "#166534" : "#1d4ed8",
+        text: done ? "Completed" : "Open",
+      }
+    }
 
     default:
       return null

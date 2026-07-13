@@ -4,6 +4,7 @@ import { persistedCollectionOptions } from "@tanstack/expo-db-sqlite-persistence
 import { z } from "zod"
 import {
   PROPERTY_TYPES,
+  TASK_STATUS_VALUES,
   ENTITY_TYPES,
   STATUS_VALUES,
   PRIORITY_VALUES,
@@ -59,6 +60,9 @@ const selectResourceSchema = z.object({
   createdby_id: z.string(),
 })
 
+// Zod strips unknown keys, so a column missing from this object is DROPPED from
+// the synced row — it does not merely go untyped. percent_complete and
+// task_status_value must be listed here or the pills read undefined.
 const selectPropertySchema = z.object({
   id: z.string(),
   type: z.preprocess(unwrapJsonb, z.enum(PROPERTY_TYPES)),
@@ -66,9 +70,12 @@ const selectPropertySchema = z.object({
   entity_id: z.string(),
   status_value: z.preprocess(unwrapJsonb, z.enum(STATUS_VALUES).nullish()),
   priority_value: z.preprocess(unwrapJsonb, z.enum(PRIORITY_VALUES).nullish()),
+  task_status_value: z.preprocess(unwrapJsonb, z.enum(TASK_STATUS_VALUES).nullish()),
   target_date: z.union([z.string(), z.date()]).nullable().optional(),
   start_date: z.union([z.string(), z.date()]).nullable().optional(),
   pending_task: z.string().nullable().optional(),
+  // Own column as of migration 0003; it used to share `pending_task`.
+  percent_complete: z.string().nullable().optional(),
   label_value: z.string().nullable().optional(),
   created_at: z.union([z.string(), z.date()]).optional(),
 })
@@ -172,7 +179,11 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
   )
 }
 
-const PROPERTIES_SCHEMA_VERSION = 1
+// v2: task_status_value + percent_complete columns. Rows cached before migration
+// 0003 still carry the percent value in pending_task, so the local store has to be
+// discarded and re-synced rather than reused — otherwise the percent pill reads a
+// column the backfill has already emptied.
+const PROPERTIES_SCHEMA_VERSION = 2
 
 function _makePropertiesCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
