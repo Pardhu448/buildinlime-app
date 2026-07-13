@@ -8,11 +8,11 @@ import {
   StatusBar,
 } from "react-native"
 import { useRouter, useLocalSearchParams } from "expo-router"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useChannels } from "@/src/presentation/channels/hooks/useChannels"
-import { useProperties } from "@/src/presentation/properties/hooks/useProperties"
+import { usePropertiesByEntity } from "@/src/presentation/properties/hooks/useProperties"
 import { useBuildUnits } from "@/src/presentation/build-units/hooks/useBuildUnits"
 import { ChannelCard } from "@/src/presentation/channels/components/ChannelCard"
-import { PropertyPill } from "@/src/presentation/properties/components/PropertyPill"
 import { colors } from "@/src/presentation/shared/colors"
 
 export default function ChannelsScreen() {
@@ -21,15 +21,13 @@ export default function ChannelsScreen() {
     buildUnitId: string
   }>()
   const router = useRouter()
+  const insets = useSafeAreaInsets()
 
   const { buildUnits } = useBuildUnits(projectId)
   const buildUnit = buildUnits.find((b) => b.id === buildUnitId)
 
   const { channels, isLoading } = useChannels(buildUnitId)
-  const { properties } = useProperties(buildUnitId)
-
-  // Only show properties tagged to this build unit entity
-  const buildUnitProperties = properties.filter((p) => p.entity === "buildUnit")
+  const channelProperties = usePropertiesByEntity("channel")
 
   return (
     <View style={styles.container}>
@@ -37,7 +35,7 @@ export default function ChannelsScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.navigate(`/(tabs)/project/${projectId}` as any)}
+          onPress={() => router.navigate("/(tabs)" as any)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           activeOpacity={0.6}
         >
@@ -48,18 +46,7 @@ export default function ChannelsScreen() {
         </Text>
       </View>
 
-      {/* Property pills */}
-      {buildUnitProperties.length > 0 && (
-        <View style={styles.pillsScroll}>
-          <View style={styles.pillsContainer}>
-            {buildUnitProperties.map((prop) => (
-              <PropertyPill key={prop.id} property={prop} />
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Channels grid */}
+      {/* Channels grid — build-unit properties live on its Home card. */}
       {isLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -72,20 +59,21 @@ export default function ChannelsScreen() {
         <FlatList
           data={channels}
           keyExtractor={(item) => item.id}
-          numColumns={2}
-          contentContainerStyle={styles.listContent}
-          columnWrapperStyle={styles.columnWrapper}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: insets.bottom + 24 },
+          ]}
+          ItemSeparatorComponent={() => <View style={styles.gap} />}
           renderItem={({ item }) => (
-            <View style={styles.cardWrapper}>
-              <ChannelCard
-                channel={item}
-                onPress={() =>
-                  router.push(
-                    `/(tabs)/project/${projectId}/${buildUnitId}/${item.id}` as any
-                  )
-                }
-              />
-            </View>
+            <ChannelCard
+              channel={item}
+              properties={channelProperties.get(item.id)}
+              onPress={() =>
+                router.push(
+                  `/(tabs)/project/${projectId}/${buildUnitId}/${item.id}` as any
+                )
+              }
+            />
           )}
           showsVerticalScrollIndicator={false}
         />
@@ -127,17 +115,6 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     lineHeight: 22,
   },
-  pillsScroll: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  pillsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
   centered: {
     flex: 1,
     alignItems: "center",
@@ -152,12 +129,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    gap: 12,
   },
-  columnWrapper: {
-    gap: 12,
-  },
-  cardWrapper: {
-    flex: 1,
+  gap: {
+    height: 12,
   },
 })
