@@ -10,6 +10,7 @@ import { usersRouter } from "%/infrastructure/trpc/routers/users"
 import { resourcesRouter } from "%/infrastructure/trpc/routers/resources"
 import { messagesRouter } from "%/infrastructure/trpc/routers/messages"
 import { teamsRouter } from "%/infrastructure/trpc/routers/teams"
+import { readsRouter } from "%/infrastructure/trpc/routers/reads"
 import { db } from "%/infrastructure/database/connection"
 import { auth } from "%/infrastructure/auth/server"
 
@@ -23,6 +24,7 @@ export const appRouter = router({
   resources: resourcesRouter,
   messages: messagesRouter,
   teams: teamsRouter,
+  reads: readsRouter,
 })
 
 export type AppRouter = typeof appRouter

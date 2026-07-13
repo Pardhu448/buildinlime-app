@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, useNavigate, redirect } from '@tanstack/react-
 import { authClient } from '../../infrastructure/auth/client'
 import { authStateCollection } from '../../infrastructure/database/tanstack-db-electric/authCollections'
 import { projectsCollection, buildUnitsCollection, channelsCollection, usersCollection, teamsCollection, membershipsCollection, channelMembersCollection, initializeOrganizationCollections, initializeChannelMembersCollection, initializeUsersCollection, initializeMembershipsCollection, initializeTeamsCollection } from '../../infrastructure/database/tanstack-db-electric/admincollections'
-import { initializeCommunicationCollections, initializePropertiesCollection, tasksCollection, messagesCollection, resourcesCollection, propertiesCollection } from '../../application/collections/communication'
+import { initializeCommunicationCollections, initializePropertiesCollection, tasksCollection, messagesCollection, resourcesCollection, propertiesCollection, readsCollection } from '../../application/collections/communication'
 import { debugListOPFSFiles } from '../../infrastructure/persistence/browser-persistence'
 import { initOfflineExecutor, disposeOfflineExecutor } from '../../infrastructure/offline/executor'
 import { useEffect, useState, useRef } from 'react'
@@ -162,6 +162,7 @@ async function initCollections(): Promise<void> {
   messagesCollection.startSyncImmediate()
   resourcesCollection.startSyncImmediate()
   propertiesCollection.startSyncImmediate()
+  readsCollection.startSyncImmediate()
 
   // 4. Offline executor — binds the collection instances BY VALUE, so it must
   //    follow collection init (and be rebound on resync). waitForInit() restores
