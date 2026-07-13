@@ -232,6 +232,7 @@ function _makeReadsCollection(
         },
         schema: electricReadSchema,
         getKey: (item) => readKey(item.user_id, item.item_type, item.item_id),
+        gcTime: NEVER_GC,
         // Reads are written through @tanstack/offline-transactions —
         // see application/actions/reads.ts.
       }),
