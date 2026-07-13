@@ -23,8 +23,15 @@ export const PROPERTY_TYPES = [
   "pendingTask",
   "percent_complete",
   "label",
+  "taskStatus",
 ] as const
 export type PropertyType = typeof PROPERTY_TYPES[number]
+
+// Whether a task is done. Only meaningful on entity "task", and the source of
+// truth for `tasks.completed` — the properties tRPC router writes the column
+// through in the same transaction, so the two cannot drift.
+export const TASK_STATUS_VALUES = ["open", "completed"] as const
+export type TaskStatusValue = typeof TASK_STATUS_VALUES[number]
 
 export const ENTITY_TYPES = ["project", "buildUnit", "channel", "task"] as const
 export type EntityType = typeof ENTITY_TYPES[number]

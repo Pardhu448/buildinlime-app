@@ -1,4 +1,10 @@
-import type { PropertyType, EntityType, StatusValue, PriorityValue } from "./shared"
+import type {
+  PropertyType,
+  EntityType,
+  StatusValue,
+  PriorityValue,
+  TaskStatusValue,
+} from "./shared"
 
 export type Task = {
   id: string
@@ -91,9 +97,13 @@ export type Property = {
   entity_id: string
   status_value?: StatusValue | null
   priority_value?: PriorityValue | null
+  task_status_value?: TaskStatusValue | null
   target_date?: string | null
   start_date?: string | null
   pending_task?: string | null
+  // percent_complete formerly shared the `pending_task` column. It has its own
+  // column as of migration 0003 — read it from here, not from pending_task.
+  percent_complete?: string | null
   label_value?: string | null
   created_at: Date
 }
