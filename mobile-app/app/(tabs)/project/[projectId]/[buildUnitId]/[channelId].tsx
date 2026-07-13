@@ -3,7 +3,6 @@ import {
   Text,
   TouchableOpacity,
   KeyboardAvoidingView,
-  Platform,
   StyleSheet,
   ActivityIndicator,
   StatusBar,
@@ -11,16 +10,15 @@ import {
 import { useState } from "react"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useMessages } from "@/src/presentation/messages/hooks/useMessages"
-import { useProperties } from "@/src/presentation/properties/hooks/useProperties"
 import { MessageList } from "@/src/presentation/messages/components/MessageList"
 import { MessageInput } from "@/src/presentation/messages/components/MessageInput"
-import { PropertyPill } from "@/src/presentation/properties/components/PropertyPill"
-import { ResourcesSection } from "@/src/presentation/resources/components/ResourcesSection"
+import { ResourcesSheet } from "@/src/presentation/resources/components/ResourcesSheet"
+import { useUsers } from "@/src/presentation/shared/hooks/useUsers"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useLiveQuery, eq } from "@tanstack/react-db"
 import { channelsCollection } from "@/src/application/collections/organization"
 import { colors } from "@/src/presentation/shared/colors"
-import type { Channel } from "@buildinlime/domain-types"
+import type { Channel, Message } from "@buildinlime/domain-types"
 
 export default function ChannelScreen() {
   const { projectId, buildUnitId, channelId } = useLocalSearchParams<{
@@ -42,33 +40,26 @@ export default function ChannelScreen() {
   const channel = ((channelsData ?? []) as Channel[])[0]
 
   const { messages, isLoading } = useMessages(channelId)
-  const { properties } = useProperties(channelId)
-
-  // Only show channel-level properties
-  const channelProperties = properties.filter((p) => p.entity === "channel")
-
-  const [propertiesExpanded, setPropertiesExpanded] = useState(true)
+  const usersMap = useUsers()
 
   const currentUserId = session?.user?.id ?? ""
 
-  // Build a basic users map from message senders (best-effort without a users collection)
-  const usersMap: Record<string, string> = {}
-  for (const msg of messages) {
-    if (!usersMap[msg.createdby_id]) {
-      usersMap[msg.createdby_id] =
-        msg.createdby_id === currentUserId
-          ? session?.user?.name ?? "Me"
-          : `User ${msg.createdby_id.slice(0, 6)}`
-    }
-  }
-  if (currentUserId && !usersMap[currentUserId]) {
-    usersMap[currentUserId] = session?.user?.name ?? "Me"
-  }
+  // The message being replied to, or null. Cleared on send / dismiss.
+  const [replyTo, setReplyTo] = useState<Message | null>(null)
+
+  // "padding" on both platforms, NOT "height" on Android. Under edge-to-edge
+  // (SDK 55) the window does not resize for the keyboard, so the composer needs
+  // the KeyboardAvoidingView to lift it — but "height" lifts by shrinking its own
+  // height and does not fully unwind on dismiss, leaving the composer parked
+  // above its resting position. "padding" adds and removes cleanly.
+  //
+  // MessageInput drops its nav-bar inset while the keyboard is up, so the two do
+  // not stack (the nav bar is behind the keyboard then).
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior="padding"
       keyboardVerticalOffset={0}
     >
       {/* Inline header with back button */}
@@ -84,35 +75,14 @@ export default function ChannelScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {channel?.name ?? "Channel"}
         </Text>
+        {/* Resources live behind this button — a half-screen sheet, so they
+            don't compete with the message list for vertical space. */}
+        <ResourcesSheet
+          channelId={channelId}
+          buildUnitId={buildUnitId}
+          projectId={projectId}
+        />
       </View>
-
-      {/* Collapsible properties */}
-      {channelProperties.length > 0 && (
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.sectionHeader}
-            onPress={() => setPropertiesExpanded((v) => !v)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.sectionLabel}>Properties</Text>
-            <Text style={styles.chevron}>{propertiesExpanded ? "⌄" : "›"}</Text>
-          </TouchableOpacity>
-          {propertiesExpanded && (
-            <View style={styles.pillsContainer}>
-              {channelProperties.map((prop) => (
-                <PropertyPill key={prop.id} property={prop} />
-              ))}
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* Collapsible resources */}
-      <ResourcesSection
-        channelId={channelId}
-        buildUnitId={buildUnitId}
-        projectId={projectId}
-      />
 
       {/* Messages */}
       {isLoading ? (
@@ -125,6 +95,7 @@ export default function ChannelScreen() {
           messages={messages}
           currentUserId={currentUserId}
           usersMap={usersMap}
+          onReply={setReplyTo}
         />
       )}
 
@@ -133,6 +104,9 @@ export default function ChannelScreen() {
         channelId={channelId}
         buildUnitId={buildUnitId}
         projectId={projectId}
+        replyTo={replyTo}
+        replyToName={replyTo ? usersMap[replyTo.createdby_id] ?? "Unknown" : undefined}
+        onCancelReply={() => setReplyTo(null)}
       />
     </KeyboardAvoidingView>
   )
@@ -170,36 +144,6 @@ const styles = StyleSheet.create({
     fontFamily: "InstrumentSans_600SemiBold",
     color: colors.foreground,
     lineHeight: 22,
-  },
-  section: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontFamily: "InstrumentSans_500Medium",
-    color: colors.mutedForeground,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  chevron: {
-    fontSize: 16,
-    color: colors.mutedForeground,
-    lineHeight: 20,
-  },
-  pillsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
   },
   centered: {
     flex: 1,
