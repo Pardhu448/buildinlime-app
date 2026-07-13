@@ -172,9 +172,7 @@ export default function DrawerLayout() {
       <Drawer.Screen name="inbox" options={{ title: "Inbox" }} />
       <Drawer.Screen name="profile" options={{ title: "Profile" }} />
       {/* Hidden screens — navigated to programmatically */}
-      <Drawer.Screen name="projects" options={{ drawerItemStyle: { display: "none" } }} />
       <Drawer.Screen name="project" options={{ drawerItemStyle: { display: "none" } }} />
-      <Drawer.Screen name="two" options={{ drawerItemStyle: { display: "none" } }} />
       <Drawer.Screen
         name="offline-debug"
         options={{ drawerItemStyle: { display: "none" }, title: "Offline Debug" }}
