@@ -5,8 +5,24 @@ import { eq } from "drizzle-orm"
 import {
   tasksTable,
   createTaskSchema,
-  updateTaskSchema,
 } from "../../database/schema/admin-schema"
+
+/**
+ * Only the fields a task's lifecycle may legitimately change.
+ *
+ * This used to be `updateTaskSchema` — a full partial — which meant any
+ * authenticated user could set ANY column on ANY task, including `createdby_id`,
+ * `channel_id` and `buildunit_id`: rewriting authorship or moving a task into
+ * another channel entirely. The client only ever sent four fields, so nothing
+ * broke, but nothing stopped it either.
+ */
+const taskPatchSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  completed: z.boolean().optional(),
+  assignee_id: z.string().nullish(),
+  closed_at: z.coerce.date().optional(),
+})
 
 export const tasksRouter = router({
   create: authedProcedure
@@ -37,24 +53,40 @@ export const tasksRouter = router({
     .input(
       z.object({
         id: z.string(),
-        data: updateTaskSchema,
+        data: taskPatchSchema,
       })
     )
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
+
+        const [task] = await tx
+          .select()
+          .from(tasksTable)
+          .where(eq(tasksTable.id, input.id))
+
+        if (!task) {
+          throw new TRPCError({ code: `NOT_FOUND`, message: `Task not found` })
+        }
+
+        // Only the creator may (re)assign. Enforced here, not just by hiding the
+        // button: the client-side member filter in AssignedToSection was the ONLY
+        // constraint, and a hidden button stops nobody from calling the endpoint.
+        const reassigning =
+          input.data.assignee_id !== undefined &&
+          input.data.assignee_id !== task.assignee_id
+        if (reassigning && task.createdby_id !== ctx.session.user.id) {
+          throw new TRPCError({
+            code: `FORBIDDEN`,
+            message: `Only the task's creator can assign it`,
+          })
+        }
+
         const [updatedItem] = await tx
           .update(tasksTable)
           .set(input.data)
           .where(eq(tasksTable.id, input.id))
           .returning()
-
-        if (!updatedItem) {
-          throw new TRPCError({
-            code: `NOT_FOUND`,
-            message: `Task not found`,
-          })
-        }
 
         return { item: updatedItem, txid }
       })

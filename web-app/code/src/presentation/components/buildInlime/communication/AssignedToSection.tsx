@@ -10,12 +10,17 @@ interface AssignedToSectionProps {
   taskId: string
   currentAssigneeId: string | null
   channelMemberIds: string[]
+  /** Whether the viewer created this task. Only the creator may assign it —
+   *  the real enforcement is in the tasks.update tRPC procedure; hiding the
+   *  button here is only so non-creators aren't offered an action that 403s. */
+  canAssign?: boolean
 }
 
 export function AssignedToSection({
   taskId,
   currentAssigneeId,
   channelMemberIds,
+  canAssign = false,
 }: AssignedToSectionProps) {
   const [isPopupOpen, setIsPopupOpen] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<string>("")
@@ -43,17 +48,22 @@ export function AssignedToSection({
     <div className="flex items-center gap-0 py-2">
       <span className="text-sm text-[#717182] w-32 shrink-0">Assigned To</span>
 
-      <button
-        onClick={() => { setSelectedUserId(""); setIsPopupOpen(true) }}
-        className="p-0.5 text-[#717182] hover:bg-gray-100 rounded transition-colors"
-      >
-        <Plus className="w-4 h-4" />
-      </button>
+      {canAssign && (
+        <button
+          onClick={() => { setSelectedUserId(""); setIsPopupOpen(true) }}
+          title="Assign this task"
+          className="p-0.5 text-[#717182] hover:bg-gray-100 rounded transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+      )}
 
-      {assignee && (
+      {assignee ? (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
           {assignee.name || assignee.email}
         </span>
+      ) : (
+        !canAssign && <span className="text-sm text-[#717182]">Unassigned</span>
       )}
 
       {isPopupOpen && (

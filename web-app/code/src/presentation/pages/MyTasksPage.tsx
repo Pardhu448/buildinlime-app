@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckSquare, Square, ChevronRight } from "lucide-react";
+import { ArrowLeft, CheckSquare, ChevronRight } from "lucide-react";
 import { Sidebar } from "../components/buildInlime";
 import { unwrapJsonb } from "%/presentation/lib/utils";
 import { useMyTasksPage } from "../hooks/use-my-tasks-page";
@@ -64,13 +64,6 @@ export function MyTasksPage() {
                         : "bg-[#fdf8f2] border-[#e5d4c1] hover:border-[#ac7f5e] hover:bg-[#f5ece0]"
                     }`}
                   >
-                    <div className="mt-0.5 flex-shrink-0 text-[#976623]">
-                      {task.completed ? (
-                        <CheckSquare className="w-4 h-4" />
-                      ) : (
-                        <Square className="w-4 h-4" />
-                      )}
-                    </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium ${task.completed ? "line-through text-[#717182]" : "text-[#1e1e1e]"}`}>
                         {task.name}
