@@ -4,9 +4,34 @@ import { TRPCError } from "@trpc/server"
 import { eq } from "drizzle-orm"
 import {
   propertiesTable,
+  tasksTable,
   createPropertySchema,
   updatePropertySchema,
 } from "../../database/schema/admin-schema"
+
+/**
+ * The taskStatus property is the source of truth for task completion, so it
+ * writes `tasks.completed` through in the SAME transaction as the property row.
+ * Keeping the two in one transaction is the point: a second round-trip could
+ * leave a task whose pill says Completed but whose column says otherwise, and
+ * `completed` is what My Tasks counts and the mobile badge read.
+ *
+ * `closed_at` is stamped on completion so "when was this finished" is answerable.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function syncTaskCompletion(tx: any, property: {
+  type: string
+  entity: string
+  entity_id: string
+  task_status_value?: string | null
+}) {
+  if (property.type !== `taskStatus` || property.entity !== `task`) return
+  const completed = property.task_status_value === `completed`
+  await tx
+    .update(tasksTable)
+    .set(completed ? { completed: true, closed_at: new Date() } : { completed: false })
+    .where(eq(tasksTable.id, property.entity_id))
+}
 
 export const propertiesRouter = router({
   create: authedProcedure
@@ -23,7 +48,10 @@ export const propertiesRouter = router({
           .values({ ...input, createdby_id: ctx.session.user.id })
           .onConflictDoNothing()
           .returning()
-        if (inserted) return { item: inserted, txid }
+        if (inserted) {
+          await syncTaskCompletion(tx, inserted)
+          return { item: inserted, txid }
+        }
         const [existing] = await tx
           .select()
           .from(propertiesTable)
@@ -56,6 +84,8 @@ export const propertiesRouter = router({
             message: `Property not found`,
           })
         }
+
+        await syncTaskCompletion(tx, updatedItem)
 
         return { item: updatedItem, txid }
       })
