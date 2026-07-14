@@ -31,9 +31,14 @@ export const { signIn, signOut, getSession, useSession } = authClient
 export { clearAuthCookies }
 
 // Signs out and wipes the SQLite persistence cache so the next user logging in
-// does not see the previous user's cached rows. The caller must navigate away
-// from authenticated screens (unmounting live queries) BEFORE calling this, to
-// avoid "collection was cleaned up" errors from active subscriptions.
+// does not see the previous user's cached rows.
+//
+// The caller must navigate away from authenticated screens BEFORE calling this,
+// AND then wait for the unmounted live queries to actually be released — see
+// waitForLiveQueryRelease in app/_layout.tsx. Unmounting alone is not enough:
+// a live query stays registered as a dependent of its source collections until
+// it is GC'd, and cleanup() on a source with a live dependent errors with
+// "source collection was manually cleaned up while live query depends on it".
 export async function signOutAndDispose(): Promise<void> {
   // Reset collections and dispose the SQLite DB BEFORE signing out,
   // because authClient.signOut() updates session state which triggers
