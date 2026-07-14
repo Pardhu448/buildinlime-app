@@ -38,6 +38,8 @@ const selectMessageSchema = z.object({
   mention_ids: z.array(z.string()).nullable().optional(),
   resource_ids: z.array(z.string()).nullable().optional(),
   parent_id: z.string().nullable().optional(),
+  // Set only on task status-change notes — see Message.task_id.
+  task_id: z.string().nullable().optional(),
   created_at: z.union([z.string(), z.date()]).optional(),
 })
 

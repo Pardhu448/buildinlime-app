@@ -3,20 +3,24 @@ import {
   initializeMembershipsCollection,
   initializeUsersCollection,
   initializeTeamsCollection,
+  initializeReadsCollection,
   resetAdminCollections,
   membershipsCollection,
   usersCollection,
   teamsCollection,
+  readsCollection,
 } from "./admin"
 import {
   initializeProjectsCollection,
   initializeOrganizationCollections,
+  initializeChannelMembersCollection,
   reinitializeProjectsCollection,
   reinitializeScopedOrganizationCollections,
   resetOrganizationCollections,
   projectsCollection,
   buildUnitsCollection,
   channelsCollection,
+  channelMembersCollection,
 } from "./organization"
 import {
   initializeCommunicationCollections,
@@ -141,6 +145,12 @@ export async function initBootstrapCollections(): Promise<void> {
   initializeUsersCollection()
   usersCollection.startSyncImmediate()
 
+  // Read state is scoped `user_id = me` server-side, not by membership, so it
+  // belongs in bootstrap alongside users — it takes no id sets and never needs
+  // rebuilding when the visible channel set changes.
+  initializeReadsCollection()
+  readsCollection.startSyncImmediate()
+
   // Baseline for the picker (no project selected yet): a change to the global
   // project list — being added to / removed from a whole project — flips
   // visibilityKey and triggers a resync of the projects collection.
@@ -184,6 +194,7 @@ export async function initProjectCollections(projectId: string): Promise<void> {
   // they start in the same parallel batch — no need to wait for tasks to land.
   buildUnitsCollection.startSyncImmediate()
   channelsCollection.startSyncImmediate()
+  channelMembersCollection.startSyncImmediate()
   teamsCollection.startSyncImmediate()
   tasksCollection.startSyncImmediate()
   messagesCollection.startSyncImmediate()
@@ -254,6 +265,14 @@ export async function resyncProjectCollections(projectId: string | null): Promis
     tasksCollection.startSyncImmediate()
     messagesCollection.startSyncImmediate()
     resourcesCollection.startSyncImmediate()
+  }
+
+  // The roster has no owner escape hatch (see initializeChannelMembersCollection),
+  // so a channel you own yourself moves channelKey without moving visibilityKey —
+  // rebuild on either, or the assignee picker misses that channel's members.
+  if ((visibilityChanged || channelChanged) && projectId && channelMembersCollection) {
+    initializeChannelMembersCollection(sets.memberChannelIds)
+    channelMembersCollection.startSyncImmediate()
   }
 
   // Properties are scoped by entity_id (project/build-unit) and channel_id
