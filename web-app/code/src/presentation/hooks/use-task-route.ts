@@ -41,6 +41,11 @@ export function useTaskRoute(channelId: string, taskName: string) {
 
   if (dbTasks === undefined) return { status: 'loading' as const }
   if (!task) return { status: 'not-found-task' as const }
+  // Properties MUST be loaded before the page renders, not merely defaulted to [].
+  // TaskStatusSection creates a taskStatus property when it cannot find one — so
+  // rendering mid-load lets a click create a SECOND taskStatus row for a task that
+  // already has one, and the two then disagree about the status forever.
+  if (dbTaskProperties === undefined) return { status: 'loading' as const }
 
   const channelMemberIds: string[] = (channelMembershipsData ?? []).map((m) => m.user_id)
   const currentAssigneeId = (task.assignee_id as string | null) ?? null
@@ -63,6 +68,10 @@ export function useTaskRoute(channelId: string, taskName: string) {
     status: 'ready' as const,
     taskId,
     taskDescription: task.description ?? '',
+    // Only a fallback for TaskStatusSection: the taskStatus PROPERTY is the source
+    // of truth, and this column is what the server writes through from it. It is
+    // read only when no taskStatus property exists on the task yet.
+    completed: !!task.completed,
     properties,
     channelMemberIds,
     currentAssigneeId,

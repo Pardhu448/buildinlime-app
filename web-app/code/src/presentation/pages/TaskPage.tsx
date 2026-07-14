@@ -15,6 +15,7 @@ import {
   PropertiesInline,
   ResourcesSection,
   AssignedToSection,
+  TaskStatusSection,
   PropertiesPanel,
 } from "../components/buildInlime";
 import { formatDateTime } from "%/presentation/lib/datetime";
@@ -30,6 +31,8 @@ interface TaskPageProps {
   taskId: string;
   taskName: string;
   taskDescription: string;
+  /** tasks.completed — only a fallback for TaskStatusSection. See use-task-route. */
+  completed: boolean;
   properties: Property[];
   channelMemberIds: string[];
   currentAssigneeId: string | null;
@@ -49,6 +52,7 @@ export function TaskPage({
   taskId,
   taskName,
   taskDescription,
+  completed,
   properties,
   channelMemberIds,
   currentAssigneeId,
@@ -177,6 +181,19 @@ export function TaskPage({
               currentAssigneeId={currentAssigneeId}
               channelMemberIds={channelMemberIds}
               canAssign={canAssign}
+            />
+
+            {/* Status — the ONLY way to change it. PropertiesInline no longer
+                offers taskStatus, so a status change always carries a note. */}
+            <TaskStatusSection
+              taskId={taskId}
+              taskName={taskName}
+              channelId={channelId}
+              buildUnitId={buildUnitId}
+              projectId={projectId}
+              currentUserId={currentUserId}
+              properties={properties}
+              completed={completed}
             />
 
             {/* Resources */}

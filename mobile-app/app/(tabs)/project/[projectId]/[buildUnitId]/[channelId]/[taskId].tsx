@@ -115,7 +115,18 @@ export default function TaskScreen() {
     )
   }
 
-  const taskStatus = properties.find((p: Property) => p.type === "taskStatus")
+  // A task should have exactly ONE taskStatus property. confirmStatusChange creates
+  // one when it cannot find one, so a tap made before properties finished syncing
+  // can leave a task with two rows that disagree about the status forever. Pick the
+  // newest deterministically rather than trusting collection order, so a task that
+  // already carries duplicates settles on one answer instead of flip-flopping.
+  const taskStatus = properties
+    .filter((p: Property) => p.type === "taskStatus")
+    .sort(
+      (a: Property, b: Property) =>
+        new Date(b.created_at as unknown as string).getTime() -
+        new Date(a.created_at as unknown as string).getTime()
+    )[0]
   const completed = taskStatus
     ? taskStatus.task_status_value === "completed"
     : task.completed

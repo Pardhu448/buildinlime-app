@@ -104,6 +104,7 @@ const createMessage: MutationFn = async ({ transaction }) => {
       mention_ids: (m.mention_ids as string[] | undefined) ?? [],
       resource_ids: (m.resource_ids as string[] | undefined) ?? [],
       parent_id: (m.parent_id as string | null) ?? null,
+      task_id: (m.task_id as string | null) ?? null,
     })
   } catch (err) {
     wrapTrpcError(err)

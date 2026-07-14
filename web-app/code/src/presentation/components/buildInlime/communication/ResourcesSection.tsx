@@ -48,7 +48,7 @@ export function ResourcesSection({
     usePendingResources(channelId, taskId)
 
   // Filter synced resources: by task_id when on a task page, otherwise by channel_id
-  const { data: syncedResources } = useLiveQuery(
+  const { data: syncedResourceRows } = useLiveQuery(
     (q) =>
       q
         .from({ resourcesCollection })
@@ -57,6 +57,17 @@ export function ResourcesSection({
         ),
     [channelId, taskId]
   )
+
+  // Newest upload first. The live query returns the collection's keyed-map order,
+  // which is not upload order and is not stable as rows sync in — so the sort has
+  // to be explicit. Same fix as the mobile ResourcesSheet.
+  const syncedResources = (syncedResourceRows ?? [])
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.uploaded_at as string).getTime() -
+        new Date(a.uploaded_at as string).getTime()
+    )
 
   const handleFormSubmit = (file: File, meta: { name: string; description: string }) => {
     addPending(file, {

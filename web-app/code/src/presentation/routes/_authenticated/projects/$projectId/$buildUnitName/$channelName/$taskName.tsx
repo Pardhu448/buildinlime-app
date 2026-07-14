@@ -30,6 +30,7 @@ function TaskRoute() {
   const {
     taskId,
     taskDescription,
+    completed,
     properties,
     channelMemberIds,
     currentAssigneeId,
@@ -50,6 +51,7 @@ function TaskRoute() {
       taskId={taskId}
       taskName={taskName}
       taskDescription={taskDescription}
+      completed={completed}
       properties={properties}
       channelMemberIds={channelMemberIds}
       currentAssigneeId={currentAssigneeId}
