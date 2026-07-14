@@ -87,7 +87,7 @@ const selectPropertySchema = z.object({
 // membership-derived IDs can be baked into the shape URLs.
 // ---------------------------------------------------------------------------
 
-const TASKS_SCHEMA_VERSION = 1
+const TASKS_SCHEMA_VERSION = 2
 
 function _makeTasksCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
@@ -120,7 +120,9 @@ function _makeTasksCollection(
   )
 }
 
-const MESSAGES_SCHEMA_VERSION = 1
+// v2: the task_id column (status-change notes), and to hold the one-version-for-
+// every-collection invariant documented above the properties version.
+const MESSAGES_SCHEMA_VERSION = 2
 
 function _makeMessagesCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
@@ -181,6 +183,13 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
   )
 }
 
+// EVERY collection's schemaVersion MUST be equal. Adapters are cached keyed by
+// schemaVersion, so a lone value here spawns a SECOND adapter over the same SQLite
+// file, and the two then drive the collections' offsets through different
+// namespaces. On web that stranded every collection after login — Electric
+// reported up-to-date and nothing rendered. Mobile shares the adapter-cache
+// design, so it has the same hazard. If you bump one, BUMP THEM ALL.
+//
 // v2: task_status_value + percent_complete columns. Rows cached before migration
 // 0003 still carry the percent value in pending_task, so the local store has to be
 // discarded and re-synced rather than reused — otherwise the percent pill reads a

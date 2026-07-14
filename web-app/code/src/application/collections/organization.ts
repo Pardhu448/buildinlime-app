@@ -18,7 +18,7 @@ const electricMembershipSchema = selectMembershipSchema.extend({
   role: z.enum(MEMBERSHIP_ROLES).default(`viewer`),
 })
 
-const MEMBERSHIPS_SCHEMA_VERSION = 1
+const MEMBERSHIPS_SCHEMA_VERSION = 2
 
 function _makeMembershipsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -67,7 +67,7 @@ export async function initializeMembershipsCollection() {
 // membership-change trigger when the visible channel set changes (Phase 4).
 // ---------------------------------------------------------------------------
 
-const CHANNEL_MEMBERS_SCHEMA_VERSION = 1
+const CHANNEL_MEMBERS_SCHEMA_VERSION = 2
 
 function _makeChannelMembersCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -114,7 +114,7 @@ export async function initializeChannelMembersCollection(params: { channelIds: s
 // the per-poll membership table scan on the server side.
 // ---------------------------------------------------------------------------
 
-const PROJECTS_SCHEMA_VERSION = 1
+const PROJECTS_SCHEMA_VERSION = 2
 
 function _makeProjectsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -190,7 +190,7 @@ export function registerBuildUnitInsertCallback(
   _buildUnitInsertCallbacks.set(id, { resolve, reject })
 }
 
-const BUILD_UNITS_SCHEMA_VERSION = 1
+const BUILD_UNITS_SCHEMA_VERSION = 2
 
 function _makeBuildUnitsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -274,7 +274,7 @@ export function registerChannelInsertCallback(
   _channelInsertCallbacks.set(id, { resolve, reject })
 }
 
-const CHANNELS_SCHEMA_VERSION = 1
+const CHANNELS_SCHEMA_VERSION = 2
 
 function _makeChannelsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],

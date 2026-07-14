@@ -52,7 +52,7 @@ const selectChannelSchema = z.object({
 // the per-poll membership table scan on the server side.
 // ---------------------------------------------------------------------------
 
-const PROJECTS_SCHEMA_VERSION = 1
+const PROJECTS_SCHEMA_VERSION = 2
 
 function _makeProjectsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
@@ -98,7 +98,7 @@ function _makeProjectsCollection(
   )
 }
 
-const BUILD_UNITS_SCHEMA_VERSION = 1
+const BUILD_UNITS_SCHEMA_VERSION = 2
 
 function _makeBuildUnitsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
@@ -131,7 +131,7 @@ function _makeBuildUnitsCollection(
   )
 }
 
-const CHANNELS_SCHEMA_VERSION = 1
+const CHANNELS_SCHEMA_VERSION = 2
 
 function _makeChannelsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
@@ -164,7 +164,7 @@ function _makeChannelsCollection(
   )
 }
 
-const CHANNEL_MEMBERS_SCHEMA_VERSION = 1
+const CHANNEL_MEMBERS_SCHEMA_VERSION = 2
 
 /**
  * The ROSTER stream: every member of every channel this user can see.

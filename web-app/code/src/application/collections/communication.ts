@@ -44,7 +44,7 @@ const electricReadSchema = selectReadSchema.extend({
 // membership-derived IDs can be baked into the shape URLs.
 // ---------------------------------------------------------------------------
 
-const TASKS_SCHEMA_VERSION = 1
+const TASKS_SCHEMA_VERSION = 2
 
 function _makeTasksCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -121,6 +121,12 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
 // would validate against the new schema as undefined, and percent_complete rows
 // cached before the backfill still carry their value in pending_task — so the
 // local store must be discarded and re-synced rather than reused.
+//
+// THIS BUMP WENT IN ALONE AND BROKE THE INVARIANT ABOVE, which is exactly the
+// failure the paragraph predicts: properties sat at 2 while all ten other
+// collections stayed at 1, so two adapters existed, the second overwrote the
+// coordinator's, and after login Electric reported up-to-date while nothing
+// rendered. Every collection is now at 2. If you bump one, BUMP THEM ALL.
 const PROPERTIES_SCHEMA_VERSION = 2
 
 function _makePropertiesCollection(
@@ -161,7 +167,9 @@ function _makePropertiesCollection(
   )
 }
 
-const MESSAGES_SCHEMA_VERSION = 1
+// v2: the task_id column (status-change notes), and to hold the one-version-for-
+// every-collection invariant documented above the properties version.
+const MESSAGES_SCHEMA_VERSION = 2
 
 function _makeMessagesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -196,7 +204,7 @@ function _makeMessagesCollection(
   )
 }
 
-const READS_SCHEMA_VERSION = 1
+const READS_SCHEMA_VERSION = 2
 
 /**
  * The reads collection's key. Exported because the optimistic write in
