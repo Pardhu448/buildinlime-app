@@ -43,6 +43,10 @@ export type Message = {
   mention_ids: string[]
   resource_ids: string[]
   parent_id?: string | null
+  // Set only on the note that accompanies a task status change. An ordinary
+  // channel message that is ALSO addressable by task, so the task screen can list
+  // its own status history without a separate table or shape.
+  task_id?: string | null
 }
 
 export type UpdateMessage = {

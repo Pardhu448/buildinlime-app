@@ -56,6 +56,15 @@ export const messagesTable = pgTable(`messages`, {
   resource_ids: text('resource_ids').array().notNull(),
   parent_id: text(`parent_id`)
     .references((): any => messagesTable.id, { onDelete: `set null` }),
+  // The task this message is about, when it is about one. Set on the note that
+  // accompanies a task status change, so the task screen can show its own history
+  // without a task_notes table — the message stays an ordinary channel message and
+  // is simply also addressable by task.
+  //
+  // `set null`, NOT `cascade`: deleting a task must not silently delete messages
+  // out of the channel feed. The message survives, it just loses the task link.
+  task_id: text(`task_id`)
+    .references(() => tasksTable.id, { onDelete: `set null` }),
 })
 
 export const resourcesTable = pgTable(`resources`, {
@@ -177,11 +186,13 @@ export const updateTaskSchema = createUpdateSchema(tasksTable)
 
 export const selectMessageSchema = createSelectSchema(messagesTable).extend({
   parent_id: z.string().nullish(),
+  task_id: z.string().nullish(),
 })
 export const createMessageSchema = createInsertSchema(messagesTable).omit({
   created_at: true,
 }).extend({
   parent_id: z.string().nullish(),
+  task_id: z.string().nullish(),
   // Accept the client's optimistic send time. Without it, offline-transactions
   // replay stamps the row with the (much later) server insert time, so a
   // message jumps position when it transitions optimistic→synced. Optional —
