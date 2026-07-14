@@ -93,6 +93,15 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
           timestamptz: (date: string) => {
             return new Date(date)
           },
+          // int8 (file_size_bytes) arrives as a string, and Electric's DEFAULT parser
+          // turns it into a BigInt. A BigInt cannot be JSON.stringify'd, and the
+          // offline outbox persists each mutation's row as JSON — so deleting a file
+          // died with "Do not know how to serialize a BigInt" before it reached the
+          // server. A plain number is exact to 2^53, i.e. ~9 petabytes.
+          //
+          // The zod preprocess below does NOT cover this — schema validation runs on
+          // client mutations, not on rows arriving from sync.
+          int8: (v: string) => Number(v),
         },
       },
       schema: selectResourceSchema.extend({

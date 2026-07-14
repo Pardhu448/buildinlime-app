@@ -53,4 +53,13 @@ const normalizeTs = (d: string) =>
 
 export const parser = {
   timestamptz: (d: string) => new Date(normalizeTs(d)),
+  // int8 (resources.file_size_bytes) arrives as a string, and Electric's DEFAULT
+  // parser turns it into a BigInt. A BigInt cannot be JSON.stringify'd, and the
+  // offline outbox persists each mutation's row as JSON — so deleting an attachment
+  // died with "Do not know how to serialize a BigInt" before it ever reached the
+  // server. Parse to a plain number instead: exact to 2^53, i.e. ~9 petabytes.
+  //
+  // The zod preprocess on file_size_bytes does NOT cover this — schema validation
+  // runs on client mutations, not on rows arriving from sync.
+  int8: (v: string) => Number(v),
 }
