@@ -24,7 +24,8 @@
     "backend:clear": "docker compose down -v",
     "migrate": "drizzle-kit migrate",
     "migrate:generate": "drizzle-kit generate",
-    "psql": "dotenvx run -- sh -c 'psql \"$DATABASE_URL\"'"
+    "psql": "dotenvx run -- sh -c 'psql \"$DATABASE_URL\"'",
+    "purge:resources": "dotenvx run -- tsx scripts/purge-resources.ts"
   },
   "dependencies": {
     "@buildinlime/domain-types": "workspace:*",

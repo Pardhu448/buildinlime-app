@@ -70,3 +70,6 @@ uploads/
 web-build/
 android/
 ios/
+
+# purge-resources cron log
+logs/
