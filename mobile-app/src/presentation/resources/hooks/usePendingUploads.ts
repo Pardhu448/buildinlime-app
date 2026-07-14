@@ -16,10 +16,12 @@ import {
 // cares about and re-renders on change.
 
 export interface UsePendingUploadsFilter {
-  /** Standalone (channel-level) uploads: those with no message association. */
+  /** Standalone (channel-level) uploads: those with no message OR task. */
   channelId?: string
   /** Uploads attached to a specific message. */
   messageId?: string
+  /** Uploads attached to a specific task. */
+  taskId?: string
 }
 
 export function usePendingUploads(filter: UsePendingUploadsFilter) {
@@ -27,10 +29,13 @@ export function usePendingUploads(filter: UsePendingUploadsFilter) {
 
   useEffect(() => subscribe(setAll), [])
 
-  const { channelId, messageId } = filter
+  const { channelId, messageId, taskId } = filter
   const pendingUploads = all.filter((u) => {
     if (messageId) return u.messageId === messageId
-    if (channelId) return u.channelId === channelId && !u.messageId
+    if (taskId) return u.taskId === taskId
+    // Channel-level means UNattached: a task's uploads live in the channel too,
+    // so without excluding them they would also show in the channel's sheet.
+    if (channelId) return u.channelId === channelId && !u.messageId && !u.taskId
     return false
   })
 

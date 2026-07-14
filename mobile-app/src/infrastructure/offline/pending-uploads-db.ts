@@ -31,6 +31,8 @@ export interface PendingAttachmentRow {
   project_id: string
   createdby_id: string
   message_id: string | null
+  /** Set when the attachment belongs to a task rather than a message/channel. */
+  task_id: string | null
   status: UploadStatus
   scheduled_at: string | null
   error_message: string | null
@@ -58,11 +60,22 @@ function getDb(): SQLiteDatabase {
       project_id TEXT NOT NULL,
       createdby_id TEXT NOT NULL,
       message_id TEXT,
+      task_id TEXT,
       status TEXT NOT NULL,
       scheduled_at TEXT,
       error_message TEXT
     );
   `)
+  // CREATE TABLE IF NOT EXISTS is a no-op on an install that already has the
+  // table, so a new column has to be added explicitly or existing devices keep
+  // the old shape and every insert fails on the unknown column. There is no
+  // migration framework here; the duplicate-column error is the "already applied"
+  // signal.
+  try {
+    db.execSync(`ALTER TABLE pending_attachments ADD COLUMN task_id TEXT;`)
+  } catch {
+    // Column already present — nothing to do.
+  }
   _db = db
   return db
 }
@@ -77,8 +90,9 @@ export async function put(row: PendingAttachmentRow): Promise<void> {
   await getDb().runAsync(
     `INSERT INTO pending_attachments
        (resource_id, uri, name, mime_type, channel_id, buildunit_id,
-        project_id, createdby_id, message_id, status, scheduled_at, error_message)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        project_id, createdby_id, message_id, task_id, status, scheduled_at,
+        error_message)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(resource_id) DO UPDATE SET
        uri = excluded.uri,
        name = excluded.name,
@@ -88,6 +102,7 @@ export async function put(row: PendingAttachmentRow): Promise<void> {
        project_id = excluded.project_id,
        createdby_id = excluded.createdby_id,
        message_id = excluded.message_id,
+       task_id = excluded.task_id,
        status = excluded.status,
        scheduled_at = excluded.scheduled_at,
        error_message = excluded.error_message`,
@@ -101,6 +116,7 @@ export async function put(row: PendingAttachmentRow): Promise<void> {
       row.project_id,
       row.createdby_id,
       row.message_id,
+      row.task_id,
       row.status,
       row.scheduled_at,
       row.error_message,

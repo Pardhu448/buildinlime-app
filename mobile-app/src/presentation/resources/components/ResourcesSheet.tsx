@@ -128,16 +128,24 @@ interface ResourcesSheetProps {
   channelId: string
   buildUnitId: string
   projectId: string
+  /** Attach to a task instead of the channel — the task detail screen passes this. */
+  taskId?: string
 }
 
 /**
  * Resources as a header button that opens a half-screen scrollable sheet,
  * rather than an always-present section competing with the message list.
+ *
+ * Two modes, one component (mirroring web, where TaskPage reuses
+ * ResourcesSection with a taskId):
+ *   - channel: standalone channel resources.
+ *   - task:    resources attached to one task.
  */
 export function ResourcesSheet({
   channelId,
   buildUnitId,
   projectId,
+  taskId,
 }: ResourcesSheetProps) {
   const [open, setOpen] = useState(false)
   const insets = useSafeAreaInsets()
@@ -151,12 +159,24 @@ export function ResourcesSheet({
         .where(({ resourcesCollection: r }) => eq(r.channel_id, channelId)),
     [channelId]
   )
-  // Standalone channel resources only — message attachments render inside
-  // their message bubble (see MessageAttachments), not here.
-  const resources = ((data ?? []) as Resource[]).filter((r) => !r.message_id)
+  // Task mode lists that task's attachments. Channel mode lists STANDALONE
+  // resources only: message attachments render inside their bubble (see
+  // MessageAttachments), and task attachments live on the task, so neither
+  // belongs in the channel's sheet even though both carry its channel_id.
+  //
+  // Newest upload first. The live query returns the collection's keyed-map order,
+  // which is not upload order and is not stable as rows sync in — so the sort has
+  // to be explicit. Pending uploads are not sorted in: they have no timestamp
+  // column, and they already render as a group above these, which is where the
+  // most recent things belong.
+  const resources = ((data ?? []) as Resource[])
+    .filter((r) => (taskId ? r.task_id === taskId : !r.message_id && !r.task_id))
+    .sort(
+      (a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()
+    )
 
   const { pendingUploads, enqueue, start, retry, cancel, schedule, rename } =
-    usePendingUploads({ channelId })
+    usePendingUploads(taskId ? { taskId } : { channelId })
 
   // The just-picked file, parked in `awaiting_schedule` while the user decides
   // upload-now vs. schedule-for-later in the modal.
@@ -190,6 +210,9 @@ export function ResourcesSheet({
           buildUnitId,
           projectId,
           createdById: userId,
+          // Sent as `taskId` in the upload form; the server sets resources.task_id.
+          // Without it the file would land as a plain channel resource.
+          taskId: taskId ?? null,
         },
         { autoStart: false },
       )
