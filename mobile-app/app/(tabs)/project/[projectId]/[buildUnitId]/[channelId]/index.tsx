@@ -7,13 +7,15 @@ import {
   ActivityIndicator,
   StatusBar,
 } from "react-native"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useMessages } from "@/src/presentation/messages/hooks/useMessages"
 import { MessageList } from "@/src/presentation/messages/components/MessageList"
 import { MessageInput } from "@/src/presentation/messages/components/MessageInput"
 import { ResourcesSheet } from "@/src/presentation/resources/components/ResourcesSheet"
 import { useUsers } from "@/src/presentation/shared/hooks/useUsers"
+import { useReads } from "@/src/presentation/shared/hooks/useReads"
+import { TasksSheet } from "@/src/presentation/tasks/components/TasksSheet"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useLiveQuery, eq } from "@tanstack/react-db"
 import { channelsCollection } from "@/src/application/collections/organization"
@@ -41,6 +43,15 @@ export default function ChannelScreen() {
 
   const { messages, isLoading } = useMessages(channelId)
   const usersMap = useUsers()
+
+  // Opening a channel marks its messages read, and keeps marking them as they
+  // arrive while you sit in it — otherwise a channel you are literally looking at
+  // would accumulate an unread count.
+  const { markChannelMessagesRead } = useReads()
+  useEffect(() => {
+    if (!channelId) return
+    markChannelMessagesRead(channelId)
+  }, [channelId, markChannelMessagesRead])
 
   const currentUserId = session?.user?.id ?? ""
 
@@ -75,8 +86,13 @@ export default function ChannelScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {channel?.name ?? "Channel"}
         </Text>
-        {/* Resources live behind this button — a half-screen sheet, so they
-            don't compete with the message list for vertical space. */}
+        {/* Tasks and Resources both live behind header buttons — half-screen
+            sheets, so neither competes with the message list for vertical space. */}
+        <TasksSheet
+          channelId={channelId}
+          buildUnitId={buildUnitId}
+          projectId={projectId}
+        />
         <ResourcesSheet
           channelId={channelId}
           buildUnitId={buildUnitId}
