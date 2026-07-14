@@ -12,9 +12,9 @@ import {
   MessageResourceDisplay,
   MessageAttachmentPicker,
   PendingAttachmentChips,
-  mimeIcon,
   type PendingAttachment,
 } from "./MessageResourceSection"
+import { ResourceThumbnail } from "./ResourceThumbnail"
 import { formatDateTime } from "%/presentation/lib/datetime"
 import type { Message } from "%/domain/communication/types"
 
@@ -182,14 +182,19 @@ function MessageItem({
                   key={r.id}
                   className="flex items-center gap-1.5 px-2 py-1 bg-white border border-[#e5d4c1] rounded text-xs text-[#717182]"
                 >
+                  {/* Spinners stay while the upload is in flight — status beats a
+                      preview there. Once it settles (or fails) the local blob is
+                      shown, so you see the actual file rather than a mime glyph. */}
                   {r.status === "uploading" ? (
                     <Loader className="w-3 h-3 animate-spin shrink-0" />
                   ) : r.status === "awaiting_network" ? (
                     <Loader className="w-3 h-3 animate-spin shrink-0 text-[#976623]" />
-                  ) : r.status === "error" ? (
-                    mimeIcon(r.file.type, "w-3 h-3 text-red-400")
                   ) : (
-                    mimeIcon(r.file.type, "w-3 h-3 text-[#976623]")
+                    <ResourceThumbnail
+                      localUrl={r.objectUrl}
+                      mimeType={r.file.type}
+                      size={20}
+                    />
                   )}
                   <span
                     className="max-w-[140px] truncate"

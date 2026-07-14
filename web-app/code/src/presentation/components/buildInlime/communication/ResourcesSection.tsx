@@ -1,11 +1,12 @@
 import { useState } from "react"
 import { useLiveQuery, eq } from "@tanstack/react-db"
-import { Plus, Download, X, FileText, Image, Video, Music, File } from "lucide-react"
+import { Plus, Download, X } from "lucide-react"
 import { format } from "date-fns"
 import { resourcesCollection, tasksCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
 import { deleteResourceAction } from "%/application/actions/resources"
 import { usePendingResources } from "%/application/hooks/use-pending-resources"
 import { AddResourceForm } from "./add-resource-form"
+import { ResourceThumbnail } from "./ResourceThumbnail"
 import { UploadSchedulePopover } from "./upload-schedule-popover"
 import { formatDateTime } from "%/presentation/lib/datetime"
 
@@ -16,15 +17,6 @@ export interface ResourcesSectionProps {
   projectId: string
   createdbyId: string
   memberIds: string[]
-}
-
-function mimeIcon(mimeType: string) {
-  if (mimeType.startsWith("image/")) return <Image className="w-3.5 h-3.5 text-[#976623]" />
-  if (mimeType.startsWith("video/")) return <Video className="w-3.5 h-3.5 text-[#976623]" />
-  if (mimeType.startsWith("audio/")) return <Music className="w-3.5 h-3.5 text-[#976623]" />
-  if (mimeType === "application/pdf" || mimeType.includes("word") || mimeType.includes("text"))
-    return <FileText className="w-3.5 h-3.5 text-[#976623]" />
-  return <File className="w-3.5 h-3.5 text-[#717182]" />
 }
 
 function formatBytes(bytes: number | bigint) {
@@ -70,15 +62,20 @@ export function ResourcesSection({
         .where(({ tasksCollection: t }) => eq(t.id, taskId ?? "")),
     [taskId]
   )
+  // The `| undefined` in these casts is deliberate: useLiveQuery types its data as a
+  // plain array, but it really is undefined on the first render before the query has
+  // resolved — so the ?? [] is load-bearing, not defensive noise.
   const isTaskCreator =
-    !!taskId && (taskRows?.[0]?.createdby_id as string | undefined) === createdbyId
+    !!taskId &&
+    ((taskRows as { createdby_id?: string }[] | undefined) ?? [])[0]?.createdby_id ===
+      createdbyId
 
   const canDelete = (uploaderId: string) => uploaderId === createdbyId || isTaskCreator
 
   // Newest upload first. The live query returns the collection's keyed-map order,
   // which is not upload order and is not stable as rows sync in — so the sort has
   // to be explicit. Same fix as the mobile ResourcesSheet.
-  const syncedResources = (syncedResourceRows ?? [])
+  const syncedResources = ((syncedResourceRows as typeof syncedResourceRows | undefined) ?? [])
     .slice()
     .sort(
       (a, b) =>
@@ -136,7 +133,13 @@ export function ResourcesSection({
               key={r.id}
               className="flex items-center gap-2 px-3 py-2 bg-[#fdf8f2] border border-[#e5d4c1] rounded"
             >
-              {mimeIcon(r.file.type)}
+              {/* Previews from the local blob while it is still uploading — the bytes
+                  are already here, so it costs no request. */}
+              <ResourceThumbnail
+                localUrl={r.objectUrl}
+                mimeType={r.file.type}
+                size={36}
+              />
 
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-[#1e1e1e] truncate">{r.name}</p>
@@ -208,7 +211,11 @@ export function ResourcesSection({
               key={r.id}
               className="flex items-center gap-2 px-3 py-2 bg-[#fdf8f2] border border-[#e5d4c1] rounded hover:bg-[#f0e5d8] transition-colors"
             >
-              {mimeIcon(r.mime_type)}
+              <ResourceThumbnail
+                fileLocation={r.file_location}
+                mimeType={r.mime_type}
+                size={36}
+              />
 
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-[#1e1e1e] truncate">{r.name}</p>
