@@ -281,10 +281,15 @@ export function ResourcesSheet({
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         activeOpacity={0.7}
       >
-        <Paperclip size={16} color={colors.primary} strokeWidth={2} />
+        {/* 20px to match the TasksSheet's ListTodo sitting next to it. */}
+        <Paperclip size={20} color={colors.primary} strokeWidth={2} />
         {count > 0 ? (
           <View style={styles.countBadge}>
-            <Text style={styles.countText}>{count > 99 ? "99+" : count}</Text>
+            {/* numberOfLines={1}: a constrained badge would otherwise WRAP "18" and
+                show only the "1", the 15px height hiding the rest. */}
+            <Text style={styles.countText} numberOfLines={1}>
+              {count > 99 ? "99+" : count}
+            </Text>
           </View>
         ) : null}
       </TouchableOpacity>
@@ -383,24 +388,34 @@ export function ResourcesSheet({
 }
 
 const styles = StyleSheet.create({
+  // The badge sits INSIDE the trigger's box. It used to be pinned outside it
+  // (top: -2, right: -4); Android clips a child that overflows its parent, so once
+  // the count went two-digit the badge grew wider, ran past the edge and lost its
+  // right half — "18" rendered as "1". Single-digit counts fit, which is why it
+  // only surfaced when the sheet started counting the whole channel instead of
+  // standalone uploads alone. The padding here is what reserves that room, so the
+  // badge has somewhere to grow (up to "99+") without leaving the bounds.
   trigger: {
-    padding: 6,
+    paddingTop: 9,
+    paddingRight: 12,
+    paddingBottom: 6,
+    paddingLeft: 6,
   },
   countBadge: {
     position: "absolute",
-    top: -2,
-    right: -4,
-    minWidth: 15,
-    height: 15,
-    paddingHorizontal: 3,
-    borderRadius: 8,
+    top: 0,
+    right: 0,
+    minWidth: 17,
+    height: 17,
+    paddingHorizontal: 4,
+    borderRadius: 9,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   countText: {
-    fontSize: 9,
-    lineHeight: 12,
+    fontSize: 10,
+    lineHeight: 13,
     fontFamily: "InstrumentSans_600SemiBold",
     color: colors.primaryForeground,
   },

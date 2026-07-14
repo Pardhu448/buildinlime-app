@@ -181,7 +181,9 @@ export function TasksSheet({ channelId, buildUnitId, projectId }: TasksSheetProp
         <ListTodo size={20} color={colors.primary} strokeWidth={2} />
         {unopenedCount > 0 ? (
           <View style={styles.countBadge}>
-            <Text style={styles.countText}>
+            {/* numberOfLines={1}: a constrained badge would otherwise WRAP a
+                two-digit count and show only the first digit. */}
+            <Text style={styles.countText} numberOfLines={1}>
               {unopenedCount > 99 ? "99+" : unopenedCount}
             </Text>
           </View>
@@ -312,24 +314,31 @@ export function TasksSheet({ channelId, buildUnitId, projectId }: TasksSheetProp
 }
 
 const styles = StyleSheet.create({
+  // The badge sits INSIDE the trigger's box — see the note in ResourcesSheet. It
+  // was pinned outside (top: -2, right: -4), where Android clips it: a two-digit
+  // count grows the badge past the edge and the last digit is lost. The resources
+  // badge hit this first, but a channel with 10+ tasks would have hit it here too.
   trigger: {
-    padding: 6,
+    paddingTop: 9,
+    paddingRight: 12,
+    paddingBottom: 6,
+    paddingLeft: 6,
   },
   countBadge: {
     position: "absolute",
-    top: -2,
-    right: -4,
-    minWidth: 15,
-    height: 15,
-    paddingHorizontal: 3,
-    borderRadius: 8,
+    top: 0,
+    right: 0,
+    minWidth: 17,
+    height: 17,
+    paddingHorizontal: 4,
+    borderRadius: 9,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   countText: {
-    fontSize: 9,
-    lineHeight: 12,
+    fontSize: 10,
+    lineHeight: 13,
     fontFamily: "InstrumentSans_600SemiBold",
     color: colors.primaryForeground,
   },
