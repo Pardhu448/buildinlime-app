@@ -61,7 +61,7 @@ export const electricMembershipSchema = z.object({
 
 // --- Factories ---
 
-const USERS_SCHEMA_VERSION = 2
+const USERS_SCHEMA_VERSION = 3
 
 function _makeUsersCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
@@ -87,7 +87,7 @@ function _makeUsersCollection(
   )
 }
 
-const READS_SCHEMA_VERSION = 2
+const READS_SCHEMA_VERSION = 3
 
 /**
  * The current user's read state. The shape is scoped `user_id = me` server-side
@@ -124,7 +124,7 @@ function _makeReadsCollection(
   )
 }
 
-const TEAMS_SCHEMA_VERSION = 2
+const TEAMS_SCHEMA_VERSION = 3
 
 function _makeTeamsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
@@ -157,7 +157,7 @@ function _makeTeamsCollection(
   )
 }
 
-const MEMBERSHIPS_SCHEMA_VERSION = 2
+const MEMBERSHIPS_SCHEMA_VERSION = 3
 
 function _makeMembershipsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],

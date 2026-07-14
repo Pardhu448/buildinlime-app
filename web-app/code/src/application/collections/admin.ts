@@ -31,7 +31,7 @@ const electricTeamSchema = selectTeamSchema.extend({
 // hydrates instantly from local cache on reload, even with the server offline.
 // Bump USERS_SCHEMA_VERSION whenever electricUsersSchema changes shape — a
 // version mismatch triggers a full reset and re-sync from Electric.
-const USERS_SCHEMA_VERSION = 2
+const USERS_SCHEMA_VERSION = 3
 
 function _makeUsersCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -72,7 +72,7 @@ export async function initializeUsersCollection() {
   if (import.meta.env.DEV) console.log(`[OPFS:users] Collection created in ${(performance.now() - t0).toFixed(0)}ms`)
 }
 
-const TEAMS_SCHEMA_VERSION = 2
+const TEAMS_SCHEMA_VERSION = 3
 
 function _makeTeamsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],

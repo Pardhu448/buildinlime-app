@@ -13,8 +13,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLiveQuery, eq } from "@tanstack/react-db"
 import * as DocumentPicker from "expo-document-picker"
-import { Paperclip, Plus, X, Download, RotateCw } from "lucide-react-native"
-import { resourcesCollection } from "@/src/application/collections/communication"
+import { Paperclip, Plus, X, Download, RotateCw, Trash2 } from "lucide-react-native"
+import { resourcesCollection, tasksCollection } from "@/src/application/collections/communication"
+import { deleteResourceAction } from "@/src/application/actions/resources"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { usePendingUploads } from "@/src/presentation/resources/hooks/usePendingUploads"
 import { useResourceDownload } from "@/src/presentation/resources/hooks/useResourceDownload"
@@ -26,8 +27,29 @@ import type { PendingUpload } from "@/src/infrastructure/offline/upload-manager"
 import { colors } from "@/src/presentation/shared/colors"
 import type { Resource } from "@buildinlime/domain-types"
 
-function ResourceRow({ resource }: { resource: Resource }) {
+function ResourceRow({
+  resource,
+  canDelete,
+}: {
+  resource: Resource
+  canDelete: boolean
+}) {
   const { download, downloading } = useResourceDownload()
+
+  function confirmDelete() {
+    Alert.alert(
+      "Delete file?",
+      `"${resource.name}" is removed for everyone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteResourceAction({ id: resource.id }),
+        },
+      ]
+    )
+  }
 
   return (
     <View style={styles.row}>
@@ -56,6 +78,18 @@ function ResourceRow({ resource }: { resource: Resource }) {
       >
         <Download size={14} color={colors.mutedForeground} strokeWidth={2} />
       </TouchableOpacity>
+      {/* Uploader only. The server enforces it (FORBIDDEN otherwise) — hiding the
+          button is courtesy, not the control. */}
+      {canDelete && (
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={confirmDelete}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.6}
+        >
+          <Trash2 size={14} color={colors.mutedForeground} strokeWidth={2} />
+        </TouchableOpacity>
+      )}
     </View>
   )
 }
@@ -178,6 +212,23 @@ export function ResourcesSheet({
   const { pendingUploads, enqueue, start, retry, cancel, schedule, rename } =
     usePendingUploads(taskId ? { taskId } : { channelId })
 
+  // A file may be deleted by its uploader OR by the creator of the task it hangs
+  // off — tasks.delete already soft-deletes every attachment on a task whoever
+  // uploaded it, so uploader-only would have let you destroy a file by deleting
+  // the whole task while forbidding you to remove it singly. The server enforces
+  // this (FORBIDDEN otherwise); gating the button is courtesy, not the control.
+  const { data: taskRows } = useLiveQuery(
+    (q) =>
+      q
+        .from({ tasksCollection })
+        .where(({ tasksCollection: t }) => eq(t.id, taskId ?? "")),
+    [taskId]
+  )
+  const isTaskCreator =
+    !!taskId &&
+    (taskRows?.[0] as { createdby_id?: string } | undefined)?.createdby_id ===
+      session?.user?.id
+
   // The just-picked file, parked in `awaiting_schedule` while the user decides
   // upload-now vs. schedule-for-later in the modal.
   const [scheduleTarget, setScheduleTarget] = useState<{
@@ -288,7 +339,11 @@ export function ResourcesSheet({
               />
             ))}
             {resources.map((r) => (
-              <ResourceRow key={r.id} resource={r} />
+              <ResourceRow
+                key={r.id}
+                resource={r}
+                canDelete={r.createdby_id === session?.user?.id || isTaskCreator}
+              />
             ))}
             {count === 0 && (
               <Text style={styles.empty}>

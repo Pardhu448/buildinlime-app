@@ -44,7 +44,7 @@ const electricReadSchema = selectReadSchema.extend({
 // membership-derived IDs can be baked into the shape URLs.
 // ---------------------------------------------------------------------------
 
-const TASKS_SCHEMA_VERSION = 2
+const TASKS_SCHEMA_VERSION = 3
 
 function _makeTasksCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -136,7 +136,7 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
 // collections stayed at 1, so two adapters existed, the second overwrote the
 // coordinator's, and after login Electric reported up-to-date while nothing
 // rendered. Every collection is now at 2. If you bump one, BUMP THEM ALL.
-const PROPERTIES_SCHEMA_VERSION = 2
+const PROPERTIES_SCHEMA_VERSION = 3
 
 function _makePropertiesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -178,7 +178,7 @@ function _makePropertiesCollection(
 
 // v2: the task_id column (status-change notes), and to hold the one-version-for-
 // every-collection invariant documented above the properties version.
-const MESSAGES_SCHEMA_VERSION = 2
+const MESSAGES_SCHEMA_VERSION = 3
 
 function _makeMessagesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -213,7 +213,7 @@ function _makeMessagesCollection(
   )
 }
 
-const READS_SCHEMA_VERSION = 2
+const READS_SCHEMA_VERSION = 3
 
 /**
  * The reads collection's key. Exported because the optimistic write in

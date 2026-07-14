@@ -151,6 +151,22 @@ const createMessage: MutationFn = async ({ transaction }) => {
   }
 }
 
+/**
+ * Soft delete. Reads `modified`, not `original`, because deleteMessageAction is an
+ * UPDATE (the redaction) rather than a removal — see the action for why the row has
+ * to survive. The server does the real redaction and stamps deleted_at; all we send
+ * is the id.
+ */
+const deleteMessage: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const m = modified as Record<string, unknown>
+  try {
+    await trpc.messages.delete.mutate({ id: m.id as string })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
 // -------------------- resources --------------------
 
 const deleteResource: MutationFn = async ({ transaction }) => {
@@ -322,6 +338,7 @@ export const mutationFns = {
   deleteTask,
   // messages
   createMessage,
+  deleteMessage,
   // resources
   deleteResource,
   // properties

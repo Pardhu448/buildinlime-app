@@ -12,12 +12,13 @@ import {
   StatusBar,
   Keyboard,
   KeyboardAvoidingView,
+  Alert,
 } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLiveQuery, eq } from "@tanstack/react-db"
 import * as Crypto from "expo-crypto"
-import { CheckCircle2, Circle, UserPlus, X } from "lucide-react-native"
+import { CheckCircle2, Circle, UserPlus, X, Trash2 } from "lucide-react-native"
 import {
   tasksCollection,
   messagesCollection,
@@ -27,7 +28,7 @@ import {
   createPropertyAction,
   updatePropertyAction,
 } from "@/src/application/actions/properties"
-import { updateTaskAction } from "@/src/application/actions/tasks"
+import { updateTaskAction, deleteTaskAction } from "@/src/application/actions/tasks"
 import { createMessageAction } from "@/src/application/actions/messages"
 import { usePropertiesByEntity } from "@/src/presentation/properties/hooks/useProperties"
 import { PropertyPill } from "@/src/presentation/properties/components/PropertyPill"
@@ -134,6 +135,27 @@ export default function TaskScreen() {
   // Only the creator may assign. The server enforces this (tasks.update returns
   // FORBIDDEN otherwise) — hiding the button is courtesy, not the control.
   const canAssign = !!task.createdby_id && task.createdby_id === currentUserId
+  // Creator only. The server enforces it (tasks.delete returns FORBIDDEN otherwise);
+  // hiding the button is courtesy, not the control.
+  const canDelete = canAssign
+
+  function confirmDelete() {
+    Alert.alert(
+      "Delete task?",
+      "The task and its attachments are removed for everyone. Notes already posted to the channel stay there.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deleteTaskAction({ id: taskId })
+            router.back()
+          },
+        },
+      ]
+    )
+  }
 
   /**
    * Completion is set through the taskStatus PROPERTY, not tasks.completed
@@ -240,6 +262,16 @@ export default function TaskScreen() {
           projectId={projectId}
           taskId={taskId}
         />
+        {canDelete && (
+          <TouchableOpacity
+            onPress={confirmDelete}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.6}
+            style={styles.headerAction}
+          >
+            <Trash2 size={18} color={colors.mutedForeground} strokeWidth={2} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
@@ -437,6 +469,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  headerAction: {
+    padding: 6,
   },
   historyRow: {
     gap: 3,

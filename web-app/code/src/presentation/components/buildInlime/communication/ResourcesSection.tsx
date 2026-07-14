@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useLiveQuery, eq } from "@tanstack/react-db"
 import { Plus, Download, X, FileText, Image, Video, Music, File } from "lucide-react"
 import { format } from "date-fns"
-import { resourcesCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
+import { resourcesCollection, tasksCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
 import { deleteResourceAction } from "%/application/actions/resources"
 import { usePendingResources } from "%/application/hooks/use-pending-resources"
 import { AddResourceForm } from "./add-resource-form"
@@ -57,6 +57,23 @@ export function ResourcesSection({
         ),
     [channelId, taskId]
   )
+
+  // Who owns this task, if we're on a task page. A file may be deleted by its
+  // uploader OR by the task's creator — tasks.delete already soft-deletes every
+  // attachment on a task whoever uploaded it, so uploader-only would have let you
+  // destroy a file by deleting the whole task while forbidding you to remove it
+  // singly (see routers/resources.ts).
+  const { data: taskRows } = useLiveQuery(
+    (q) =>
+      q
+        .from({ tasksCollection })
+        .where(({ tasksCollection: t }) => eq(t.id, taskId ?? "")),
+    [taskId]
+  )
+  const isTaskCreator =
+    !!taskId && (taskRows?.[0]?.createdby_id as string | undefined) === createdbyId
+
+  const canDelete = (uploaderId: string) => uploaderId === createdbyId || isTaskCreator
 
   // Newest upload first. The live query returns the collection's keyed-map order,
   // which is not upload order and is not stable as rows sync in — so the sort has
@@ -212,14 +229,20 @@ export function ResourcesSection({
                 <Download className="w-3.5 h-3.5" />
               </a>
 
-              {/* Delete */}
-              <button
-                onClick={() => deleteResourceAction({ id: r.id })}
-                title="Delete resource"
-                className="p-1 text-[#717182] hover:text-red-500 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+              {/* Delete — uploader, or the creator of the task this file hangs off.
+                  The server enforces it (FORBIDDEN otherwise); hiding the button is
+                  courtesy, not the control. It used to render unconditionally, so
+                  deleting someone else's file optimistically removed the row and then
+                  snapped it back when the server refused, with nothing shown. */}
+              {canDelete(r.createdby_id as string) && (
+                <button
+                  onClick={() => deleteResourceAction({ id: r.id })}
+                  title="Delete resource"
+                  className="p-1 text-[#717182] hover:text-red-500 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>

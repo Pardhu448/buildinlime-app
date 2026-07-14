@@ -1,7 +1,8 @@
 import { useState } from "react"
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
-import { MessageCircle, ChevronDown, ChevronRight } from "lucide-react-native"
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native"
+import { MessageCircle, ChevronDown, ChevronRight, Trash2 } from "lucide-react-native"
 import { MessageAttachments } from "@/src/presentation/resources/components/MessageAttachments"
+import { deleteMessageAction } from "@/src/application/actions/messages"
 import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
 import { colors } from "@/src/presentation/shared/colors"
 import type { PendingUpload } from "@/src/infrastructure/offline/upload-manager"
@@ -46,6 +47,22 @@ export function MessageItem({
   const initial = senderName.charAt(0).toUpperCase()
   const isOwn = message.createdby_id === currentUserId
   const isHighlighted = !!highlightId && highlightId === message.id
+  const isDeleted = !!message.deleted_at
+
+  function confirmDelete() {
+    Alert.alert(
+      "Delete message?",
+      "The message is removed for everyone. Its replies stay, under a “deleted” placeholder.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteMessageAction({ id: message.id }),
+        },
+      ]
+    )
+  }
 
   return (
     <View style={depth > 0 ? styles.nested : undefined}>
@@ -62,26 +79,48 @@ export function MessageItem({
             <Text style={styles.time}>{formatDateTime(message.created_at)}</Text>
           </View>
 
-          {message.text?.trim() ? (
+          {isDeleted ? (
+            // The row survives so its replies keep a parent — see deleteMessageAction.
+            // There is nothing to hide here: the server already cleared the text.
+            <Text style={styles.deletedText}>This message was deleted</Text>
+          ) : message.text?.trim() ? (
             <Text style={styles.text}>{message.text}</Text>
           ) : null}
 
-          <MessageAttachments
-            resources={resourcesByMessage.get(message.id) ?? EMPTY_RESOURCES}
-            pendingUploads={uploadsByMessage.get(message.id) ?? EMPTY_UPLOADS}
-            isOwn={false}
-          />
+          {!isDeleted && (
+            <MessageAttachments
+              resources={resourcesByMessage.get(message.id) ?? EMPTY_RESOURCES}
+              pendingUploads={uploadsByMessage.get(message.id) ?? EMPTY_UPLOADS}
+              isOwn={false}
+            />
+          )}
 
           <View style={styles.actions}>
-            <TouchableOpacity
-              style={styles.action}
-              onPress={() => onReply?.(message)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              activeOpacity={0.6}
-            >
-              <MessageCircle size={12} color={colors.mutedForeground} strokeWidth={2} />
-              <Text style={styles.actionText}>Reply</Text>
-            </TouchableOpacity>
+            {!isDeleted && (
+              <TouchableOpacity
+                style={styles.action}
+                onPress={() => onReply?.(message)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.6}
+              >
+                <MessageCircle size={12} color={colors.mutedForeground} strokeWidth={2} />
+                <Text style={styles.actionText}>Reply</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Author only. The server enforces it (FORBIDDEN otherwise) — hiding the
+                button is courtesy, not the control. */}
+            {isOwn && !isDeleted && (
+              <TouchableOpacity
+                style={styles.action}
+                onPress={confirmDelete}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.6}
+              >
+                <Trash2 size={12} color={colors.mutedForeground} strokeWidth={2} />
+                <Text style={styles.actionText}>Delete</Text>
+              </TouchableOpacity>
+            )}
 
             {replies.length > 0 && (
               <TouchableOpacity
@@ -183,6 +222,12 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 11,
     fontFamily: "InstrumentSans_400Regular",
+    color: colors.mutedForeground,
+  },
+  deletedText: {
+    fontSize: 13,
+    fontFamily: "InstrumentSans_400Regular",
+    fontStyle: "italic",
     color: colors.mutedForeground,
   },
   text: {

@@ -36,6 +36,12 @@ export const tasksTable = pgTable(`tasks`, {
     .references(() => users.id, { onDelete: `cascade` }),
   assignee_id: text(`assignee_id`)
     .references(() => users.id, { onDelete: `set null` }),
+  // Soft delete. Nothing hangs off a task the way replies hang off a message, so a
+  // deleted task is filtered OUT of the Electric shape (`deleted_at IS NULL`) and
+  // vanishes for every client — no UI filtering to remember at each call site.
+  deleted_at: timestamp({ withTimezone: true }),
+  deleted_by_id: text(`deleted_by_id`)
+    .references(() => users.id, { onDelete: `set null` }),
 }, (t) => [
   // A task name must be unique within its channel. This is not a nicety: the WEB
   // ROUTE IS THE NAME (/…/$channelName/$taskName, resolved by
@@ -45,7 +51,13 @@ export const tasksTable = pgTable(`tasks`, {
   //
   // lower(name) so "Site Survey" and "site survey" collide — two tasks a human
   // cannot tell apart should not be allowed to coexist either.
-  uniqueIndex(`tasks_channel_name_unique`).on(t.channel_id, sql`lower(${t.name})`),
+  //
+  // PARTIAL on deleted_at IS NULL: a deleted task must RELEASE its name. Without the
+  // predicate a soft-deleted task would keep occupying it forever, and recreating a
+  // task you just deleted would fail against a row nobody can even see.
+  uniqueIndex(`tasks_channel_name_unique`)
+    .on(t.channel_id, sql`lower(${t.name})`)
+    .where(sql`${t.deleted_at} IS NULL`),
 ])
 
 export const messagesTable = pgTable(`messages`, {
@@ -77,6 +89,16 @@ export const messagesTable = pgTable(`messages`, {
   // out of the channel feed. The message survives, it just loses the task link.
   task_id: text(`task_id`)
     .references(() => tasksTable.id, { onDelete: `set null` }),
+  // Soft delete. A deleted message is REDACTED IN PLACE, not removed: the row must
+  // survive because replies hang off it via parent_id, and dropping it would orphan
+  // a whole thread. So the server clears text / mention_ids / resource_ids and
+  // stamps these — what syncs to every device is an empty tombstone, not the words.
+  //
+  // This is why messages, unlike tasks and resources, are NOT filtered out of their
+  // Electric shape: the client needs the row to render "This message was deleted".
+  deleted_at: timestamp({ withTimezone: true }),
+  deleted_by_id: text(`deleted_by_id`)
+    .references(() => users.id, { onDelete: `set null` }),
 })
 
 export const resourcesTable = pgTable(`resources`, {
@@ -103,6 +125,13 @@ export const resourcesTable = pgTable(`resources`, {
   createdby_id: text(`createdby_id`)
     .notNull()
     .references(() => users.id, { onDelete: `cascade` }),
+  // Soft delete. Unlike a message, nothing hangs off a resource, so a deleted one
+  // is filtered OUT of the Electric shape entirely (`deleted_at IS NULL`) and simply
+  // ceases to exist for every client. The FILE ON DISK is not reclaimed — resources_raw
+  // still holds its path. Purging bytes is a separate job.
+  deleted_at: timestamp({ withTimezone: true }),
+  deleted_by_id: text(`deleted_by_id`)
+    .references(() => users.id, { onDelete: `set null` }),
 })
 
 // Server-only table — not synced via Electric.
@@ -189,19 +218,41 @@ export const readsTable = pgTable(
   (t) => [primaryKey({ columns: [t.user_id, t.item_type, t.item_id] })],
 )
 
-export const selectTaskSchema = createSelectSchema(tasksTable)
+// deleted_at / deleted_by_id are omitted from every insert schema: soft-deletion is
+// the server's to stamp (routers/*.ts), never something a client may assert on the
+// way in. Otherwise a client could create a row that is already deleted.
+//
+// They are also NULLISH in every SELECT schema, and that is not cosmetic. The
+// select schemas double as the CLIENT-SIDE validators on the Electric collections,
+// and the collections are also where optimistic rows are inserted. drizzle-zod
+// renders a nullable column as .nullable() — present-but-null, i.e. still a
+// REQUIRED key — so a plain createSelectSchema() makes deleted_at mandatory on
+// every optimistic insert. createTaskAction doesn't send it (it has no business
+// asserting deletion state), so tasksCollection.insert() threw and "New task"
+// silently did nothing. .nullish() lets the key be absent on the way in while
+// still accepting the null that every synced row carries.
+export const selectTaskSchema = createSelectSchema(tasksTable).extend({
+  deleted_at: z.coerce.date().nullish(),
+  deleted_by_id: z.string().nullish(),
+})
 export const createTaskSchema = createInsertSchema(tasksTable).omit({
   opened_at: true,
   closed_at: true,
+  deleted_at: true,
+  deleted_by_id: true,
 })
 export const updateTaskSchema = createUpdateSchema(tasksTable)
 
 export const selectMessageSchema = createSelectSchema(messagesTable).extend({
   parent_id: z.string().nullish(),
   task_id: z.string().nullish(),
+  deleted_at: z.coerce.date().nullish(),
+  deleted_by_id: z.string().nullish(),
 })
 export const createMessageSchema = createInsertSchema(messagesTable).omit({
   created_at: true,
+  deleted_at: true,
+  deleted_by_id: true,
 }).extend({
   parent_id: z.string().nullish(),
   task_id: z.string().nullish(),
@@ -218,9 +269,15 @@ export const selectResourceSchema = createSelectSchema(resourcesTable).extend({
   message_id: z.string().nullish(),
   task_id: z.string().nullish(),
   file_size_bytes: z.number(),
+  // Nullish for the same reason as tasks above — a required deleted_at would
+  // reject any optimistic row built client-side.
+  deleted_at: z.coerce.date().nullish(),
+  deleted_by_id: z.string().nullish(),
 })
 export const createResourceSchema = createInsertSchema(resourcesTable).omit({
   uploaded_at: true,
+  deleted_at: true,
+  deleted_by_id: true,
 })
 export const updateResourceSchema = createUpdateSchema(resourcesTable)
 

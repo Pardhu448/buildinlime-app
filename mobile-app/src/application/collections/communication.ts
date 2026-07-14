@@ -40,6 +40,11 @@ const selectMessageSchema = z.object({
   parent_id: z.string().nullable().optional(),
   // Set only on task status-change notes — see Message.task_id.
   task_id: z.string().nullable().optional(),
+  // Soft delete. A deleted message KEEPS SYNCING (its replies hang off it), but the
+  // server has redacted it — text is "" and the id arrays are empty. Render a
+  // tombstone off this, never the text.
+  deleted_at: z.union([z.string(), z.date()]).nullable().optional(),
+  deleted_by_id: z.string().nullable().optional(),
   created_at: z.union([z.string(), z.date()]).optional(),
 })
 
@@ -87,7 +92,7 @@ const selectPropertySchema = z.object({
 // membership-derived IDs can be baked into the shape URLs.
 // ---------------------------------------------------------------------------
 
-const TASKS_SCHEMA_VERSION = 2
+const TASKS_SCHEMA_VERSION = 3
 
 function _makeTasksCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
@@ -122,7 +127,7 @@ function _makeTasksCollection(
 
 // v2: the task_id column (status-change notes), and to hold the one-version-for-
 // every-collection invariant documented above the properties version.
-const MESSAGES_SCHEMA_VERSION = 2
+const MESSAGES_SCHEMA_VERSION = 3
 
 function _makeMessagesCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
@@ -147,11 +152,12 @@ function _makeMessagesCollection(
         gcTime: NEVER_GC,
         // onInsert removed — routed through @tanstack/offline-transactions
         // (see application/actions/messages.ts → createMessageAction).
-        onDelete: async ({ transaction }) => {
-          const { original: m } = transaction.mutations[0]
-          const result = await trpc.messages.delete.mutate({ id: m.id })
-          return { txid: result.txid }
-        },
+        //
+        // onDelete removed DELIBERATELY. Deleting a message is a soft delete, which
+        // is an UPDATE (the row survives so its replies keep a parent) — see
+        // deleteMessageAction. Leaving a delete handler here would let
+        // messagesCollection.delete() drop the row optimistically and orphan the
+        // thread. With no handler it fails loudly instead, which is what we want.
       }),
       persistence,
       schemaVersion: MESSAGES_SCHEMA_VERSION,
@@ -194,7 +200,7 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
 // 0003 still carry the percent value in pending_task, so the local store has to be
 // discarded and re-synced rather than reused — otherwise the percent pill reads a
 // column the backfill has already emptied.
-const PROPERTIES_SCHEMA_VERSION = 2
+const PROPERTIES_SCHEMA_VERSION = 3
 
 function _makePropertiesCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],

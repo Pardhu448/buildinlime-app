@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server"
 import { eq } from "drizzle-orm"
 import {
   tasksTable,
+  resourcesTable,
   createTaskSchema,
 } from "../../database/schema/admin-schema"
 
@@ -147,22 +148,60 @@ export const tasksRouter = router({
       return result
     }),
 
+  /**
+   * SOFT delete. Nothing hangs off a task the way replies hang off a message, so it
+   * is simply filtered out of the Electric shape (`deleted_at IS NULL` in
+   * routes/api/tasks.ts) and ceases to exist for every client — no UI filtering to
+   * remember at each call site, and the unread badges stay correct for free.
+   *
+   * The task RELEASES ITS NAME on delete: tasks_channel_name_unique is partial on
+   * `deleted_at IS NULL`, so you can recreate a task you just deleted. Without that
+   * predicate the name would stay taken by a row nobody can see.
+   *
+   * Its attachments go with it. Its status-history NOTES do not — those are ordinary
+   * channel messages and stay in the channel; they merely stop being reachable from a
+   * task page that no longer exists.
+   */
   delete: authedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
-        const [deletedItem] = await tx
-          .delete(tasksTable)
-          .where(eq(tasksTable.id, input.id))
-          .returning()
 
-        if (!deletedItem) {
+        const [task] = await tx
+          .select()
+          .from(tasksTable)
+          .where(eq(tasksTable.id, input.id))
+
+        if (!task) {
           throw new TRPCError({
             code: `NOT_FOUND`,
             message: `Task not found`,
           })
         }
+
+        // Creator only — matching the assignment rule above. The previous hard
+        // delete had no check, so anyone could delete anyone's task.
+        if (task.createdby_id !== ctx.session.user.id) {
+          throw new TRPCError({
+            code: `FORBIDDEN`,
+            message: `Only the task's creator can delete it`,
+          })
+        }
+
+        // Already deleted — idempotent, so an outbox retry is harmless.
+        if (task.deleted_at) return { item: task, txid }
+
+        const [deletedItem] = await tx
+          .update(tasksTable)
+          .set({ deleted_at: new Date(), deleted_by_id: ctx.session.user.id })
+          .where(eq(tasksTable.id, input.id))
+          .returning()
+
+        await tx
+          .update(resourcesTable)
+          .set({ deleted_at: new Date(), deleted_by_id: ctx.session.user.id })
+          .where(eq(resourcesTable.task_id, input.id))
 
         return { item: deletedItem, txid }
       })

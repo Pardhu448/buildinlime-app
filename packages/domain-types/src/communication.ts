@@ -17,6 +17,11 @@ export type Task = {
   buildunit_id: string
   createdby_id: string
   assignee_id?: string | null
+  // Soft delete. Deleted tasks are filtered out of the Electric shape server-side,
+  // so a client never receives one — this is here for completeness, not for the UI
+  // to filter on.
+  deleted_at?: Date | string | null
+  deleted_by_id?: string | null
 }
 
 export type UpdateTask = {
@@ -47,6 +52,11 @@ export type Message = {
   // channel message that is ALSO addressable by task, so the task screen can list
   // its own status history without a separate table or shape.
   task_id?: string | null
+  // Soft delete. A deleted message KEEPS SYNCING — its replies hang off it, and
+  // dropping it would orphan the thread — but the server has REDACTED it: text is ""
+  // and the id arrays are empty. Render a tombstone off this; never show the text.
+  deleted_at?: Date | string | null
+  deleted_by_id?: string | null
 }
 
 export type UpdateMessage = {
@@ -76,6 +86,10 @@ export type Resource = {
   buildunit_id: string
   project_id: string
   createdby_id: string
+  // Soft delete. Like tasks, filtered out of the Electric shape server-side, so a
+  // client never receives one. The FILE ON DISK is not reclaimed.
+  deleted_at?: Date | string | null
+  deleted_by_id?: string | null
 }
 
 export type UpdateResource = {
