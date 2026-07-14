@@ -34,9 +34,11 @@ export function safeCleanup(
 }
 
 export const retryOnError = async (error: Error) => {
-  // TEMP DEBUG (sync-stall investigation): surface shape errors that trigger a
-  // retry — a repeating line here means a shape is stuck retrying and never
-  // advancing. Remove once resolved.
+  // Kept deliberately. A shape that fails is otherwise SILENT — electric-db-collection
+  // marks the collection ready from this very error path, so the app carries on as if
+  // the shape had synced, just with no rows (see retryOnMembershipsError). A repeating
+  // line here is the only outward sign that a shape is stuck retrying and never
+  // advancing, and it is what identifies which one.
   if (__DEV__) console.log(`[shape-retry] ${error?.message ?? String(error)}`)
   const delay = error.message.includes("401") ? 2000 : 5000
   await new Promise((resolve) => setTimeout(resolve, delay))
