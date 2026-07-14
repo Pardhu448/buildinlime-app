@@ -157,6 +157,24 @@ shapes a good idea. Electric's own guidance:
 
 ## 2. The outstanding work: lazy, screen-scoped shapes
 
+### 🛑 Blocker: a stopped shape currently cannot be restarted
+
+**Do not build the registry until this is fixed.** A refcounted registry exists to
+*stop and start* shapes on demand — and today, inbound sync **never re-arms after an
+abort**. Observed on device 2026-07-13: all ten shapes aborted at once and not one
+reconnected; the app kept writing (tRPC 200s) while receiving nothing back, until a
+restart. See §7 of `mobileUiAndShapeBudget.md` for the full write-up.
+
+The mechanism is documented in the `NEVER_GC` comment in
+`src/application/collections/_shared.ts`: sync is started imperatively once via
+`startSyncImmediate()` and never restarted. Disabling GC removed the *GC* trigger for
+that abort; it did not remove the failure mode — any abort (backgrounded app, dropped
+socket, cancelled long-poll) opens the same one-way door.
+
+Building a stop/start registry on a sync layer that cannot start a stopped shape is
+building on the bug. Fix the restart path first, then the registry's "restart the same
+instance rather than rebuilding it" hazard below becomes meaningful rather than moot.
+
 ### Prerequisite
 
 **Crystallise the mobile UI screens first.** Which collections are screen-scoped

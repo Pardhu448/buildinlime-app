@@ -1,0 +1,14 @@
+# 13th July, 2026:
+ # Below changes to UI are suggested keeping in mind latest requirements and also the optimization of live collections
+   1) Logo should replace the 'B' on the drawer heading (beside BuildInLime)
+   2) Below the section on Active Project, mention 'Signout to Switch', so that users would go to singout to cange the project
+   3) Bottom app layout is blocked by mobile's navigation buttons, can we adjust it so that we can see bottom portion of the app clearly
+   4) Can you change Home icon in drawer to that of project icon (stacked cubes)
+   5) My tasks icon and inbox icon to that used in the web app 
+   6) Display messages in inbox similar to the one we have in web app 
+   7) DIsplay tasks in Tasks similar to the one we have in web app
+   8) back button from buildunits should point back to the projects page with the project name
+   9) Build units should be similar the way channels are displayed as cards in web app, with cube as icon for the card
+   10) build unit cards should display its properties symbols and the brief details
+   11) channels should also be displayed like cards (we had in web app) along with icon and also its assocaited properties through symbols
+   

@@ -285,6 +285,34 @@ the registry:**
   summary onto `buildunits`, or accept `properties` as always-on. Note `properties` is
   project-scoped and small, so this is the cheapest of the three to simply concede.
 
+### `channel-members` — an 11th shape, and why it is not optional
+
+**Added 2026-07-14.** The task detail screen's assignee picker was showing nobody but the
+current user. The cause is not a missing collection but a **misread** one: `memberships`
+is the **SELF** stream (`/api/memberships` → `user_id = me AND member_flag = true`), so
+filtering it by `channel_id` returns exactly one row — you. It is the *scope source of
+truth*, not a roster, and it can never answer "who else is in this channel".
+
+Web already solved this with a second collection over the same table —
+`channelMembersCollection` → `/api/channel-members?channel_ids=…` →
+`channel_id = ANY(...) AND member_flag = true` — the **ROSTER** stream. Mobile now mirrors
+it. The route already existed; no server change was needed.
+
+Two properties of the roster that the lifecycle depends on:
+
+- **It has no owner escape hatch.** Unlike `/api/channels`, its where clause is a bare
+  `channel_id = ANY(...)`. So a channel you own and created yourself moves `channelKey`
+  without moving `visibilityKey`. It must therefore rebuild on **either** key changing
+  (like `properties`), *not* inside `reinitializeScopedOrganizationCollections`, which
+  only runs on `visibilityChanged`. Getting this wrong silently drops that channel's
+  members from the picker.
+- **It is build-unit-subtree scoped, not always-on** — same lifetime as `channels`,
+  whose id set it shares. So it costs **peak, not baseline**: peak 10 → 11, baseline
+  unchanged at 8.
+
+`teams` is *not* the answer here and never was: §4 records it as write-only, never read.
+Assignment is by channel membership, not team membership.
+
 **Do not build the registry until these are repaid**, or it will be built against a
 baseline of 8 and the 10 → 5 win is gone.
 
@@ -394,3 +422,82 @@ and the resync path rebuilds instances so the registry must stay coherent with i
 Note this ordering is deliberate: **the registry lands last, because §4's budget is
 only valid once the `mentions` shape exists.** Building the registry against today's
 collections would scope `messages` and `users` wrongly.
+
+---
+
+## 7. Known hazards, observed on device
+
+Two failures found while building the UI. Neither is caused by the UI work; both will
+bite whoever touches these areas next.
+
+### ⚠️ Inbound sync never re-arms after an abort — it is a one-way door
+
+**Observed 2026-07-13.** All ten Electric shapes aborted at the same instant and **not
+one of them reconnected.** The app kept writing happily (tRPC mutations returned 200)
+while receiving nothing back. Symptom: **files upload successfully, the server has the
+rows, and the mobile UI never shows them** — followed by a restart appearing to "fix"
+it. Anything inbound silently stops: new messages, tasks, resources, read-state.
+
+The mechanism is already written down, in the `NEVER_GC` comment in
+`src/application/collections/_shared.ts`:
+
+> the app starts sync imperatively once via `startSyncImmediate()` and **never restarts
+> it**, so a GC'd collection goes permanently silent — no inbound sync, and optimistic
+> writes are dropped on commit with nothing to redeliver them.
+
+That comment was written about *GC-triggered* aborts, and the fix was to disable GC
+(`gcTime: NEVER_GC`). **Disabling GC removed one cause; it did not remove the failure
+mode.** The same one-way door opens for *any* abort — a backgrounded app, a dropped
+socket, a network blip, a cancelled long-poll. Nothing re-arms the stream.
+
+`retryOnError` (also in `_shared.ts`) only sleeps; it is passed as the shape's
+`onError`. Whether it even fires on an abort is unconfirmed — check for the
+`[shape-retry]` debug line before assuming a retry path exists.
+
+**Do not read a silent UI as a UI bug.** Check `[net]` for `live=true` polls first: no
+live polls means the sync layer is dead, and no amount of component debugging will
+explain it. This is the same class of problem the `af58a5e` debug-logging commit was
+chasing; that logging is still in the tree.
+
+**Fix properly before the shape registry lands.** A registry stops and starts shapes
+deliberately — building it on a sync layer that cannot restart a stopped shape is
+building on the bug.
+
+### ⚠️ `pending_attachments` (SQLite) has no migration path
+
+`src/infrastructure/offline/pending-uploads-db.ts` is the mobile upload outbox —
+attachment *metadata* for uploads that have not finished (the bytes live as a file on
+disk; `uri` points at them). It is in its own SQLite file, deliberately: sharing the
+collections DB made upload writes contend with Electric's sync-persistence
+transactions and produced `database is locked`.
+
+The table is created with `CREATE TABLE IF NOT EXISTS` **and there is no versioning**
+— no `user_version`, no migration list. On any device that has run the app before, that
+statement is a **no-op**, so a column added to the `CREATE TABLE` body simply never
+appears, and every `INSERT` naming it fails with `no such column`.
+
+This is nastier than it sounds because **it is invisible in exactly the test you would
+run**: a fresh install executes the full `CREATE TABLE` and works perfectly. Only
+devices with existing app data break — i.e. every real user. Note a native rebuild
+(`expo run:android`) does **not** help: it replaces the APK, not the app's data
+directory.
+
+Adding `task_id` (task attachments) needed an explicit, guarded statement — SQLite has
+no `ADD COLUMN IF NOT EXISTS`, so the duplicate-column error *is* the "already applied"
+signal:
+
+```ts
+try {
+  db.execSync(`ALTER TABLE pending_attachments ADD COLUMN task_id TEXT;`)
+} catch {
+  // Column already present — nothing to do.
+}
+```
+
+**This does not scale past a column or two.** Before the next change to this table, give
+it a real `user_version` pragma and a numbered migration list — the same discipline the
+collections already have via `schemaVersion`.
+
+To inspect it on device: it is WAL-mode, so pull `.sqlite`, `-wal` **and** `-shm`
+together. Reading the main file alone shows a stale/empty schema and will convince you a
+migration did not run when it did.
