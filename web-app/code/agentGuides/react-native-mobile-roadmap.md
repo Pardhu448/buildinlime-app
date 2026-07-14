@@ -213,22 +213,22 @@ BuildInLimeMobile/
 | Web Feature | Mobile Priority | Notes |
 |---|---|---|
 | Email OTP login | P0 ✅ Done | |
-| Project selection screen | P0 | Cards centred, tap to select |
-| Scoped Electric sync | P0 | Only selected project's data syncs |
-| Build units grid (2-col) | P0 | |
-| Channels grid + build unit props | P0 | |
-| Channel (messages + properties) | P0 | |
-| Left drawer navigation | P0 | Home, My Tasks, Inbox, Profile |
-| My Tasks list | P1 | Grouped by status, swipe-to-complete |
-| Task detail | P1 | Bottom sheet |
-| Inbox (@mentions) | P1 | Notification badge |
-| File attachments (view) | P1 | expo-sharing |
-| File upload | P1 | Camera + picker |
+| Project selection screen | P0 ✅ Done | Cards centred, tap to select |
+| Scoped Electric sync | P0 ✅ Done | Only selected project's data syncs |
+| Build units grid (2-col) | P0 ✅ Done | |
+| Channels grid + build unit props | P0 ✅ Done | |
+| Channel (messages + properties) | P0 ✅ Done | |
+| Left drawer navigation | P0 ✅ Done | Home, My Tasks, Inbox, Profile |
+| My Tasks list | P1 ✅ Done | Grouped by status, swipe-to-complete |
+| Task detail | P1 ✅ Done | Bottom sheet |
+| Inbox (@mentions) | P1 ✅ Done | Notification badge |
+| File attachments (view) | P1 ✅ Done | expo-sharing |
+| File upload | P1 ✅ Done | Camera + picker |
 | Properties editor | P1 | Bottom sheet per type |
 | Push notifications | P1 | Mobile-only |
-| Offline read | P2 | Electric SQLite store |
+| Offline read | P2 ✅ Done | Electric SQLite store |
 | Create project/channel/build unit | P2 | |
-| Offline message queue | P2 | |
+| Offline message queue | P2 ✅ Done | offline-transactions write queue |
 | Polish + release | P3 | |
 
 ---
@@ -259,7 +259,7 @@ BuildInLime design tokens in NativeWind, Electric collections wired up.
 
 ---
 
-### Phase 3 — Navigation Restructure + Project Selection
+### Phase 3 — Navigation Restructure + Project Selection ✅ Done
 **Goal:** Left drawer shell + project selection screen with scoped sync.
 
 #### 3a — Navigation restructure
@@ -293,7 +293,7 @@ BuildInLime design tokens in NativeWind, Electric collections wired up.
 
 ---
 
-### Phase 4 — Build Units Grid
+### Phase 4 — Build Units Grid ✅ Done
 **Goal:** Grid of build unit cards after selecting a project.
 
 - `app/(app)/project/[projectId]/index.tsx` — thin shell
@@ -308,7 +308,7 @@ BuildInLime design tokens in NativeWind, Electric collections wired up.
 
 ---
 
-### Phase 5 — Channels Grid + Build Unit Properties
+### Phase 5 — Channels Grid + Build Unit Properties ✅ Done
 **Goal:** Tap a build unit → see channels grid + build unit properties.
 
 - `app/(app)/project/[projectId]/[buildUnitId]/index.tsx` — thin shell
@@ -322,7 +322,7 @@ BuildInLime design tokens in NativeWind, Electric collections wired up.
 
 ---
 
-### Phase 6 — Channel Screen (Properties + Messages)
+### Phase 6 — Channel Screen (Properties + Messages) ✅ Done
 **Goal:** Tap a channel → see properties + messages/comments.
 
 - `app/(app)/project/[projectId]/[buildUnitId]/[channelId].tsx` — thin shell
@@ -337,22 +337,22 @@ BuildInLime design tokens in NativeWind, Electric collections wired up.
 
 ---
 
-### Phase 7 — My Tasks
+### Phase 7 — My Tasks ✅ Done
 - `app/(app)/my-tasks.tsx` — tasks assigned to current user, grouped by status
 - Swipe-to-complete gesture
 - Task detail bottom sheet
 
 ---
 
-### Phase 8 — Inbox
+### Phase 8 — Inbox ✅ Done
 - `app/(app)/inbox.tsx` — messages where `mention_ids` contains current user
 - Breadcrumb: Project > Build Unit > Channel
 - Badge count on drawer item
 
 ---
 
-### Phase 9 — File Attachments
-View and upload files from mobile.
+### Phase 9 — File Attachments ✅ Done
+View and upload files from mobile. Offline upload manager queues uploads and retries on reconnect.
 
 ---
 
@@ -366,8 +366,10 @@ Backend changes required (push_token column, notify on mention/assign).
 
 ---
 
-### Phase 12 — Offline Support
-Electric SQL + expo-sqlite for offline reads.
+### Phase 12 — Offline Support ✅ Done
+Electric SQL + expo-sqlite for offline reads (single-project scoped persistence).
+Writes routed through `@tanstack/offline-transactions` — an offline mutation queue
+that replays on reconnect. See `src/infrastructure/offline/`.
 
 ---
 
@@ -383,16 +385,16 @@ App icons, dark mode, accessibility, EAS Build.
 | 0 | Project setup | ✅ Done | P0 |
 | 1 | Email OTP auth | ✅ Done | P0 |
 | 2 | Design system + Electric collections | ✅ Done | P0 |
-| 3 | Drawer nav + project selection + scoped sync | Next | P0 |
-| 4 | Build units grid | — | P0 |
-| 5 | Channels grid + build unit properties | — | P0 |
-| 6 | Channel screen (properties + messages) | — | P0 |
-| 7 | My Tasks | — | P1 |
-| 8 | Inbox | — | P1 |
-| 9 | File attachments | — | P1 |
-| 10 | Properties editor | — | P1 |
+| 3 | Drawer nav + project selection + scoped sync | ✅ Done | P0 |
+| 4 | Build units grid | ✅ Done | P0 |
+| 5 | Channels grid + build unit properties | ✅ Done | P0 |
+| 6 | Channel screen (properties + messages) | ✅ Done | P0 |
+| 7 | My Tasks | ✅ Done | P1 |
+| 8 | Inbox | ✅ Done | P1 |
+| 9 | File attachments | ✅ Done | P1 |
+| 10 | Properties editor | Next | P1 |
 | 11 | Push notifications | — | P1 |
-| 12 | Offline support | — | P2 |
+| 12 | Offline support | ✅ Done | P2 |
 | 13 | Polish + release | — | P3 |
 
 ---
@@ -402,7 +404,7 @@ App icons, dark mode, accessibility, EAS Build.
 | Change | Phase |
 |---|---|
 | `trustedOrigins` includes `http://10.0.2.2:3000` | ✅ Done (Phase 1) |
-| Proxy routes accept optional `project_id` query param | Phase 3c |
+| Proxy routes accept optional `project_id` query param | ✅ Done (Phase 3c) |
 | `users.push_token` column + push on mention/assign | Phase 11 |
 
 ---

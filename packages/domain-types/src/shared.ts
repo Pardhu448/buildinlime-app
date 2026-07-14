@@ -33,6 +33,11 @@ export type PropertyType = typeof PROPERTY_TYPES[number]
 export const TASK_STATUS_VALUES = ["open", "completed"] as const
 export type TaskStatusValue = typeof TASK_STATUS_VALUES[number]
 
+// Per-user read state (the `reads` table). Unread is the ABSENCE of a row, so
+// there is no "unread" member here — an item is read once a row exists for it.
+export const READ_ITEM_TYPES = ["message", "task"] as const
+export type ReadItemType = typeof READ_ITEM_TYPES[number]
+
 export const ENTITY_TYPES = ["project", "buildUnit", "channel", "task"] as const
 export type EntityType = typeof ENTITY_TYPES[number]
 

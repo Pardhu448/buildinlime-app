@@ -16,7 +16,7 @@ import {
   READ_ITEM_TYPES,
 } from "%/infrastructure/database/schema/admin-schema"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
-import { retryOnError, coerceBool, origin } from "./_shared"
+import { retryOnError, coerceBool, origin, NEVER_GC } from "./_shared"
 
 // Electric SQL returns jsonb columns as JSON-encoded strings (e.g. '"critical"').
 // z.preprocess unwraps them before Zod enum validation runs.
@@ -44,7 +44,7 @@ const electricReadSchema = selectReadSchema.extend({
 // membership-derived IDs can be baked into the shape URLs.
 // ---------------------------------------------------------------------------
 
-const TASKS_SCHEMA_VERSION = 1
+const TASKS_SCHEMA_VERSION = 3
 
 function _makeTasksCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -67,6 +67,7 @@ function _makeTasksCollection(
         },
         schema: electricTaskSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // Task writes go through @tanstack/offline-transactions — see
         // application/actions/tasks.ts. Direct collection.insert/update/delete
         // calls outside an offline transaction will fail with "no handler",
@@ -92,6 +93,15 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
           timestamptz: (date: string) => {
             return new Date(date)
           },
+          // int8 (file_size_bytes) arrives as a string, and Electric's DEFAULT parser
+          // turns it into a BigInt. A BigInt cannot be JSON.stringify'd, and the
+          // offline outbox persists each mutation's row as JSON — so deleting a file
+          // died with "Do not know how to serialize a BigInt" before it reached the
+          // server. A plain number is exact to 2^53, i.e. ~9 petabytes.
+          //
+          // The zod preprocess below does NOT cover this — schema validation runs on
+          // client mutations, not on rows arriving from sync.
+          int8: (v: string) => Number(v),
         },
       },
       schema: selectResourceSchema.extend({
@@ -101,6 +111,7 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
         ),
       }),
       getKey: (item) => item.id,
+      gcTime: NEVER_GC,
       // Resource deletes go through @tanstack/offline-transactions —
       // see application/actions/resources.ts.
     })
@@ -119,7 +130,13 @@ function _makeResourcesCollection(memberChannelIds: string[]) {
 // would validate against the new schema as undefined, and percent_complete rows
 // cached before the backfill still carry their value in pending_task — so the
 // local store must be discarded and re-synced rather than reused.
-const PROPERTIES_SCHEMA_VERSION = 2
+//
+// THIS BUMP WENT IN ALONE AND BROKE THE INVARIANT ABOVE, which is exactly the
+// failure the paragraph predicts: properties sat at 2 while all ten other
+// collections stayed at 1, so two adapters existed, the second overwrote the
+// coordinator's, and after login Electric reported up-to-date while nothing
+// rendered. Every collection is now at 2. If you bump one, BUMP THEM ALL.
+const PROPERTIES_SCHEMA_VERSION = 3
 
 function _makePropertiesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -148,6 +165,7 @@ function _makePropertiesCollection(
         },
         schema: electricPropertySchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // Property writes go through @tanstack/offline-transactions —
         // see application/actions/properties.ts (create / update / delete).
       }),
@@ -158,7 +176,9 @@ function _makePropertiesCollection(
   )
 }
 
-const MESSAGES_SCHEMA_VERSION = 1
+// v2: the task_id column (status-change notes), and to hold the one-version-for-
+// every-collection invariant documented above the properties version.
+const MESSAGES_SCHEMA_VERSION = 3
 
 function _makeMessagesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -181,6 +201,7 @@ function _makeMessagesCollection(
         },
         schema: selectMessageSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // Message writes go through @tanstack/offline-transactions —
         // see application/actions/messages.ts. Delete is not currently
         // used by UI; add a mutationFn + action when needed.
@@ -192,7 +213,7 @@ function _makeMessagesCollection(
   )
 }
 
-const READS_SCHEMA_VERSION = 1
+const READS_SCHEMA_VERSION = 3
 
 /**
  * The reads collection's key. Exported because the optimistic write in
@@ -228,6 +249,7 @@ function _makeReadsCollection(
         },
         schema: electricReadSchema,
         getKey: (item) => readKey(item.user_id, item.item_type, item.item_id),
+        gcTime: NEVER_GC,
         // Reads are written through @tanstack/offline-transactions —
         // see application/actions/reads.ts.
       }),

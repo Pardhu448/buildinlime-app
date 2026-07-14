@@ -11,14 +11,14 @@ import {
 } from "%/infrastructure/database/schema/admin-schema"
 import { trpc } from "%/infrastructure/trpc/lib/trpc-client"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
-import { retryOnError, coerceBool, origin } from "./_shared"
+import { retryOnError, retryOnMembershipsError, coerceBool, origin, NEVER_GC } from "./_shared"
 
 const electricMembershipSchema = selectMembershipSchema.extend({
   member_flag: z.preprocess(coerceBool, z.boolean()),
   role: z.enum(MEMBERSHIP_ROLES).default(`viewer`),
 })
 
-const MEMBERSHIPS_SCHEMA_VERSION = 1
+const MEMBERSHIPS_SCHEMA_VERSION = 3
 
 function _makeMembershipsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -29,13 +29,17 @@ function _makeMembershipsCollection(
         id: `memberships`,
         shapeOptions: {
           url: new URL(`/api/memberships`, origin).toString(),
-          onError: retryOnError,
+          // Reports the error before retrying, so the bootstrap can tell a clean
+          // empty sync apart from a shape that failed and was marked ready anyway
+          // — see retryOnMembershipsError.
+          onError: retryOnMembershipsError,
           parser: {
             timestamptz: (date: string) => new Date(date),
           },
         },
         schema: electricMembershipSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
       }),
       persistence,
       schemaVersion: MEMBERSHIPS_SCHEMA_VERSION,
@@ -66,7 +70,7 @@ export async function initializeMembershipsCollection() {
 // membership-change trigger when the visible channel set changes (Phase 4).
 // ---------------------------------------------------------------------------
 
-const CHANNEL_MEMBERS_SCHEMA_VERSION = 1
+const CHANNEL_MEMBERS_SCHEMA_VERSION = 3
 
 function _makeChannelMembersCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -87,6 +91,7 @@ function _makeChannelMembersCollection(
         },
         schema: electricMembershipSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
       }),
       persistence,
       schemaVersion: CHANNEL_MEMBERS_SCHEMA_VERSION,
@@ -112,7 +117,7 @@ export async function initializeChannelMembersCollection(params: { channelIds: s
 // the per-poll membership table scan on the server side.
 // ---------------------------------------------------------------------------
 
-const PROJECTS_SCHEMA_VERSION = 1
+const PROJECTS_SCHEMA_VERSION = 3
 
 function _makeProjectsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -135,6 +140,7 @@ function _makeProjectsCollection(
         },
         schema: selectProjectSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         onInsert: async ({ transaction }) => {
           const { modified: newProject } = transaction.mutations[0]
           const result = await trpc.projects.create.mutate({
@@ -187,7 +193,7 @@ export function registerBuildUnitInsertCallback(
   _buildUnitInsertCallbacks.set(id, { resolve, reject })
 }
 
-const BUILD_UNITS_SCHEMA_VERSION = 1
+const BUILD_UNITS_SCHEMA_VERSION = 3
 
 function _makeBuildUnitsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -210,6 +216,7 @@ function _makeBuildUnitsCollection(
         },
         schema: selectBuildUnitSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         onInsert: async ({ transaction }) => {
           const { modified: newBuildUnit } = transaction.mutations[0]
           try {
@@ -270,7 +277,7 @@ export function registerChannelInsertCallback(
   _channelInsertCallbacks.set(id, { resolve, reject })
 }
 
-const CHANNELS_SCHEMA_VERSION = 1
+const CHANNELS_SCHEMA_VERSION = 3
 
 function _makeChannelsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -293,6 +300,7 @@ function _makeChannelsCollection(
         },
         schema: selectChannelSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         onInsert: async ({ transaction }) => {
           const { modified: newChannel } = transaction.mutations[0]
           try {

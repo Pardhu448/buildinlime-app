@@ -1,20 +1,20 @@
 import { useEffect, useState, useRef } from "react"
 import { useLiveQuery } from "@tanstack/react-db"
-import { MessageCircle, ChevronDown, ChevronRight, Send, X, Loader, RefreshCw } from "lucide-react"
+import { MessageCircle, ChevronDown, ChevronRight, Send, X, Loader, RefreshCw, Trash2 } from "lucide-react"
 import {
   messagesCollection,
   usersCollection,
 } from "%/infrastructure/database/tanstack-db-electric/admincollections"
-import { createMessageAction } from "%/application/actions/messages"
+import { createMessageAction, deleteMessageAction } from "%/application/actions/messages"
 import { usePendingResources, type PendingResource } from "%/application/hooks/use-pending-resources"
 import { CommentInput, mentionDisplayName, type MentionUser } from "./CommentInput"
 import {
   MessageResourceDisplay,
   MessageAttachmentPicker,
   PendingAttachmentChips,
-  mimeIcon,
   type PendingAttachment,
 } from "./MessageResourceSection"
+import { ResourceThumbnail } from "./ResourceThumbnail"
 import { formatDateTime } from "%/presentation/lib/datetime"
 import type { Message } from "%/domain/communication/types"
 
@@ -48,6 +48,7 @@ interface MessageItemProps {
   onRetryUpload: (id: string) => void
   depth?: number
   focusMessageId?: string
+  currentUserId: string
 }
 
 function MessageItem({
@@ -59,8 +60,21 @@ function MessageItem({
   onRetryUpload,
   depth = 0,
   focusMessageId,
+  currentUserId,
 }: MessageItemProps) {
   const isFocused = focusMessageId === message.id
+  const isDeleted = !!message.deleted_at
+  const isOwn = message.createdby_id === currentUserId
+
+  const confirmDelete = () => {
+    if (
+      !window.confirm(
+        `Delete this message? It is removed for everyone. Its replies stay, under a "deleted" placeholder.`,
+      )
+    )
+      return
+    deleteMessageAction({ id: message.id })
+  }
   const [showReplies, setShowReplies] = useState(true)
   const [showReplyInput, setShowReplyInput] = useState(false)
   const [replyText, setReplyText] = useState("")
@@ -150,9 +164,15 @@ function MessageItem({
             <span className="text-xs text-[#717182]">{formatDateTime(message.created_at)}</span>
           </div>
 
-          <p className="text-xs text-[#1e1e1e] whitespace-pre-wrap break-words">
-            {message.text}
-          </p>
+          {isDeleted ? (
+            /* The row survives so its replies keep a parent — see deleteMessageAction.
+               Nothing to hide: the server already cleared the text. */
+            <p className="text-xs italic text-[#717182]">This message was deleted</p>
+          ) : (
+            <p className="text-xs text-[#1e1e1e] whitespace-pre-wrap break-words">
+              {message.text}
+            </p>
+          )}
 
           {/* Pending uploads for this message */}
           {myPending.length > 0 && (
@@ -162,14 +182,19 @@ function MessageItem({
                   key={r.id}
                   className="flex items-center gap-1.5 px-2 py-1 bg-white border border-[#e5d4c1] rounded text-xs text-[#717182]"
                 >
+                  {/* Spinners stay while the upload is in flight — status beats a
+                      preview there. Once it settles (or fails) the local blob is
+                      shown, so you see the actual file rather than a mime glyph. */}
                   {r.status === "uploading" ? (
                     <Loader className="w-3 h-3 animate-spin shrink-0" />
                   ) : r.status === "awaiting_network" ? (
                     <Loader className="w-3 h-3 animate-spin shrink-0 text-[#976623]" />
-                  ) : r.status === "error" ? (
-                    mimeIcon(r.file.type, "w-3 h-3 text-red-400")
                   ) : (
-                    mimeIcon(r.file.type, "w-3 h-3 text-[#976623]")
+                    <ResourceThumbnail
+                      localUrl={r.objectUrl}
+                      mimeType={r.file.type}
+                      size={20}
+                    />
                   )}
                   <span
                     className="max-w-[140px] truncate"
@@ -202,13 +227,27 @@ function MessageItem({
 
           {/* Actions row */}
           <div className="flex items-center gap-3 mt-1">
-            <button
-              onClick={() => setShowReplyInput(!showReplyInput)}
-              className="flex items-center gap-1 text-xs text-[#717182] hover:text-[#976623] transition-colors"
-            >
-              <MessageCircle className="w-3 h-3" />
-              Reply
-            </button>
+            {!isDeleted && (
+              <button
+                onClick={() => setShowReplyInput(!showReplyInput)}
+                className="flex items-center gap-1 text-xs text-[#717182] hover:text-[#976623] transition-colors"
+              >
+                <MessageCircle className="w-3 h-3" />
+                Reply
+              </button>
+            )}
+
+            {/* Author only. The server enforces it (FORBIDDEN otherwise) — hiding the
+                button is courtesy, not the control. */}
+            {isOwn && !isDeleted && (
+              <button
+                onClick={confirmDelete}
+                className="flex items-center gap-1 text-xs text-[#717182] hover:text-red-700 transition-colors"
+              >
+                <Trash2 className="w-3 h-3" />
+                Delete
+              </button>
+            )}
 
             {replies.length > 0 && (
               <button
@@ -303,6 +342,7 @@ function MessageItem({
             onRetryUpload={onRetryUpload}
             depth={depth + 1}
             focusMessageId={focusMessageId}
+            currentUserId={currentUserId}
           />
         ))}
     </div>
@@ -434,6 +474,7 @@ export function CommentsSection({
               onReply={handleReply}
               onRetryUpload={retryUpload}
               focusMessageId={focusMessageId}
+              currentUserId={currentUserId}
             />
           ))}
         </div>

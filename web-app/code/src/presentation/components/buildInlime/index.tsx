@@ -23,6 +23,7 @@ export { ProjectsTable } from "./organization/ProjectsTable";
 export { ActivityPanel, type ActivityItem, type ActivityPanelProps } from "./communication/ActivityPanel";
 export { AddTaskButton, type AddTaskButtonProps } from "./communication/AddTaskButton";
 export { AssignedToSection } from "./communication/AssignedToSection";
+export { TaskStatusSection } from "./communication/TaskStatusSection";
 export { CommentInput } from "./communication/CommentInput";
 export type { CommentInputProps } from "./communication/CommentInput";
 export { CommentsSection, type CommentsSectionProps } from "./communication/CommentsSection";

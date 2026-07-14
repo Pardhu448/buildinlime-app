@@ -4,8 +4,12 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "set-lan-ip": "bash scripts/set-lan-ip.sh",
+    "start:lan": "pnpm set-lan-ip && expo start --host lan --clear",
+    "reverse": "adb reverse tcp:8081 tcp:8081 && adb reverse tcp:3000 tcp:3000",
+    "start:usb": "LAN_IP=localhost pnpm set-lan-ip && pnpm reverse && expo start --clear",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "eslint ."
   },
@@ -43,7 +47,9 @@
     "expo-sqlite": "^55.0.15",
     "expo-status-bar": "~55.0.5",
     "expo-symbols": "~55.0.7",
+    "expo-video-thumbnails": "~55.0.16",
     "expo-web-browser": "~55.0.14",
+    "lucide-react-native": "^1.24.0",
     "metro-file-map": "0.83.3",
     "nativewind": "4.2.3",
     "react": "19.2.0",
@@ -54,6 +60,7 @@
     "react-native-reanimated": "4.2.1",
     "react-native-safe-area-context": "~5.6.2",
     "react-native-screens": "~4.23.0",
+    "react-native-svg": "15.15.3",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.7.2",
     "tailwindcss": "^3.4.19"

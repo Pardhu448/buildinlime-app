@@ -1,28 +1,44 @@
 import { TouchableOpacity, View, Text, StyleSheet } from "react-native"
+import { Boxes } from "lucide-react-native"
 import { colors } from "@/src/presentation/shared/colors"
-import { HealthPill, PriorityTagPill } from "@/src/presentation/properties/components/PropertyPill"
-import type { BuildUnit } from "@buildinlime/domain-types"
+import { PropertyPill } from "@/src/presentation/properties/components/PropertyPill"
+import type { BuildUnit, Property } from "@buildinlime/domain-types"
 
 interface BuildUnitCardProps {
   buildUnit: BuildUnit
+  properties?: Property[]
   onPress: () => void
 }
 
-export function BuildUnitCard({ buildUnit, onPress }: BuildUnitCardProps) {
+// NOTE: the `health` / `priority` / `task_name` / `status_percent` columns on
+// `buildunits` are vestigial — nothing writes them (there is no build-units
+// action; `actions/properties.ts` is the only property writer). Web's card only
+// renders them because it defaults the nulls. Real properties come from
+// `propertiesCollection` with entity "buildUnit", same as the detail screen.
+export function BuildUnitCard({ buildUnit, properties, onPress }: BuildUnitCardProps) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
-      <Text style={styles.name} numberOfLines={2}>
-        {buildUnit.name}
-      </Text>
-      {buildUnit.description ? (
-        <Text style={styles.description} numberOfLines={1}>
-          {buildUnit.description}
-        </Text>
-      ) : null}
-      {(buildUnit.health || buildUnit.priority) ? (
+      <View style={styles.header}>
+        <View style={styles.iconChip}>
+          <Boxes size={20} color={colors.primary} strokeWidth={2} />
+        </View>
+        <View style={styles.headerText}>
+          <Text style={styles.name} numberOfLines={1}>
+            {buildUnit.name}
+          </Text>
+          {buildUnit.description ? (
+            <Text style={styles.description} numberOfLines={2}>
+              {buildUnit.description}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+
+      {properties && properties.length > 0 ? (
         <View style={styles.pillRow}>
-          {buildUnit.health ? <HealthPill health={buildUnit.health} /> : null}
-          {buildUnit.priority ? <PriorityTagPill priority={buildUnit.priority} /> : null}
+          {properties.map((p) => (
+            <PropertyPill key={p.id} property={p} />
+          ))}
         </View>
       ) : null}
     </TouchableOpacity>
@@ -31,23 +47,36 @@ export function BuildUnitCard({ buildUnit, onPress }: BuildUnitCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.cardSurface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.cardBorder,
     padding: 14,
-    gap: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    gap: 10,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  iconChip: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: colors.iconChip,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerText: {
+    flex: 1,
+    gap: 2,
   },
   name: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: "InstrumentSans_600SemiBold",
     color: colors.foreground,
-    lineHeight: 20,
   },
   description: {
     fontSize: 12,
@@ -59,6 +88,5 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 6,
     flexWrap: "wrap",
-    marginTop: 2,
   },
 })

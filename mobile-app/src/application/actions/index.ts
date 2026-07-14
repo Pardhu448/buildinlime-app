@@ -10,6 +10,7 @@ import { resetPropertyActions } from "./properties"
 import { resetTeamActions } from "./teams"
 import { resetBuildUnitActions } from "./buildunits"
 import { resetChannelActions } from "./channels"
+import { resetReadActions } from "./reads"
 
 export function resetAllOfflineActions(): void {
   resetTaskActions()
@@ -20,4 +21,5 @@ export function resetAllOfflineActions(): void {
   resetTeamActions()
   resetBuildUnitActions()
   resetChannelActions()
+  resetReadActions()
 }

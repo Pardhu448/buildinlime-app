@@ -4,7 +4,7 @@ import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persiste
 import { z } from "zod"
 import { selectTeamSchema } from "%/infrastructure/database/schema/admin-schema"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
-import { retryOnError, origin } from "./_shared"
+import { retryOnError, origin, NEVER_GC } from "./_shared"
 
 // Electric returns the actual DB column names (snake_case), not the camelCase
 // JS property names that drizzle-zod generates from the auth-schema users table.
@@ -31,7 +31,7 @@ const electricTeamSchema = selectTeamSchema.extend({
 // hydrates instantly from local cache on reload, even with the server offline.
 // Bump USERS_SCHEMA_VERSION whenever electricUsersSchema changes shape — a
 // version mismatch triggers a full reset and re-sync from Electric.
-const USERS_SCHEMA_VERSION = 1
+const USERS_SCHEMA_VERSION = 3
 
 function _makeUsersCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -51,6 +51,7 @@ function _makeUsersCollection(
         },
         schema: electricUsersSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
       }),
       persistence,
       schemaVersion: USERS_SCHEMA_VERSION,
@@ -71,7 +72,7 @@ export async function initializeUsersCollection() {
   if (import.meta.env.DEV) console.log(`[OPFS:users] Collection created in ${(performance.now() - t0).toFixed(0)}ms`)
 }
 
-const TEAMS_SCHEMA_VERSION = 1
+const TEAMS_SCHEMA_VERSION = 3
 
 function _makeTeamsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -89,6 +90,7 @@ function _makeTeamsCollection(
         },
         schema: electricTeamSchema,
         getKey: (item) => item.id,
+        gcTime: NEVER_GC,
         // Team writes go through @tanstack/offline-transactions —
         // see application/actions/teams.ts. Delete is not currently used
         // by UI; add a mutationFn + action when needed.

@@ -141,6 +141,117 @@ If the app loads via tunnel but not LAN, the problem is network/firewall related
 
 ---
 
+## Issue 4b: App Loads but API Calls Fail — USB Dev on a Client-Isolated Wi-Fi
+
+### Symptom
+
+The app **bundle loads and runs**, but every API/auth call fails with network errors. This is specifically a **physical device over USB** setup. Metro works, the API does not.
+
+### Root Cause
+
+There are **two dev servers**, and they can be reached over **different transports**:
+
+| Server | Port | Transport |
+|---|---|---|
+| Metro bundler | 8081 | USB (`adb reverse tcp:8081`, set up by Expo) |
+| Backend API | 3000 | whatever `EXPO_PUBLIC_API_URL` points at |
+
+When `EXPO_PUBLIC_API_URL` points at the **LAN IP** but only Metro is reverse-forwarded over USB, the bundle rides the USB cable (works) while the API is expected over Wi-Fi. If the Wi-Fi router has **AP/client isolation** enabled (common on default and guest networks), the phone and laptop cannot reach each other **even on the same subnet** — so the API is unreachable. The tell-tale sign is that both `ping` and a TCP connect to `:3000` from the device time out despite matching `/24` addresses.
+
+### Diagnosis
+
+```bash
+adb reverse --list                      # is tcp:3000 forwarded? (usually only 8081 is)
+adb shell ip addr show wlan0            # device on Wi-Fi? same subnet as laptop?
+adb shell ping -c 2 -W 1 <laptop-lan-ip>   # 100% packet loss => LAN path blocked
+ss -tlnp | grep ':3000'                 # confirm API is listening on *:3000 (not just 127.0.0.1)
+```
+
+If the API listens on `*:3000` but the device can't ping/connect to the laptop's LAN IP, the LAN path is blocked (client isolation / firewall) — don't chase the server.
+
+### Solution
+
+Route the API over the **same USB cable** as Metro, bypassing the LAN entirely. Use the dedicated one-liner:
+
+```bash
+pnpm mobile:usb
+```
+
+This does all three required steps and can't clobber itself: pins `EXPO_PUBLIC_API_URL=http://localhost:3000` in `.env` (via `LAN_IP=localhost pnpm set-lan-ip`), sets up both USB forwards (`adb reverse tcp:8081` + `tcp:3000`), then starts Metro with `--clear` so the `localhost` value is re-inlined into the bundle (`EXPO_PUBLIC_*` vars are baked in at bundle time).
+
+The equivalent manual steps, if you need them:
+
+```bash
+adb reverse tcp:8081 tcp:8081 && adb reverse tcp:3000 tcp:3000
+# set EXPO_PUBLIC_API_URL=http://localhost:3000 in mobile-app/.env, then:
+cd mobile-app && npx expo start --clear
+```
+
+`http://localhost:3000` is already in `trustedOrigins` (`server.ts`), so Better Auth accepts it — no `MOBILE_ORIGIN` edit needed for this path.
+
+> **Footgun — do NOT use `pnpm mobile:lan` for USB dev.** Its `set-lan-ip` prestep **overwrites** `EXPO_PUBLIC_API_URL` in `.env` with the machine's LAN IP and bakes it into the fresh bundle — sending the API straight back to the client-isolated LAN. If your API calls fail right after starting Metro, check the active line in `mobile-app/.env`: if it flipped to a `192.168.x`/`10.x` IP, a `:lan` start script rewrote it. Use `pnpm mobile:usb` instead.
+
+> **Note:** `adb reverse` entries are cleared when the device unplugs/re-plugs or the adb server restarts. `pnpm mobile:usb` re-adds them; if starting manually, re-run the `adb reverse` commands each session. If you instead want LAN mode, you must disable AP/client isolation on the router — same-subnet addresses alone are not enough.
+
+---
+
+## Issue 4c: Reads Work but Writes Fail After an `.env` Change (Stale tRPC Singleton)
+
+### Symptom
+
+After changing `EXPO_PUBLIC_API_URL` (e.g. LAN IP → `localhost` for USB), **Electric shape reads return `200`** but every **tRPC write fails**:
+
+```
+[fetch] 200 up-to-date /api/messages?…          ← reads fine
+[fetch-error] /api/trpc/messages.create -> Network request failed   ← writes fail
+```
+
+Messages/tasks never persist, yet the app is clearly reaching the API for reads.
+
+### Root Cause
+
+`EXPO_PUBLIC_*` values are **inlined per-module at bundle time**, and the tRPC client is a **module-level singleton** that captures the URL once at init (`trpc/client.ts` → `const apiUrl = process.env.EXPO_PUBLIC_API_URL; httpBatchLink({ url: `${apiUrl}/api/trpc` })`).
+
+A **Fast Refresh** after the `.env` change only re-evaluates changed modules and their importers. The auth client and Electric collection factories re-run (so reads switch to the new URL), but the tRPC client module does **not** — its singleton keeps the **old** URL (e.g. the dead LAN IP). Result: reads go to the new host and succeed; writes keep POSTing to the old host and fail with `Network request failed`.
+
+### Diagnosis
+
+The tell is **two different API URLs in one session** and reads/writes disagreeing. Attach to the Hermes console (see below) and look for the URL banners each singleton logs at init:
+
+```
+>>> AUTH API URL: http://localhost:3000        ← refreshed
+>>> TRPC API URL: http://192.168.10.37:3000…   ← STALE  => writes fail
+```
+
+If `TRPC API URL` shows the old host while reads 200, the singleton is stale.
+
+### Solution
+
+**Do a full reload, not Fast Refresh** — press `r` in the Metro terminal, or cold-start the JS:
+
+```bash
+adb shell am force-stop com.anonymous.BuildInLimeMobile
+# reopen the app
+```
+
+A cold JS start re-initializes every module-level singleton (tRPC client included) from the current bundle, so all of them agree on the URL. Verify with `>>> TRPC API URL: http://localhost:3000/api/trpc` followed by `[fetch] 200 … /api/trpc/messages.create`.
+
+> **Rule of thumb:** any change to `EXPO_PUBLIC_*` requires a **full app reload**, because module-scope code that reads it at init won't pick up the new value via Fast Refresh alone.
+
+### Reading the Hermes console when RN DevTools won't open
+
+If RN DevTools fails to launch (on Linux it can crash with a Chrome `zygote_host` / `execvp` error) and, once a debugger is attached, console output stops printing in the Metro terminal, attach directly to the inspector's CDP endpoint to stream the console:
+
+```bash
+curl -s http://localhost:8081/json/list      # find the RN target's webSocketDebuggerUrl
+# then connect a small ws client that sends Runtime.enable + Log.enable and prints
+# Runtime.consoleAPICalled / Log.entryAdded / Runtime.exceptionThrown events.
+```
+
+This surfaces the same `console.log`/error/exception feed RN DevTools shows, including the URL banners above.
+
+---
+
 ## Issue 5: Better Auth Rejects Mobile Requests (CSRF / Origin Error)
 
 ### Symptom
@@ -169,6 +280,71 @@ trustedOrigins: [
 Then restart the web server for the change to take effect.
 
 > **Tip:** The `MOBILE_ORIGIN` env var provides a dynamic override — set it in the web app's `.env` to avoid editing `server.ts` each time the IP changes.
+
+---
+
+## Issue 6: Messages/Data Stop Syncing After a Few Minutes (Electric Collections Silently Die)
+
+### Symptom
+
+Everything works at first, then after a while the app stops receiving updates:
+
+- A message sent from mobile reaches the server (the web app sees it) but never appears — or briefly flashes then vanishes — on mobile.
+- Messages/tasks created on **another** client (e.g. the web app) never arrive on mobile.
+- It looks like "optimistic updates are broken," but the real problem is that mobile stopped **receiving** data.
+- A **sign-out + sign-in (or clearing the app's SQLite cache) temporarily fixes it**, then it recurs.
+
+### Root Cause
+
+**TanStack DB garbage-collects idle collections, and GC aborts the Electric shape's long-poll — which the app never restarts.**
+
+1. `gcTime` defaults to **5 minutes** (`@tanstack/db` `lifecycle.js` → `this.config.gcTime ?? 3e5`).
+2. When a collection has **zero active subscribers** (no mounted `useLiveQuery`), a 5-minute GC timer starts (`changes.js` → `startGCTimer`).
+3. When it fires, sync is torn down and the Electric shape's in-flight fetch is **aborted** (`electric-db-collection` `electric.js` → `abortController.abort()`).
+4. `electric-db-collection` **swallows the abort as intentional cleanup**, so it does **not** call the shape's `onError`/`retryOnError` — there is no retry and no reconnect.
+5. The app starts sync imperatively **once** via `startSyncImmediate()` and never restarts it, so the collection is **dead for the rest of the session**: no inbound sync, and optimistic writes are dropped on commit with nothing to redeliver them.
+
+Mobile is exposed because its drawer/leaf-screen navigation routinely leaves collections with **0 subscribers** (e.g. on a channel screen, the build-units/channels/projects/tasks collections have no mounted query). The **web app dodges this by accident** — a persistent `<Sidebar>` holds always-on `useLiveQuery` subscriptions to `projects`/`buildUnits`/`channels`/`users`/`teams`, so their subscriber count never hits 0 and GC never starts. Mobile has no such persistent subscriber.
+
+> This compounds with a second, separate design choice: `mutation-fns.ts` deliberately **skips `awaitTxId`**, so a confirmed write's optimistic row is discarded on commit and relies on the Electric stream to redeliver it. When the stream is GC-killed, that redelivery never happens — turning "harmless brief window" into "permanent disappearance."
+
+### Diagnosis
+
+Temporarily log every shape request and any retry, then reproduce:
+
+```ts
+// src/infrastructure/auth/cookie-fetch.ts — log status of every /api/ request
+// src/application/collections/_shared.ts — log inside retryOnError
+```
+
+The signature in the Metro logs is: healthy `[fetch] 200 up-to-date /api/messages?…` long-polls, then a burst of `-> Aborted` across several shapes, **zero `retryOnError` calls**, and afterwards those shapes never `[fetch]` again. Confirm the data is really missing on-device vs. present on the server:
+
+```bash
+# on-device store (debug build)
+adb exec-out run-as com.anonymous.BuildInLimeMobile cat files/SQLite/buildinlime.sqlite > /tmp/m.sqlite
+sqlite3 /tmp/m.sqlite "SELECT collection_id, table_name FROM collection_registry;"   # map messages -> c_xxxx
+# compare row count vs Postgres truth
+docker exec <postgres> psql -U postgres -d electric -c "SELECT count(*) FROM messages WHERE channel_id='<id>';"
+```
+
+If Postgres has newer rows than the device (and the Electric shape returns them on a manual resume from the device's stored offset), the shape is stalled client-side.
+
+### Solution
+
+Disable GC on these session-scoped collections and tear them down explicitly instead:
+
+1. **`gcTime: Infinity`** on every Electric collection factory (`organization.ts`, `communication.ts`, `admin.ts`). A non-finite `gcTime` makes `startGCTimer()` skip scheduling, so the sync never GC-aborts. See the shared `NEVER_GC` constant in `collections/_shared.ts`.
+2. **Explicit `cleanup()` on teardown**, since GC no longer does it for us: call `.cleanup()` on the old instance before replacing it (project switch / membership resync) and in the `reset*Collections()` paths (sign-out), *before* `disposePersistence()` deletes the DB. See the shared `safeCleanup()` helper.
+
+**Immediate unblock while debugging:** sign out and back in, or clear the sync DB, to force a fresh sync:
+
+```bash
+adb shell am force-stop com.anonymous.BuildInLimeMobile
+adb exec-out run-as com.anonymous.BuildInLimeMobile sh -c 'rm -f files/SQLite/buildinlime.sqlite*'
+# relaunch; keeps auth cookies (SecureStore) + outbox, re-syncs all shapes from scratch
+```
+
+**Verify the fix:** reload, sit on a screen **idle for >5 minutes**, then send from both web and mobile — messages should arrive live, with continuous `[fetch] up-to-date /api/messages` long-polls and no `Aborted`.
 
 ---
 

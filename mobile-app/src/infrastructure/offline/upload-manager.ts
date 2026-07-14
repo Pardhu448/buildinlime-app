@@ -51,6 +51,8 @@ export interface PendingUpload {
   projectId: string
   createdById: string
   messageId: string | null
+  /** Set when the attachment belongs to a task rather than a message/channel. */
+  taskId: string | null
   status: UploadStatus
   scheduledAt: Date | null
   errorMessage?: string
@@ -64,6 +66,7 @@ export interface EnqueueUploadOptions {
   projectId: string
   createdById: string
   messageId?: string | null
+  taskId?: string | null
 }
 
 export interface EnqueueControl {
@@ -137,6 +140,7 @@ function rowToUpload(row: PendingAttachmentRow): PendingUpload {
     projectId: row.project_id,
     createdById: row.createdby_id,
     messageId: row.message_id,
+    taskId: row.task_id,
     status: row.status,
     scheduledAt: row.scheduled_at ? new Date(row.scheduled_at) : null,
     errorMessage: row.error_message ?? undefined,
@@ -154,6 +158,7 @@ function uploadToRow(u: PendingUpload): PendingAttachmentRow {
     project_id: u.projectId,
     createdby_id: u.createdById,
     message_id: u.messageId,
+    task_id: u.taskId,
     status: u.status,
     scheduled_at: u.scheduledAt ? u.scheduledAt.toISOString() : null,
     error_message: u.errorMessage ?? null,
@@ -284,6 +289,7 @@ export async function enqueueUpload(
     projectId: opts.projectId,
     createdById: opts.createdById,
     messageId: opts.messageId ?? null,
+    taskId: opts.taskId ?? null,
     status: "awaiting_schedule",
     scheduledAt: null,
   }
@@ -351,6 +357,9 @@ async function doUpload(id: string): Promise<void> {
   formData.append("buildunitId", upload.buildUnitId)
   formData.append("projectId", upload.projectId)
   if (upload.messageId) formData.append("messageId", upload.messageId)
+  // The server reads taskId from the form and sets resources.task_id — without
+  // this a task attachment would persist as a plain channel resource.
+  if (upload.taskId) formData.append("taskId", upload.taskId)
 
   try {
     const cookieFetch = createCookieFetch()
@@ -439,6 +448,29 @@ export async function scheduleUpload(
   notify()
   await updateSchedule(id, "scheduled", when.toISOString()).catch(() => {})
   armScheduleTimer(id, when)
+}
+
+/**
+ * Rename a pending upload before it goes out. `name` is sent as both the
+ * multipart filename and the `name` field (see doUpload), so this is what the
+ * resource ends up called on the server.
+ *
+ * Only meaningful before the bytes leave: once the status is `uploading` the
+ * form data is already built, so a rename would silently not apply. Callers get
+ * `false` in that case rather than a lie.
+ */
+export async function renameUpload(id: string, name: string): Promise<boolean> {
+  const upload = uploads.get(id)
+  if (!upload) return false
+  if (upload.status === "uploading") return false
+
+  const trimmed = name.trim()
+  if (!trimmed || trimmed === upload.name) return false
+
+  upload.name = trimmed
+  notify()
+  await put(uploadToRow(upload)).catch(() => {})
+  return true
 }
 
 /** Drop a pending upload — clears timers, the row, and the local file. */

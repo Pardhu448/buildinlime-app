@@ -207,11 +207,19 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
   // Every type stays offerable — picking one that already exists edits it in
   // place (see handleSubmit). Previously a set type was filtered out and could
   // never be changed, only deleted and re-added.
-  // taskStatus is the exception: it is meaningless anywhere but a task.
+  //
+  // taskStatus is the exception, and is NEVER offered — not even on a task. A
+  // status change must be explained, and TaskStatusSection is the one control
+  // that takes that note and posts it to the channel. Leaving taskStatus in this
+  // generic form would be a second, silent way to complete a task with no note,
+  // which is exactly the guarantee the note step exists to make.
+  //
+  // It is still a PROPERTY in the database — that is where status is stored, and
+  // the properties router derives tasks.completed from it in the same transaction.
+  // What is removed here is this component's ability to edit it, and (below) to
+  // render its pill.
   const byType = new Map(properties.map((p) => [p.type, p]));
-  const availableTypes = PROPERTY_TYPES.filter(
-    (t) => t !== "taskStatus" || entity === "task"
-  );
+  const availableTypes = PROPERTY_TYPES.filter((t) => t !== "taskStatus");
 
   const openPopup = () => {
     const firstAvailable = availableTypes[0] ?? "status";
@@ -389,8 +397,13 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
     }
   };
 
-  const visibleProperties = properties.slice(0, VISIBLE_LIMIT);
-  const hiddenProperties = properties.slice(VISIBLE_LIMIT);
+  // On a task, TaskStatusSection renders the status directly above this row — as a
+  // control, not just a pill. Showing the pill here too would state the same fact
+  // twice, one of them dead. Elsewhere taskStatus is meaningless anyway, so this is
+  // simply "never render the taskStatus pill from the generic row".
+  const shownProperties = properties.filter((p) => p.type !== "taskStatus");
+  const visibleProperties = shownProperties.slice(0, VISIBLE_LIMIT);
+  const hiddenProperties = shownProperties.slice(VISIBLE_LIMIT);
 
   return (
     <>

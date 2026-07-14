@@ -1,11 +1,12 @@
 import { useState } from "react"
 import { useLiveQuery, eq } from "@tanstack/react-db"
-import { Plus, Download, X, FileText, Image, Video, Music, File } from "lucide-react"
+import { Plus, Download, X } from "lucide-react"
 import { format } from "date-fns"
-import { resourcesCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
+import { resourcesCollection, tasksCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
 import { deleteResourceAction } from "%/application/actions/resources"
 import { usePendingResources } from "%/application/hooks/use-pending-resources"
 import { AddResourceForm } from "./add-resource-form"
+import { ResourceThumbnail } from "./ResourceThumbnail"
 import { UploadSchedulePopover } from "./upload-schedule-popover"
 import { formatDateTime } from "%/presentation/lib/datetime"
 
@@ -16,15 +17,6 @@ export interface ResourcesSectionProps {
   projectId: string
   createdbyId: string
   memberIds: string[]
-}
-
-function mimeIcon(mimeType: string) {
-  if (mimeType.startsWith("image/")) return <Image className="w-3.5 h-3.5 text-[#976623]" />
-  if (mimeType.startsWith("video/")) return <Video className="w-3.5 h-3.5 text-[#976623]" />
-  if (mimeType.startsWith("audio/")) return <Music className="w-3.5 h-3.5 text-[#976623]" />
-  if (mimeType === "application/pdf" || mimeType.includes("word") || mimeType.includes("text"))
-    return <FileText className="w-3.5 h-3.5 text-[#976623]" />
-  return <File className="w-3.5 h-3.5 text-[#717182]" />
 }
 
 function formatBytes(bytes: number | bigint) {
@@ -48,7 +40,7 @@ export function ResourcesSection({
     usePendingResources(channelId, taskId)
 
   // Filter synced resources: by task_id when on a task page, otherwise by channel_id
-  const { data: syncedResources } = useLiveQuery(
+  const { data: syncedResourceRows } = useLiveQuery(
     (q) =>
       q
         .from({ resourcesCollection })
@@ -57,6 +49,39 @@ export function ResourcesSection({
         ),
     [channelId, taskId]
   )
+
+  // Who owns this task, if we're on a task page. A file may be deleted by its
+  // uploader OR by the task's creator — tasks.delete already soft-deletes every
+  // attachment on a task whoever uploaded it, so uploader-only would have let you
+  // destroy a file by deleting the whole task while forbidding you to remove it
+  // singly (see routers/resources.ts).
+  const { data: taskRows } = useLiveQuery(
+    (q) =>
+      q
+        .from({ tasksCollection })
+        .where(({ tasksCollection: t }) => eq(t.id, taskId ?? "")),
+    [taskId]
+  )
+  // The `| undefined` in these casts is deliberate: useLiveQuery types its data as a
+  // plain array, but it really is undefined on the first render before the query has
+  // resolved — so the ?? [] is load-bearing, not defensive noise.
+  const isTaskCreator =
+    !!taskId &&
+    ((taskRows as { createdby_id?: string }[] | undefined) ?? [])[0]?.createdby_id ===
+      createdbyId
+
+  const canDelete = (uploaderId: string) => uploaderId === createdbyId || isTaskCreator
+
+  // Newest upload first. The live query returns the collection's keyed-map order,
+  // which is not upload order and is not stable as rows sync in — so the sort has
+  // to be explicit. Same fix as the mobile ResourcesSheet.
+  const syncedResources = ((syncedResourceRows as typeof syncedResourceRows | undefined) ?? [])
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.uploaded_at as string).getTime() -
+        new Date(a.uploaded_at as string).getTime()
+    )
 
   const handleFormSubmit = (file: File, meta: { name: string; description: string }) => {
     addPending(file, {
@@ -108,7 +133,13 @@ export function ResourcesSection({
               key={r.id}
               className="flex items-center gap-2 px-3 py-2 bg-[#fdf8f2] border border-[#e5d4c1] rounded"
             >
-              {mimeIcon(r.file.type)}
+              {/* Previews from the local blob while it is still uploading — the bytes
+                  are already here, so it costs no request. */}
+              <ResourceThumbnail
+                localUrl={r.objectUrl}
+                mimeType={r.file.type}
+                size={36}
+              />
 
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-[#1e1e1e] truncate">{r.name}</p>
@@ -180,7 +211,11 @@ export function ResourcesSection({
               key={r.id}
               className="flex items-center gap-2 px-3 py-2 bg-[#fdf8f2] border border-[#e5d4c1] rounded hover:bg-[#f0e5d8] transition-colors"
             >
-              {mimeIcon(r.mime_type)}
+              <ResourceThumbnail
+                fileLocation={r.file_location}
+                mimeType={r.mime_type}
+                size={36}
+              />
 
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-[#1e1e1e] truncate">{r.name}</p>
@@ -201,14 +236,20 @@ export function ResourcesSection({
                 <Download className="w-3.5 h-3.5" />
               </a>
 
-              {/* Delete */}
-              <button
-                onClick={() => deleteResourceAction({ id: r.id })}
-                title="Delete resource"
-                className="p-1 text-[#717182] hover:text-red-500 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+              {/* Delete — uploader, or the creator of the task this file hangs off.
+                  The server enforces it (FORBIDDEN otherwise); hiding the button is
+                  courtesy, not the control. It used to render unconditionally, so
+                  deleting someone else's file optimistically removed the row and then
+                  snapped it back when the server refused, with nothing shown. */}
+              {canDelete(r.createdby_id as string) && (
+                <button
+                  onClick={() => deleteResourceAction({ id: r.id })}
+                  title="Delete resource"
+                  className="p-1 text-[#717182] hover:text-red-500 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>

@@ -18,11 +18,16 @@ const serve = async ({ request }: { request: Request }) => {
 
   const originUrl = prepareElectricUrl(request.url)
   originUrl.searchParams.set(`table`, `tasks`)
+  // Soft-deleted tasks are filtered out HERE, not in the UI. A deleted task falls out
+  // of the shape, Electric delivers that to clients as a delete, and it disappears
+  // from every screen at once — the sheet, My Tasks, the badges — with no per-call-site
+  // filter to forget. (Messages are the exception: their shape keeps deleted rows so
+  // the client can render a tombstone, because replies hang off them.)
   originUrl.searchParams.set(
     `where`,
     channelIds.length === 0
       ? `1 = 0`
-      : `channel_id = ANY(ARRAY[${channelIds.map(id => `'${id}'`).join(`,`)}]::text[])`
+      : `channel_id = ANY(ARRAY[${channelIds.map(id => `'${id}'`).join(`,`)}]::text[]) AND deleted_at IS NULL`
   )
 
   return proxyElectricRequest(originUrl)

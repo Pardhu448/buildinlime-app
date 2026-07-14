@@ -1,7 +1,9 @@
 import { View, Text, FlatList, ActivityIndicator, StyleSheet } from "react-native"
 import { useRouter } from "expo-router"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useBuildUnits } from "@/src/presentation/build-units/hooks/useBuildUnits"
 import { BuildUnitCard } from "@/src/presentation/build-units/components/BuildUnitCard"
+import { usePropertiesByEntity } from "@/src/presentation/properties/hooks/useProperties"
 import { useProjects } from "@/src/presentation/projects/hooks/useProjects"
 import { ProjectCard } from "@/src/presentation/projects/components/ProjectCard"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
@@ -21,7 +23,9 @@ export default function HomeScreen() {
 
 function BuildUnitsHome({ projectId }: { projectId: string }) {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { buildUnits, isLoading } = useBuildUnits(projectId)
+  const buildUnitProperties = usePropertiesByEntity("buildUnit")
   const { projects } = useProjects()
   const project = projects?.find((p: any) => p.id === projectId)
 
@@ -43,18 +47,16 @@ function BuildUnitsHome({ projectId }: { projectId: string }) {
         <FlatList
           data={buildUnits}
           keyExtractor={(item) => item.id}
-          numColumns={2}
-          columnWrapperStyle={styles.row}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 24 }]}
+          ItemSeparatorComponent={() => <View style={styles.gap} />}
           renderItem={({ item }) => (
-            <View style={styles.cardWrapper}>
-              <BuildUnitCard
-                buildUnit={item}
-                onPress={() =>
-                  router.push(`/(tabs)/project/${projectId}/${item.id}` as any)
-                }
-              />
-            </View>
+            <BuildUnitCard
+              buildUnit={item}
+              properties={buildUnitProperties.get(item.id)}
+              onPress={() =>
+                router.push(`/(tabs)/project/${projectId}/${item.id}` as any)
+              }
+            />
           )}
           showsVerticalScrollIndicator={false}
         />
@@ -64,6 +66,7 @@ function BuildUnitsHome({ projectId }: { projectId: string }) {
 }
 
 function ProjectPicker({ onSelect }: { onSelect: (id: string) => void }) {
+  const insets = useSafeAreaInsets()
   const { projects, isLoading } = useProjects()
 
   return (
@@ -86,7 +89,7 @@ function ProjectPicker({ onSelect }: { onSelect: (id: string) => void }) {
           keyExtractor={(item) => item.id}
           numColumns={2}
           columnWrapperStyle={styles.row}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 24 }]}
           renderItem={({ item }) => (
             <View style={styles.cardWrapper}>
               <ProjectCard
@@ -115,7 +118,9 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: 16,
     paddingTop: 20,
-    paddingBottom: 40,
+  },
+  gap: {
+    height: 12,
   },
   row: {
     justifyContent: "space-between",

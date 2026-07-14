@@ -8,13 +8,17 @@ import {
   Check,
   PanelRight,
   Hammer,
+  Trash2,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { deleteTaskAction } from "%/application/actions/tasks";
 import {
   Sidebar,
   ChannelHeader,
   PropertiesInline,
   ResourcesSection,
   AssignedToSection,
+  TaskStatusSection,
   PropertiesPanel,
 } from "../components/buildInlime";
 import { formatDateTime } from "%/presentation/lib/datetime";
@@ -30,6 +34,8 @@ interface TaskPageProps {
   taskId: string;
   taskName: string;
   taskDescription: string;
+  /** tasks.completed — only a fallback for TaskStatusSection. See use-task-route. */
+  completed: boolean;
   properties: Property[];
   channelMemberIds: string[];
   currentAssigneeId: string | null;
@@ -49,6 +55,7 @@ export function TaskPage({
   taskId,
   taskName,
   taskDescription,
+  completed,
   properties,
   channelMemberIds,
   currentAssigneeId,
@@ -59,6 +66,25 @@ export function TaskPage({
 }: TaskPageProps) {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
+  const navigate = useNavigate();
+
+  // Creator only. The server enforces it (tasks.delete returns FORBIDDEN otherwise)
+  // — hiding the button is courtesy, not the control. canAssign is the same rule.
+  const confirmDelete = () => {
+    if (
+      !window.confirm(
+        `Delete "${taskName}"? The task and its attachments are removed for everyone. Notes already posted to the channel stay there.`,
+      )
+    )
+      return;
+    deleteTaskAction({ id: taskId });
+    // The task falls out of the Electric shape, so this page would render
+    // "not found" — leave before that happens.
+    navigate({
+      to: "/projects/$projectId/$buildUnitName/$channelName",
+      params: { projectId, buildUnitName, channelName },
+    });
+  };
 
   // A task counts as opened when its page is opened — whichever way you got here
   // (My Tasks, the channel rail, a deep link, a pasted URL). Marking read at each
@@ -141,6 +167,15 @@ export function TaskPage({
                   <Bell className="w-4 h-4" />
                 </button>
               */}
+              {canAssign && (
+                <button
+                  onClick={confirmDelete}
+                  title="Delete this task"
+                  className="p-1.5 text-[#717182] hover:text-red-700 hover:bg-gray-100 rounded transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={() => setRightPanelOpen(!rightPanelOpen)}
                 className="p-1.5 text-[#717182] hover:bg-gray-100 rounded transition-colors"
@@ -177,6 +212,19 @@ export function TaskPage({
               currentAssigneeId={currentAssigneeId}
               channelMemberIds={channelMemberIds}
               canAssign={canAssign}
+            />
+
+            {/* Status — the ONLY way to change it. PropertiesInline no longer
+                offers taskStatus, so a status change always carries a note. */}
+            <TaskStatusSection
+              taskId={taskId}
+              taskName={taskName}
+              channelId={channelId}
+              buildUnitId={buildUnitId}
+              projectId={projectId}
+              currentUserId={currentUserId}
+              properties={properties}
+              completed={completed}
             />
 
             {/* Resources */}

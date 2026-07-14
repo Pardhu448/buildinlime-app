@@ -181,7 +181,14 @@ export async function serveResourceFile(
     .from(resourcesTable)
     .where(eq(resourcesTable.id, resourceId))
 
-  if (!resource) {
+  // A soft-deleted resource is gone as far as anyone asking for it is concerned.
+  // Without this, "deleted" only ever meant "hidden from the UI": the row drops out
+  // of the Electric shape, but the bytes stayed downloadable by anyone in the channel
+  // holding the URL — and the id is not a secret, it survives in messages.resource_ids
+  // and in every client's local store from before the delete. The file also outlives
+  // the delete on disk by design (see scripts/purge-resources.ts), so this guard is
+  // the only thing standing between a deleted file and whoever asks for it.
+  if (!resource || resource.deleted_at) {
     return new Response(JSON.stringify({ error: "Resource not found" }), {
       status: 404,
       headers: { "content-type": "application/json" },

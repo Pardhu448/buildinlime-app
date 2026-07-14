@@ -20,6 +20,11 @@ const NON_RETRIABLE_TRPC_CODES = new Set([
   "UNAUTHORIZED",
   "FORBIDDEN",
   "NOT_FOUND",
+  // Retriable errors are retried FOREVER and the outbox drains strictly in order,
+  // so anything the server will never accept must fail fast or it wedges the queue
+  // and stalls every write behind it. CONFLICT (e.g. a duplicate task name) was
+  // missing here while mobile already had it.
+  "CONFLICT",
   "PRECONDITION_FAILED",
   "PAYLOAD_TOO_LARGE",
   "UNPROCESSABLE_CONTENT",
@@ -37,23 +42,58 @@ function wrapTrpcError(err: unknown): never {
 
 // -------------------- tasks --------------------
 
+const isConflict = (err: unknown) =>
+  (err as { data?: { code?: string } } | null)?.data?.code === `CONFLICT`
+
+/** How many suffixed names to try before giving up and failing the transaction. */
+const MAX_NAME_ATTEMPTS = 50
+
+/**
+ * Create the task, auto-suffixing its name if that name is already taken in the
+ * channel: "Site Survey" → "Site Survey (2)" → "Site Survey (3)"…
+ *
+ * The add form already blocks duplicate names, so this only fires when the check
+ * could not be trusted: the task was created OFFLINE and someone else took the
+ * name before it replayed, or two clients raced.
+ *
+ * Suffixing rather than failing is what keeps offline work from being lost. On a
+ * CONFLICT the outbox would drop the transaction and roll the optimistic row back
+ * — the user's task would silently vanish, with nobody around to be asked about it
+ * (there is no global error hook, and on a replay after restart no caller is even
+ * awaiting the promise). Retrying is safe precisely because the id is CLIENT-
+ * generated and unchanged: only the name collided, so the retry inserts the row the
+ * user already sees, and Electric reconciles it back by id with the new name.
+ */
 const createTask: MutationFn = async ({ transaction }) => {
   const { modified } = transaction.mutations[0]
   const task = modified as Record<string, unknown>
-  try {
-    await trpc.tasks.create.mutate({
-      id: task.id as string,
-      name: task.name as string,
-      description: task.description as string,
-      completed: coerceBool(task.completed),
-      channel_id: task.channel_id as string,
-      buildunit_id: task.buildunit_id as string,
-      createdby_id: task.createdby_id as string,
-      assignee_id: (task.assignee_id as string | null) ?? null,
-    })
-  } catch (err) {
-    wrapTrpcError(err)
+  const baseName = task.name as string
+
+  for (let attempt = 1; attempt <= MAX_NAME_ATTEMPTS; attempt++) {
+    const name = attempt === 1 ? baseName : `${baseName} (${attempt})`
+    try {
+      await trpc.tasks.create.mutate({
+        id: task.id as string,
+        name,
+        description: task.description as string,
+        completed: coerceBool(task.completed),
+        channel_id: task.channel_id as string,
+        buildunit_id: task.buildunit_id as string,
+        createdby_id: task.createdby_id as string,
+        assignee_id: (task.assignee_id as string | null) ?? null,
+      })
+      return
+    } catch (err) {
+      // Any other failure is the outbox's business — retriable or not, it is not
+      // ours to paper over.
+      if (!isConflict(err)) wrapTrpcError(err)
+    }
   }
+  // 50 taken names in one channel is not a collision, it is a bug or an abuse.
+  // Fail non-retriably rather than hammering the server forever.
+  throw new NonRetriableError(
+    `Could not find a free name for task "${baseName}" after ${MAX_NAME_ATTEMPTS} attempts`,
+  )
 }
 
 const updateTask: MutationFn = async ({ transaction }) => {
@@ -104,7 +144,24 @@ const createMessage: MutationFn = async ({ transaction }) => {
       mention_ids: (m.mention_ids as string[] | undefined) ?? [],
       resource_ids: (m.resource_ids as string[] | undefined) ?? [],
       parent_id: (m.parent_id as string | null) ?? null,
+      task_id: (m.task_id as string | null) ?? null,
     })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+/**
+ * Soft delete. Reads `modified`, not `original`, because deleteMessageAction is an
+ * UPDATE (the redaction) rather than a removal — see the action for why the row has
+ * to survive. The server does the real redaction and stamps deleted_at; all we send
+ * is the id.
+ */
+const deleteMessage: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const m = modified as Record<string, unknown>
+  try {
+    await trpc.messages.delete.mutate({ id: m.id as string })
   } catch (err) {
     wrapTrpcError(err)
   }
@@ -281,6 +338,7 @@ export const mutationFns = {
   deleteTask,
   // messages
   createMessage,
+  deleteMessage,
   // resources
   deleteResource,
   // properties

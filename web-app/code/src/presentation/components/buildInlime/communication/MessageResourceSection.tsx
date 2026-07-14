@@ -1,27 +1,15 @@
 import { useRef } from "react"
-import { Paperclip, X, FileText, Image, Video, Music, File, Download } from "lucide-react"
+import { Paperclip, X, Download } from "lucide-react"
 import { useLiveQuery, eq } from "@tanstack/react-db"
 import { resourcesCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
 import { formatDateTime } from "%/presentation/lib/datetime"
+import { ResourceThumbnail } from "./ResourceThumbnail"
 export { parseTextArray } from "%/presentation/lib/utils"
 
 export interface PendingAttachment {
   id: string
   file: File
   objectUrl: string
-}
-
-export function mimeIcon(mimeType: string, className = "w-3.5 h-3.5 text-[#976623]") {
-  if (mimeType.startsWith("image/")) return <Image className={className} />
-  if (mimeType.startsWith("video/")) return <Video className={className} />
-  if (mimeType.startsWith("audio/")) return <Music className={className} />
-  if (
-    mimeType === "application/pdf" ||
-    mimeType.includes("word") ||
-    mimeType.includes("text")
-  )
-    return <FileText className={className} />
-  return <File className="w-3.5 h-3.5 text-[#717182]" />
 }
 
 function formatBytes(bytes: number) {
@@ -88,7 +76,9 @@ export function PendingAttachmentChips({
           key={f.id}
           className="flex items-center gap-1.5 px-2 py-1 bg-white border border-[#e5d4c1] rounded text-xs text-[#1e1e1e]"
         >
-          {mimeIcon(f.file.type)}
+          {/* Previews straight from the local blob — the file has not been uploaded
+              yet, so there is nothing to fetch. */}
+          <ResourceThumbnail localUrl={f.objectUrl} mimeType={f.file.type} size={24} />
           <span className="max-w-[140px] truncate">{f.file.name}</span>
           <span className="text-[#717182] shrink-0">{formatBytes(f.file.size)}</span>
           <button
@@ -131,7 +121,11 @@ export function MessageResourceDisplay({ messageId }: { messageId: string }) {
           title={`Download ${r.name} — uploaded ${formatDateTime(r.uploaded_at)}`}
           className="flex items-center gap-1.5 px-2 py-1 bg-[#fdf8f2] border border-[#e5d4c1] rounded text-xs text-[#1e1e1e] hover:bg-[#f0e5d8] transition-colors"
         >
-          {mimeIcon(r.mime_type)}
+          <ResourceThumbnail
+            fileLocation={r.file_location}
+            mimeType={r.mime_type}
+            size={28}
+          />
           <span className="max-w-[150px] truncate">{r.name}</span>
           <Download className="w-3 h-3 text-[#717182] shrink-0" />
         </a>

@@ -38,23 +38,60 @@ function wrapTrpcError(err: unknown): never {
 
 // -------------------- tasks --------------------
 
+const isConflict = (err: unknown) =>
+  (err as { data?: { code?: string } } | null)?.data?.code === `CONFLICT`
+
+/** How many suffixed names to try before giving up and failing the transaction. */
+const MAX_NAME_ATTEMPTS = 50
+
+/**
+ * Create the task, auto-suffixing its name if that name is already taken in the
+ * channel: "Site Survey" → "Site Survey (2)" → "Site Survey (3)"…
+ *
+ * The add form already blocks duplicate names, so this only fires when the check
+ * could not be trusted: the task was created OFFLINE and someone else took the
+ * name before it replayed, or two clients raced. On mobile that is the common
+ * path, not a corner case.
+ *
+ * Suffixing rather than failing is what keeps offline work from being lost. On a
+ * CONFLICT the outbox would drop the transaction and roll the optimistic row back
+ * — the task would silently vanish from the user's screen, with nobody around to
+ * be asked about it (there is no global error hook, and on a replay after restart
+ * no caller is even awaiting the promise). Retrying is safe precisely because the
+ * id is CLIENT-generated and unchanged: only the name collided, so the retry
+ * inserts the row the user already sees, and Electric reconciles it back by id
+ * with the new name.
+ */
 const createTask: MutationFn = async ({ transaction }) => {
   const { modified } = transaction.mutations[0]
   const t = modified as Record<string, unknown>
-  try {
-    await trpc.tasks.create.mutate({
-      id: t.id as string,
-      name: t.name as string,
-      description: t.description as string,
-      completed: coerceBool(t.completed),
-      channel_id: t.channel_id as string,
-      buildunit_id: t.buildunit_id as string,
-      createdby_id: t.createdby_id as string,
-      assignee_id: (t.assignee_id as string | null) ?? null,
-    })
-  } catch (err) {
-    wrapTrpcError(err)
+  const baseName = t.name as string
+
+  for (let attempt = 1; attempt <= MAX_NAME_ATTEMPTS; attempt++) {
+    const name = attempt === 1 ? baseName : `${baseName} (${attempt})`
+    try {
+      await trpc.tasks.create.mutate({
+        id: t.id as string,
+        name,
+        description: t.description as string,
+        completed: coerceBool(t.completed),
+        channel_id: t.channel_id as string,
+        buildunit_id: t.buildunit_id as string,
+        createdby_id: t.createdby_id as string,
+        assignee_id: (t.assignee_id as string | null) ?? null,
+      })
+      return
+    } catch (err) {
+      // Any other failure is the outbox's business — retriable or not, it is not
+      // ours to paper over.
+      if (!isConflict(err)) wrapTrpcError(err)
+    }
   }
+  // 50 taken names in one channel is not a collision, it is a bug or an abuse.
+  // Fail non-retriably rather than hammering the server forever.
+  throw new NonRetriableError(
+    `Could not find a free name for task "${baseName}" after ${MAX_NAME_ATTEMPTS} attempts`,
+  )
 }
 
 const updateTask: MutationFn = async ({ transaction }) => {
@@ -122,7 +159,24 @@ const createMessage: MutationFn = async ({ transaction }) => {
       mention_ids: (m.mention_ids as string[] | undefined) ?? [],
       resource_ids: (m.resource_ids as string[] | undefined) ?? [],
       parent_id: (m.parent_id as string | null) ?? null,
+      task_id: (m.task_id as string | null) ?? null,
     })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+/**
+ * Soft delete. Reads `modified`, not `original`, because deleteMessageAction is an
+ * UPDATE (the redaction) rather than a removal — see the action for why the row has
+ * to survive. The server does the real redaction and stamps deleted_at; all we send
+ * is the id.
+ */
+const deleteMessage: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const m = modified as Record<string, unknown>
+  try {
+    await trpc.messages.delete.mutate({ id: m.id as string })
   } catch (err) {
     wrapTrpcError(err)
   }
@@ -151,12 +205,45 @@ const createProperty: MutationFn = async ({ transaction }) => {
       type: p.type,
       entity: p.entity,
       entity_id: p.entity_id as string,
+      // Denormalized channel scope — must reach the server, or a channel/task
+      // property persists with a null channel_id and syncs back to nobody but
+      // its creator (the properties shape matches them BY channel_id).
+      channel_id: (p.channel_id as string | null) ?? null,
       status_value: p.status_value ?? null,
       priority_value: p.priority_value ?? null,
+      task_status_value: p.task_status_value ?? null,
       target_date: (p.target_date as string | null) ?? null,
       start_date: (p.start_date as string | null) ?? null,
       pending_task: (p.pending_task as string | null) ?? null,
+      percent_complete: (p.percent_complete as string | null) ?? null,
       label_value: (p.label_value as string | null) ?? null,
+    })
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
+/**
+ * Re-setting an existing property type edits it in place rather than adding a
+ * second row. Only value columns are sent — type/entity/entity_id identify the
+ * property and must not be mutable through this path.
+ */
+const updateProperty: MutationFn = async ({ transaction }) => {
+  const { modified } = transaction.mutations[0]
+  const p = modified as Record<string, unknown>
+  try {
+    await trpc.properties.update.mutate({
+      id: p.id as string,
+      data: {
+        status_value: p.status_value ?? null,
+        priority_value: p.priority_value ?? null,
+        task_status_value: p.task_status_value ?? null,
+        target_date: (p.target_date as string | null) ?? null,
+        start_date: (p.start_date as string | null) ?? null,
+        pending_task: (p.pending_task as string | null) ?? null,
+        percent_complete: (p.percent_complete as string | null) ?? null,
+        label_value: (p.label_value as string | null) ?? null,
+      },
     })
   } catch (err) {
     wrapTrpcError(err)
@@ -297,7 +384,53 @@ const deleteChannel: MutationFn = async ({ transaction }) => {
   }
 }
 
+// -------------------- reads --------------------
+
+/**
+ * Unlike every other mutationFn here, this reads ALL of the transaction's
+ * mutations rather than mutations[0]: marking a channel read inserts one row per
+ * message, and they must reach the server as a single call — not collapse to
+ * whichever row happened to be first.
+ *
+ * Grouped by (item_type, channel_id) rather than assuming the whole transaction
+ * shares them; one wrong assumption here marks the wrong items read.
+ */
+const markRead: MutationFn = async ({ transaction }) => {
+  const rows = transaction.mutations.map(
+    (m) => m.modified as Record<string, unknown>,
+  )
+  if (rows.length === 0) return
+
+  const groups = new Map<
+    string,
+    { item_type: string; channel_id: string; item_ids: string[] }
+  >()
+  for (const r of rows) {
+    const item_type = r.item_type as string
+    const channel_id = r.channel_id as string
+    const key = `${item_type}:${channel_id}`
+    const group = groups.get(key)
+    if (group) group.item_ids.push(r.item_id as string)
+    else groups.set(key, { item_type, channel_id, item_ids: [r.item_id as string] })
+  }
+
+  try {
+    for (const g of groups.values()) {
+      await trpc.reads.markRead.mutate({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        item_type: g.item_type as any,
+        item_ids: g.item_ids,
+        channel_id: g.channel_id,
+      })
+    }
+  } catch (err) {
+    wrapTrpcError(err)
+  }
+}
+
 export const mutationFns = {
+  // reads
+  markRead,
   // tasks
   createTask,
   updateTask,
@@ -306,10 +439,12 @@ export const mutationFns = {
   createProject,
   // messages
   createMessage,
+  deleteMessage,
   // resources
   deleteResource,
   // properties
   createProperty,
+  updateProperty,
   deleteProperty,
   // teams
   createTeam,

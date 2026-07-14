@@ -5,7 +5,11 @@
   "scripts": {
     "web": "pnpm --filter buildinlime dev",
     "mobile": "pnpm --filter buildinlimemobile start",
-    "mobile:lan": "pnpm --filter buildinlimemobile start -- --host lan --clear"
+    "mobile:set-lan-ip": "pnpm --filter buildinlimemobile set-lan-ip",
+    "mobile:lan": "pnpm --filter buildinlimemobile start:lan",
+    "mobile:usb": "pnpm --filter buildinlimemobile start:usb",
+    "mobile:android": "pnpm --filter buildinlimemobile set-lan-ip && pnpm --filter buildinlimemobile exec expo run:android",
+    "mobile:dev-client": "pnpm --filter buildinlimemobile set-lan-ip && pnpm --filter buildinlimemobile start -- --dev-client --host lan --clear"
   },
   "engines": {
     "node": ">=20.19.0 || >=22.12.0",

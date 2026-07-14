@@ -1,11 +1,19 @@
 import { useState } from "react"
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from "react-native"
+import {
+  Modal,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native"
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker"
+import { splitExtension } from "@/src/presentation/resources/lib/attachment-format"
 import { colors } from "@/src/presentation/shared/colors"
 
-// Choose when a freshly-picked file uploads: immediately, or at a future
+// Name the file and choose when it uploads: immediately, or at a future
 // date/time. Mobile counterpart of web's upload-schedule-popover.
 //
 // The native picker only handles one field at a time, so a scheduled time is
@@ -14,8 +22,9 @@ import { colors } from "@/src/presentation/shared/colors"
 interface UploadScheduleModalProps {
   visible: boolean
   fileName: string
-  onUploadNow: () => void
-  onSchedule: (when: Date) => void
+  /** Both callbacks carry the (possibly renamed) file name. */
+  onUploadNow: (name: string) => void
+  onSchedule: (when: Date, name: string) => void
   /** Dismiss without uploading — the caller cancels the pending upload. */
   onCancel: () => void
 }
@@ -36,6 +45,13 @@ export function UploadScheduleModal({
   const [stage, setStage] = useState<PickerStage>(null)
   const [draftDate, setDraftDate] = useState<Date>(defaultFuture())
   const [selected, setSelected] = useState<Date | null>(null)
+
+  const [baseName, extension] = splitExtension(fileName)
+  const [draftName, setDraftName] = useState(baseName)
+
+  const trimmed = draftName.trim()
+  const nameValid = trimmed.length > 0
+  const finalName = `${trimmed}${extension}`
 
   function reset() {
     setStage(null)
@@ -75,16 +91,38 @@ export function UploadScheduleModal({
     >
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
-          <Text style={styles.title} numberOfLines={1}>
-            Upload “{fileName}”
-          </Text>
+          <Text style={styles.title}>Upload file</Text>
+
+          {/* Rename before it goes out — this becomes the resource's name. */}
+          <Text style={styles.fieldLabel}>File name</Text>
+          <View style={styles.nameRow}>
+            <TextInput
+              style={styles.nameInput}
+              value={draftName}
+              onChangeText={setDraftName}
+              placeholder="File name"
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="none"
+              autoCorrect={false}
+              selectTextOnFocus
+              returnKeyType="done"
+            />
+            {extension ? (
+              <Text style={styles.extension}>{extension}</Text>
+            ) : null}
+          </View>
+          {!nameValid && (
+            <Text style={styles.nameError}>Name cannot be empty.</Text>
+          )}
 
           <TouchableOpacity
-            style={styles.primaryBtn}
+            style={[styles.primaryBtn, !nameValid && styles.disabledBtn]}
             activeOpacity={0.8}
+            disabled={!nameValid}
             onPress={() => {
+              const name = finalName
               reset()
-              onUploadNow()
+              onUploadNow(name)
             }}
           >
             <Text style={styles.primaryBtnText}>Upload now</Text>
@@ -105,14 +143,18 @@ export function UploadScheduleModal({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.primaryBtn, !canSchedule && styles.disabledBtn]}
+            style={[
+              styles.primaryBtn,
+              (!canSchedule || !nameValid) && styles.disabledBtn,
+            ]}
             activeOpacity={0.8}
-            disabled={!canSchedule}
+            disabled={!canSchedule || !nameValid}
             onPress={() => {
               if (!selected) return
               const when = selected
+              const name = finalName
               reset()
-              onSchedule(when)
+              onSchedule(when, name)
             }}
           >
             <Text style={styles.primaryBtnText}>Schedule upload</Text>
@@ -161,6 +203,39 @@ const styles = StyleSheet.create({
     fontFamily: "InstrumentSans_600SemiBold",
     color: colors.foreground,
     marginBottom: 4,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    fontFamily: "InstrumentSans_500Medium",
+    color: colors.mutedForeground,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: 8,
+    backgroundColor: colors.muted,
+    paddingHorizontal: 10,
+  },
+  nameInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontFamily: "InstrumentSans_500Medium",
+    color: colors.foreground,
+  },
+  extension: {
+    fontSize: 14,
+    fontFamily: "InstrumentSans_500Medium",
+    color: colors.mutedForeground,
+  },
+  nameError: {
+    fontSize: 11,
+    fontFamily: "InstrumentSans_400Regular",
+    color: colors.destructive,
   },
   primaryBtn: {
     backgroundColor: colors.primary,

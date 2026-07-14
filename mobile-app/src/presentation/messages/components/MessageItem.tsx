@@ -1,0 +1,255 @@
+import { useState } from "react"
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native"
+import { MessageCircle, ChevronDown, ChevronRight, Trash2 } from "lucide-react-native"
+import { MessageAttachments } from "@/src/presentation/resources/components/MessageAttachments"
+import { deleteMessageAction } from "@/src/application/actions/messages"
+import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
+import { colors } from "@/src/presentation/shared/colors"
+import type { PendingUpload } from "@/src/infrastructure/offline/upload-manager"
+import type { Message, Resource } from "@buildinlime/domain-types"
+
+// One node of the comment tree — mirrors web's CommentsSection/MessageItem:
+// avatar, author, timestamp, text, attachments, a Reply action, and a
+// collapsible "N replies" subtree indented behind a left rail.
+
+interface MessageItemProps {
+  message: Message
+  repliesByParent: Map<string, Message[]>
+  usersMap: Record<string, string>
+  resourcesByMessage: Map<string, Resource[]>
+  uploadsByMessage: Map<string, PendingUpload[]>
+  currentUserId: string
+  onReply?: (message: Message) => void
+  depth?: number
+  /** The message to flash after an Inbox deep-link. Passed down so a highlighted
+   *  REPLY lights up too, not just a thread root. */
+  highlightId?: string | null
+}
+
+const EMPTY_RESOURCES: Resource[] = []
+const EMPTY_UPLOADS: PendingUpload[] = []
+
+export function MessageItem({
+  message,
+  repliesByParent,
+  usersMap,
+  resourcesByMessage,
+  uploadsByMessage,
+  currentUserId,
+  onReply,
+  depth = 0,
+  highlightId,
+}: MessageItemProps) {
+  const [showReplies, setShowReplies] = useState(true)
+
+  const replies = repliesByParent.get(message.id) ?? EMPTY_MESSAGES
+  const senderName = usersMap[message.createdby_id] ?? "Unknown"
+  const initial = senderName.charAt(0).toUpperCase()
+  const isOwn = message.createdby_id === currentUserId
+  const isHighlighted = !!highlightId && highlightId === message.id
+  const isDeleted = !!message.deleted_at
+
+  function confirmDelete() {
+    Alert.alert(
+      "Delete message?",
+      "The message is removed for everyone. Its replies stay, under a “deleted” placeholder.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteMessageAction({ id: message.id }),
+        },
+      ]
+    )
+  }
+
+  return (
+    <View style={depth > 0 ? styles.nested : undefined}>
+      <View style={[styles.row, isHighlighted && styles.rowHighlighted]}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{initial}</Text>
+        </View>
+
+        <View style={styles.body}>
+          <View style={styles.metaRow}>
+            <Text style={[styles.author, isOwn && styles.authorOwn]} numberOfLines={1}>
+              {senderName}
+            </Text>
+            <Text style={styles.time}>{formatDateTime(message.created_at)}</Text>
+          </View>
+
+          {isDeleted ? (
+            // The row survives so its replies keep a parent — see deleteMessageAction.
+            // There is nothing to hide here: the server already cleared the text.
+            <Text style={styles.deletedText}>This message was deleted</Text>
+          ) : message.text?.trim() ? (
+            <Text style={styles.text}>{message.text}</Text>
+          ) : null}
+
+          {!isDeleted && (
+            <MessageAttachments
+              resources={resourcesByMessage.get(message.id) ?? EMPTY_RESOURCES}
+              pendingUploads={uploadsByMessage.get(message.id) ?? EMPTY_UPLOADS}
+              isOwn={false}
+            />
+          )}
+
+          <View style={styles.actions}>
+            {!isDeleted && (
+              <TouchableOpacity
+                style={styles.action}
+                onPress={() => onReply?.(message)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.6}
+              >
+                <MessageCircle size={12} color={colors.mutedForeground} strokeWidth={2} />
+                <Text style={styles.actionText}>Reply</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Author only. The server enforces it (FORBIDDEN otherwise) — hiding the
+                button is courtesy, not the control. */}
+            {isOwn && !isDeleted && (
+              <TouchableOpacity
+                style={styles.action}
+                onPress={confirmDelete}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.6}
+              >
+                <Trash2 size={12} color={colors.mutedForeground} strokeWidth={2} />
+                <Text style={styles.actionText}>Delete</Text>
+              </TouchableOpacity>
+            )}
+
+            {replies.length > 0 && (
+              <TouchableOpacity
+                style={styles.action}
+                onPress={() => setShowReplies((v) => !v)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.6}
+              >
+                {showReplies ? (
+                  <ChevronDown size={12} color={colors.mutedForeground} strokeWidth={2} />
+                ) : (
+                  <ChevronRight size={12} color={colors.mutedForeground} strokeWidth={2} />
+                )}
+                <Text style={styles.actionText}>
+                  {replies.length} {replies.length === 1 ? "reply" : "replies"}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </View>
+
+      {showReplies &&
+        replies.map((reply) => (
+          <MessageItem
+            key={reply.id}
+            message={reply}
+            repliesByParent={repliesByParent}
+            usersMap={usersMap}
+            resourcesByMessage={resourcesByMessage}
+            uploadsByMessage={uploadsByMessage}
+            currentUserId={currentUserId}
+            onReply={onReply}
+            depth={depth + 1}
+            highlightId={highlightId}
+          />
+        ))}
+    </View>
+  )
+}
+
+const EMPTY_MESSAGES: Message[] = []
+
+const styles = StyleSheet.create({
+  // The left rail is what makes a conversation legible at a glance.
+  nested: {
+    marginLeft: 14,
+    paddingLeft: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.cardBorder,
+    marginTop: 2,
+  },
+  row: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 8,
+  },
+  // Flashed for ~2s after an Inbox deep-link, then cleared. Negative margins so the
+  // tint bleeds past the row's padding and reads as a band rather than a box.
+  rowHighlighted: {
+    backgroundColor: colors.cardSurface,
+    borderRadius: 8,
+    marginHorizontal: -6,
+    paddingHorizontal: 6,
+  },
+  avatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.iconChip,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  avatarText: {
+    color: colors.primary,
+    fontSize: 11,
+    fontFamily: "InstrumentSans_600SemiBold",
+  },
+  body: {
+    flex: 1,
+    minWidth: 0,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 2,
+  },
+  author: {
+    flexShrink: 1,
+    fontSize: 12,
+    fontFamily: "InstrumentSans_600SemiBold",
+    color: colors.foreground,
+  },
+  authorOwn: {
+    color: colors.primary,
+  },
+  time: {
+    fontSize: 11,
+    fontFamily: "InstrumentSans_400Regular",
+    color: colors.mutedForeground,
+  },
+  deletedText: {
+    fontSize: 13,
+    fontFamily: "InstrumentSans_400Regular",
+    fontStyle: "italic",
+    color: colors.mutedForeground,
+  },
+  text: {
+    fontSize: 13,
+    fontFamily: "InstrumentSans_400Regular",
+    color: colors.foreground,
+    lineHeight: 19,
+  },
+  actions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginTop: 5,
+  },
+  action: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  actionText: {
+    fontSize: 11,
+    fontFamily: "InstrumentSans_500Medium",
+    color: colors.mutedForeground,
+  },
+})

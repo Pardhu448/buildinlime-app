@@ -1,6 +1,7 @@
 import { useState } from "react"
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Text,
@@ -12,6 +13,8 @@ import { useRouter } from "expo-router"
 import { authClient } from "@/src/infrastructure/auth/client"
 import { trpc } from "@/src/infrastructure/trpc/client"
 import { colors } from "@/src/presentation/shared/colors"
+
+const brickLogo = require("@/assets/images/brick-logo-brown.png")
 
 type LoginView = "email" | "verify"
 
@@ -90,9 +93,11 @@ export default function LoginScreen() {
     >
       <View className="flex-1 justify-center px-8">
         {/* Logo mark */}
-        <View className="w-10 h-10 rounded-lg bg-primary items-center justify-center mb-8">
-          <Text className="text-primary-foreground font-sans-bold text-lg">B</Text>
-        </View>
+        <Image
+          source={brickLogo}
+          resizeMode="contain"
+          style={{ width: 60, height: 38, marginBottom: 32 }}
+        />
 
         <Text className="text-2xl font-sans-semibold text-foreground mb-1">
           {view === "email" ? "Sign in to BuildInLime" : "Check your email"}

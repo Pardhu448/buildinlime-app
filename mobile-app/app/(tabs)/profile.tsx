@@ -1,8 +1,10 @@
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native"
+import { useRouter } from "expo-router"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useSignOut } from "../_layout"
 
 export default function ProfileScreen() {
+  const router = useRouter()
   const { data: session, isPending } = useSession()
   const { startSignOut } = useSignOut()
 
@@ -24,12 +26,16 @@ export default function ProfileScreen() {
 
   return (
     <View className="flex-1 bg-background px-6 pt-16">
-      {/* Avatar initial */}
-      <View className="w-16 h-16 rounded-full bg-primary items-center justify-center mb-4">
+      {/* Avatar initial — tap to go back to the project home screen */}
+      <TouchableOpacity
+        onPress={() => router.navigate("/(tabs)" as any)}
+        activeOpacity={0.7}
+        className="w-16 h-16 rounded-full bg-primary items-center justify-center mb-4"
+      >
         <Text className="text-2xl text-primary-foreground font-sans-semibold">
           {session?.user?.name?.charAt(0).toUpperCase() ?? "?"}
         </Text>
-      </View>
+      </TouchableOpacity>
 
       <Text className="text-2xl font-sans-semibold text-foreground mb-1">
         {session?.user?.name ?? "—"}
