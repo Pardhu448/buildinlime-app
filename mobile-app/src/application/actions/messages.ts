@@ -13,6 +13,8 @@ export type CreateMessageInput = {
   mention_ids?: string[]
   resource_ids?: string[]
   parent_id?: string | null
+  /** Set only on a task status-change note — see Message.task_id. */
+  task_id?: string | null
 }
 
 let _create: ((v: CreateMessageInput) => Transaction) | null = null
@@ -33,6 +35,7 @@ function createMessageFn() {
         mention_ids: v.mention_ids ?? [],
         resource_ids: v.resource_ids ?? [],
         parent_id: v.parent_id ?? null,
+        task_id: v.task_id ?? null,
       })
     },
   })
