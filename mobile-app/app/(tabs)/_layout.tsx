@@ -94,6 +94,17 @@ export default function DrawerLayout() {
   // collections were built with, flag a resync (debounced to coalesce bursts).
   useEffect(() => {
     if (!projectReady) return
+
+    // One-shot re-derive. subscribeChanges only fires on FUTURE changes, so
+    // memberships that landed DURING init — after the sets were derived, before
+    // this subscription existed — would otherwise never be seen, stranding the
+    // session on `1 = 0` shapes until the next sign-out. This is also the
+    // backstop for a memberships shape that errored during bootstrap and
+    // recovered a moment later: the rows are here now, the applied sets are
+    // empty, so the keys differ and the existing resync rebuilds every
+    // channel-scoped shape with the real channel ids.
+    if (membershipSetsChanged(projectId)) setResyncing(true)
+
     let timer: ReturnType<typeof setTimeout> | null = null
     const sub = membershipsCollection.subscribeChanges(() => {
       if (timer) clearTimeout(timer)

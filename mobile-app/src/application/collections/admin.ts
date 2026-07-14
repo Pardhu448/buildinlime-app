@@ -5,7 +5,7 @@ import { z } from "zod"
 import { MEMBERSHIP_ROLES, READ_ITEM_TYPES } from "@buildinlime/domain-types"
 import { trpc } from "../../infrastructure/trpc/client"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
-import { apiUrl, cookieFetch, retryOnError, coerceBool, parser, NEVER_GC, safeCleanup } from "./_shared"
+import { apiUrl, cookieFetch, retryOnError, retryOnMembershipsError, coerceBool, parser, NEVER_GC, safeCleanup } from "./_shared"
 
 // --- Schemas ---
 
@@ -169,7 +169,10 @@ function _makeMembershipsCollection(
         shapeOptions: {
           url: `${apiUrl}/api/memberships`,
           fetchClient: cookieFetch,
-          onError: retryOnError,
+          // Reports the error before retrying, so the bootstrap can tell a clean
+          // empty sync apart from a shape that failed and was marked ready anyway
+          // — see retryOnMembershipsError.
+          onError: retryOnMembershipsError,
           parser,
         },
         schema: electricMembershipSchema,

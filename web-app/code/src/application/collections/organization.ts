@@ -11,7 +11,7 @@ import {
 } from "%/infrastructure/database/schema/admin-schema"
 import { trpc } from "%/infrastructure/trpc/lib/trpc-client"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
-import { retryOnError, coerceBool, origin, NEVER_GC } from "./_shared"
+import { retryOnError, retryOnMembershipsError, coerceBool, origin, NEVER_GC } from "./_shared"
 
 const electricMembershipSchema = selectMembershipSchema.extend({
   member_flag: z.preprocess(coerceBool, z.boolean()),
@@ -29,7 +29,10 @@ function _makeMembershipsCollection(
         id: `memberships`,
         shapeOptions: {
           url: new URL(`/api/memberships`, origin).toString(),
-          onError: retryOnError,
+          // Reports the error before retrying, so the bootstrap can tell a clean
+          // empty sync apart from a shape that failed and was marked ready anyway
+          // — see retryOnMembershipsError.
+          onError: retryOnMembershipsError,
           parser: {
             timestamptz: (date: string) => new Date(date),
           },

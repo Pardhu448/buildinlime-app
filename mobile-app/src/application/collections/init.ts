@@ -1,4 +1,3 @@
-import type { Collection } from "@tanstack/react-db"
 import {
   initializeMembershipsCollection,
   initializeUsersCollection,
@@ -31,21 +30,51 @@ import {
   resourcesCollection,
   propertiesCollection,
 } from "./communication"
+import { membershipsShapeErrored, clearMembershipsShapeError } from "./_shared"
 
-// Start sync on a collection and wait for the initial Electric snapshot
-// to land (or for the timeout, whichever comes first). Persisted collections
-// hydrate from the local SQLite cache first, so this often resolves instantly.
-async function loadCollection(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  collection: Collection<any, any, any>,
-  timeoutMs = 5000
-): Promise<void> {
-  collection.startSyncImmediate()
-  if (collection.size > 0 || collection.isReady()) return
+// Memberships is the ONE collection both bootstrap phases derive their scope
+// from, so it gets its own load gate. The obvious one — wait until isReady() —
+// is a trap: Electric marks a collection ready from its shape ERROR path as well
+// as on up-to-date (see retryOnMembershipsError). A single shape error — a 401
+// mid token-refresh, a dropped connection on mobile data, a server blip — lands
+// instantly on "ready" with ZERO rows. deriveMembershipSets() then yields empty
+// id sets, and every channel-scoped shape is built as `1 = 0`: no messages,
+// tasks or resources for the rest of the session. The owner still sees their
+// projects and channels via the `owner_id = me` clause, so the drawer looks fine
+// while every channel is empty.
+//
+// Wait for a TRUSTWORTHY result instead:
+//   - rows arrived                  → done
+//   - ready, no rows, no error      → done; this user genuinely has no
+//                                     memberships (a brand-new account) and must
+//                                     not be made to wait
+//   - ready, no rows, shape errored → keep waiting; the shape retries in the
+//                                     background (retryOnError backs off)
+//
+// The wait is BOUNDED — login must never hang. Proceeding with an empty set is
+// survivable because it is no longer terminal: the one-shot re-check in
+// (tabs)/_layout.tsx re-derives the sets once init completes and resyncs if the
+// rows landed late.
+async function loadMembershipsCollection(timeoutMs = 10000): Promise<void> {
+  clearMembershipsShapeError()
+  membershipsCollection.startSyncImmediate()
 
   const deadline = Date.now() + timeoutMs
-  while (collection.size === 0 && !collection.isReady() && Date.now() < deadline) {
+  const trustworthy = () =>
+    membershipsCollection.size > 0 ||
+    (membershipsCollection.isReady() && !membershipsShapeErrored())
+
+  while (!trustworthy() && Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 30))
+  }
+
+  if (__DEV__) {
+    const source = membershipsCollection.size > 0
+      ? `rows`
+      : trustworthy()
+        ? `empty (clean sync)`
+        : `empty (SHAPE ERRORED — will self-heal on resync)`
+    console.log(`[collections] memberships: ${membershipsCollection.size} rows (${source})`)
   }
 }
 
@@ -128,7 +157,7 @@ export async function initBootstrapCollections(): Promise<void> {
   const t0 = __DEV__ ? Date.now() : 0
 
   initializeMembershipsCollection()
-  await loadCollection(membershipsCollection)
+  await loadMembershipsCollection()
 
   // Extract project IDs from memberships so the server returns projects
   // the user is a member of (not just projects they own).

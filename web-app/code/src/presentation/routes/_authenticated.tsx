@@ -3,10 +3,10 @@ import { authClient } from '../../infrastructure/auth/client'
 import { authStateCollection } from '../../infrastructure/database/tanstack-db-electric/authCollections'
 import { projectsCollection, buildUnitsCollection, channelsCollection, usersCollection, teamsCollection, membershipsCollection, channelMembersCollection, initializeOrganizationCollections, initializeChannelMembersCollection, initializeUsersCollection, initializeMembershipsCollection, initializeTeamsCollection } from '../../infrastructure/database/tanstack-db-electric/admincollections'
 import { initializeCommunicationCollections, initializePropertiesCollection, tasksCollection, messagesCollection, resourcesCollection, propertiesCollection, readsCollection } from '../../application/collections/communication'
+import { membershipsShapeErrored, clearMembershipsShapeError } from '../../application/collections/_shared'
 import { debugListOPFSFiles } from '../../infrastructure/persistence/browser-persistence'
 import { initOfflineExecutor, disposeOfflineExecutor } from '../../infrastructure/offline/executor'
 import { useEffect, useState, useRef } from 'react'
-import type { Collection } from '@tanstack/react-db'
 
 function AuthLoadingComponent() {
   return (
@@ -16,25 +16,46 @@ function AuthLoadingComponent() {
   )
 }
 
-// Start sync and wait for data to appear from ANY source (OPFS cache or
-// Electric network), whichever is faster. Unlike preload(), this does NOT
-// block until the Electric stream finishes — it resolves as soon as rows
-// hydrate from cache. Falls back to preload() only when the cache is empty
-// (first-ever load) so Electric can provide the initial data.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function loadCollection(collection: Collection<any, any, any>, timeoutMs = 3000): Promise<void> {
-  collection.startSyncImmediate()
-
-  if (collection.size > 0 || collection.isReady()) return
+// Memberships is the ONE collection the entire bootstrap is derived from, so it
+// gets its own load gate. The obvious one — wait until `isReady()` — is a trap:
+// Electric marks a collection ready from its ERROR path as well as on up-to-date
+// (see retryOnMembershipsError). A single shape error — Electric restarting, a
+// 401 mid token-refresh, a blip during a migration — therefore lands instantly on
+// "ready" with ZERO rows, deriveMembershipSets() yields empty id sets, and every
+// channel-scoped shape is built as `1 = 0`: no messages, tasks or resources for
+// the rest of the session. The owner still sees their projects and channels via
+// the `owner_id = me` clause, so the app looks fine while every channel is empty.
+//
+// Wait for a TRUSTWORTHY result instead:
+//   - rows arrived                       → done
+//   - ready, no rows, no error           → done; this user genuinely has no
+//                                          memberships (a brand-new account) and
+//                                          must not be made to wait
+//   - ready, no rows, shape errored      → keep waiting; the shape retries in the
+//                                          background (retryOnError backs off)
+//
+// The wait is BOUNDED — login must never hang. Proceeding with an empty set is
+// survivable because it is no longer terminal: the one-shot re-check in
+// AuthenticatedLayout re-derives the sets once init completes and resyncs if the
+// rows landed late.
+async function loadMembershipsCollection(timeoutMs = 10000): Promise<void> {
+  clearMembershipsShapeError()
+  membershipsCollection.startSyncImmediate()
 
   const deadline = Date.now() + timeoutMs
-  while (collection.size === 0 && !collection.isReady() && Date.now() < deadline) {
+  const trustworthy = () =>
+    membershipsCollection.size > 0 ||
+    (membershipsCollection.isReady() && !membershipsShapeErrored())
+
+  while (!trustworthy() && Date.now() < deadline) {
     await new Promise(r => setTimeout(r, 30))
   }
 
   if (import.meta.env.DEV) {
-    const source = collection.size > 0 ? 'cache' : collection.isReady() ? 'sync' : 'timeout'
-    console.log(`[collections] ${collection.id}: ${collection.size} rows (${source})`)
+    const source = membershipsCollection.size > 0
+      ? 'rows'
+      : trustworthy() ? 'empty (clean sync)' : 'empty (SHAPE ERRORED — will self-heal on resync)'
+    console.log(`[collections] memberships: ${membershipsCollection.size} rows (${source})`)
   }
 }
 
@@ -131,10 +152,11 @@ function membershipSetsChanged(): boolean {
 async function initCollections(): Promise<void> {
   const t0 = import.meta.env.DEV ? performance.now() : 0
 
-  // 1. Bootstrap: init the SELF membership stream (user_id = me) and wait for
-  //    data (from OPFS cache or Electric).
+  // 1. Bootstrap: init the SELF membership stream (user_id = me) and wait for a
+  //    TRUSTWORTHY result — not merely a "ready" one. Everything below derives
+  //    its shape scope from these rows.
   await initializeMembershipsCollection()
-  await loadCollection(membershipsCollection)
+  await loadMembershipsCollection()
 
   const sets = deriveMembershipSets()
   const membershipParams = toMembershipParams(sets)
@@ -271,6 +293,17 @@ function AuthenticatedLayout() {
   // coalesce bursts).
   useEffect(() => {
     if (!collectionsReady) return
+
+    // One-shot re-derive. subscribeChanges only fires on FUTURE changes, so
+    // memberships that landed DURING initCollections — after the sets were
+    // derived, before this subscription existed — would otherwise never be seen,
+    // stranding the session on `1 = 0` shapes until the next sign-out. This is
+    // also the backstop for a memberships shape that errored during bootstrap
+    // and recovered a moment later: the rows are here now, the applied sets are
+    // empty, so the keys differ and the existing resync rebuilds every
+    // channel-scoped shape with the real channel ids.
+    if (membershipSetsChanged()) setResyncing(true)
+
     let timer: ReturnType<typeof setTimeout> | null = null
     const sub = membershipsCollection.subscribeChanges(() => {
       if (timer) clearTimeout(timer)
