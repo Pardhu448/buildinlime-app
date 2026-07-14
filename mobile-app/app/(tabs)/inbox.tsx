@@ -14,6 +14,7 @@ import { ScreenHeader } from "@/src/presentation/shared/components/ScreenHeader"
 import { Breadcrumb } from "@/src/presentation/shared/components/Breadcrumb"
 import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
 import { useLookups } from "@/src/presentation/shared/hooks/useLookups"
+import { useReads } from "@/src/presentation/shared/hooks/useReads"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { messagesCollection } from "@/src/application/collections/communication"
@@ -23,10 +24,12 @@ import type { Message } from "@buildinlime/domain-types"
 function MentionRow({
   message,
   lookups,
+  unread,
   onPress,
 }: {
   message: Message
   lookups: ReturnType<typeof useLookups>
+  unread: boolean
   onPress: () => void
 }) {
   const { getUserName, getChannel, getBuildUnit, getProject } = lookups
@@ -38,18 +41,29 @@ function MentionRow({
   const project = getProject(message.project_id)
 
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.75}>
+    <TouchableOpacity
+      style={[styles.row, unread && styles.rowUnread]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{initial}</Text>
       </View>
       <View style={styles.rowBody}>
         <View style={styles.rowHeader}>
-          <Text style={styles.sender} numberOfLines={1}>
+          {/* Marks unread ONLY — a dot on every row signals nothing. Read rows
+              stay in the list, de-emphasised: the Inbox is a record of what
+              needed you, not a queue to drain. */}
+          {unread ? <View style={styles.unreadDot} /> : null}
+          <Text style={[styles.sender, unread && styles.senderUnread]} numberOfLines={1}>
             {senderName}
           </Text>
           <Text style={styles.timestamp}>{formatDateTime(message.created_at)}</Text>
         </View>
-        <Text style={styles.messageText} numberOfLines={3}>
+        <Text
+          style={[styles.messageText, !unread && styles.messageTextRead]}
+          numberOfLines={3}
+        >
           {message.text}
         </Text>
         <Breadcrumb
@@ -68,6 +82,7 @@ function InboxContent() {
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
   const lookups = useLookups()
+  const { isMessageUnread, markMessageRead } = useReads()
 
   const { data: rawMessages, isLoading } = useLiveQuery(
     (q) => q.from({ messagesCollection }),
@@ -113,11 +128,15 @@ function InboxContent() {
         <MentionRow
           message={item}
           lookups={lookups}
-          onPress={() =>
+          unread={isMessageUnread(item.id)}
+          onPress={() => {
+            // The channel screen bulk-marks on open anyway, but marking here too
+            // means the badge drops the instant you tap, not a frame later.
+            markMessageRead(item.id, item.channel_id)
             router.push(
               `/(tabs)/project/${item.project_id}/${item.buildunit_id}/${item.channel_id}` as any
             )
-          }
+          }}
         />
       )}
       showsVerticalScrollIndicator={false}
@@ -180,10 +199,14 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: colors.cardSurface,
+    backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     borderRadius: 12,
+  },
+  rowUnread: {
+    backgroundColor: colors.cardSurface,
+    borderColor: colors.secondary,
   },
   avatar: {
     width: 32,
@@ -212,12 +235,26 @@ const styles = StyleSheet.create({
   sender: {
     flex: 1,
     fontSize: 13,
+    fontFamily: "InstrumentSans_500Medium",
+    color: colors.mutedForeground,
+  },
+  senderUnread: {
     fontFamily: "InstrumentSans_600SemiBold",
     color: colors.foreground,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+    flexShrink: 0,
   },
   timestamp: {
     fontSize: 11,
     fontFamily: "InstrumentSans_400Regular",
+    color: colors.mutedForeground,
+  },
+  messageTextRead: {
     color: colors.mutedForeground,
   },
   messageText: {

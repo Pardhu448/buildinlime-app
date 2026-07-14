@@ -119,8 +119,10 @@ function MyTasksContent() {
           onPress={() => {
             const buildUnit = lookups.getBuildUnit(item.buildunit_id)
             if (!buildUnit || !item.channel_id) return
+            // Straight to the task, not its channel. The task screen marks it read
+            // on open, so the badge clears from any route in.
             router.push(
-              `/(tabs)/project/${buildUnit.project_id}/${item.buildunit_id}/${item.channel_id}` as any
+              `/(tabs)/project/${buildUnit.project_id}/${item.buildunit_id}/${item.channel_id}/${item.id}` as any
             )
           }}
         />

@@ -9,36 +9,47 @@ import { useSignOut } from "@/app/_layout"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { useProjects } from "@/src/presentation/projects/hooks/useProjects"
-import { useTasks } from "@/src/presentation/tasks/hooks/useTasks"
+import { useReads } from "@/src/presentation/shared/hooks/useReads"
 import { colors } from "../colors"
 
 const brickLogo = require("@/assets/images/brick-logo-brown.png")
+
+type BadgeKind = "tasks" | "inbox"
 
 interface NavItem {
   label: string
   route: string
   icon: LucideIcon
-  badge?: boolean
+  badge?: BadgeKind
 }
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Home", route: "/(tabs)/", icon: Boxes },
-  { label: "My Tasks", route: "/(tabs)/my-tasks", icon: ListTodo, badge: true },
-  { label: "Inbox", route: "/(tabs)/inbox", icon: Inbox },
+  { label: "My Tasks", route: "/(tabs)/my-tasks", icon: ListTodo, badge: "tasks" },
+  { label: "Inbox", route: "/(tabs)/inbox", icon: Inbox, badge: "inbox" },
   ...(__DEV__
     ? [{ label: "Offline Debug", route: "/(tabs)/offline-debug", icon: Settings }]
     : []),
 ]
 
-// Mounted only once a project is selected: tasksCollection stays null until
-// initProjectCollections runs, and the drawer renders before that on the picker.
-function OpenTaskBadge({ userId }: { userId?: string }) {
-  const { tasks } = useTasks(userId)
-  const open = tasks.filter((t) => !t.completed).length
-  if (!open) return null
+/**
+ * Unread counts, same logic as web's sidebar:
+ *   My Tasks — tasks assigned to me, not completed, that I have not opened.
+ *   Inbox    — messages mentioning me that I have not read.
+ *
+ * Both are unread counts, NOT "how many exist". My Tasks used to show every open
+ * task, so it never went down as you worked and told you nothing new had arrived.
+ *
+ * Mounted only once a project is selected: messages/tasks stay null until
+ * initProjectCollections runs, and the drawer renders before that on the picker.
+ */
+function UnreadBadge({ kind }: { kind: BadgeKind }) {
+  const { myUnopenedTaskCount, unreadMentionCount } = useReads()
+  const count = kind === "tasks" ? myUnopenedTaskCount : unreadMentionCount
+  if (!count) return null
   return (
     <View style={styles.badge}>
-      <Text style={styles.badgeText}>{open > 99 ? "99+" : open}</Text>
+      <Text style={styles.badgeText}>{count > 99 ? "99+" : count}</Text>
     </View>
   )
 }
@@ -98,7 +109,7 @@ export default function DrawerContent(_props: DrawerContentComponentProps) {
           >
             <Icon size={18} color={colors.primary} strokeWidth={2} />
             <Text style={styles.navLabel}>{label}</Text>
-            {badge && projectId ? <OpenTaskBadge userId={user?.id} /> : null}
+            {badge && projectId ? <UnreadBadge kind={badge} /> : null}
           </TouchableOpacity>
         ))}
       </View>
