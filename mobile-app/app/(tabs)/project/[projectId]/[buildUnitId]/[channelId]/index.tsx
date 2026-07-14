@@ -23,10 +23,12 @@ import { colors } from "@/src/presentation/shared/colors"
 import type { Channel, Message } from "@buildinlime/domain-types"
 
 export default function ChannelScreen() {
-  const { projectId, buildUnitId, channelId } = useLocalSearchParams<{
+  const { projectId, buildUnitId, channelId, messageId } = useLocalSearchParams<{
     projectId: string
     buildUnitId: string
     channelId: string
+    /** Set when arriving from the Inbox — scroll to and highlight this message. */
+    messageId?: string
   }>()
   const router = useRouter()
   const { data: session } = useSession()
@@ -112,6 +114,7 @@ export default function ChannelScreen() {
           currentUserId={currentUserId}
           usersMap={usersMap}
           onReply={setReplyTo}
+          focusMessageId={messageId}
         />
       )}
 

@@ -20,6 +20,9 @@ interface MessageItemProps {
   currentUserId: string
   onReply?: (message: Message) => void
   depth?: number
+  /** The message to flash after an Inbox deep-link. Passed down so a highlighted
+   *  REPLY lights up too, not just a thread root. */
+  highlightId?: string | null
 }
 
 const EMPTY_RESOURCES: Resource[] = []
@@ -34,6 +37,7 @@ export function MessageItem({
   currentUserId,
   onReply,
   depth = 0,
+  highlightId,
 }: MessageItemProps) {
   const [showReplies, setShowReplies] = useState(true)
 
@@ -41,10 +45,11 @@ export function MessageItem({
   const senderName = usersMap[message.createdby_id] ?? "Unknown"
   const initial = senderName.charAt(0).toUpperCase()
   const isOwn = message.createdby_id === currentUserId
+  const isHighlighted = !!highlightId && highlightId === message.id
 
   return (
     <View style={depth > 0 ? styles.nested : undefined}>
-      <View style={styles.row}>
+      <View style={[styles.row, isHighlighted && styles.rowHighlighted]}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initial}</Text>
         </View>
@@ -111,6 +116,7 @@ export function MessageItem({
             currentUserId={currentUserId}
             onReply={onReply}
             depth={depth + 1}
+            highlightId={highlightId}
           />
         ))}
     </View>
@@ -132,6 +138,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     paddingVertical: 8,
+  },
+  // Flashed for ~2s after an Inbox deep-link, then cleared. Negative margins so the
+  // tint bleeds past the row's padding and reads as a band rather than a box.
+  rowHighlighted: {
+    backgroundColor: colors.cardSurface,
+    borderRadius: 8,
+    marginHorizontal: -6,
+    paddingHorizontal: 6,
   },
   avatar: {
     width: 26,

@@ -133,8 +133,10 @@ function InboxContent() {
             // The channel screen bulk-marks on open anyway, but marking here too
             // means the badge drops the instant you tap, not a frame later.
             markMessageRead(item.id, item.channel_id)
+            // Carry the message id through, or the channel opens at the top and you
+            // have to hunt for the thing you just tapped. Mirrors web's ?messageId=.
             router.push(
-              `/(tabs)/project/${item.project_id}/${item.buildunit_id}/${item.channel_id}` as any
+              `/(tabs)/project/${item.project_id}/${item.buildunit_id}/${item.channel_id}?messageId=${item.id}` as any
             )
           }}
         />

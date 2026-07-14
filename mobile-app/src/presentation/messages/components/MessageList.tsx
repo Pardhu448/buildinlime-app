@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { FlatList, View, StyleSheet } from "react-native"
 import { useLiveQuery, eq } from "@tanstack/react-db"
 import { MessageItem } from "./MessageItem"
@@ -14,6 +14,8 @@ interface MessageListProps {
   currentUserId: string
   usersMap: Record<string, string>
   onReply?: (message: Message) => void
+  /** ?messageId= from the Inbox — scroll to and briefly highlight this message. */
+  focusMessageId?: string
 }
 
 function groupBy<T>(items: T[], key: (item: T) => string | null | undefined) {
@@ -45,6 +47,7 @@ export function MessageList({
   currentUserId,
   usersMap,
   onReply,
+  focusMessageId,
 }: MessageListProps) {
   // Synced resources for this channel, and the still-uploading attachments —
   // both grouped by message id so each row can render its own attachments.
@@ -101,6 +104,38 @@ export function MessageList({
     listRef.current?.scrollToOffset({ offset: 0, animated: true })
   }, [newestRoot, currentUserId])
 
+  // Arriving from the Inbox: scroll to the message that was tapped and flash it.
+  //
+  // The list's data is threadRoots, so a mentioned REPLY has no row of its own —
+  // scroll to the thread it lives in (its parent) and highlight the reply inside.
+  //
+  // Keyed on threadRoots, not just mount: on a cold open the messages collection is
+  // still syncing when this first runs, the message is not in the list yet, and a
+  // one-shot scroll would silently do nothing. The ref makes it fire once per id
+  // rather than on every message that arrives afterwards.
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  const scrolledToId = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!focusMessageId) return
+    if (scrolledToId.current === focusMessageId) return
+
+    const target = messages.find((m) => m.id === focusMessageId)
+    if (!target) return // not synced yet — try again when messages change
+
+    const rootId = target.parent_id ?? target.id
+    const index = threadRoots.findIndex((m) => m.id === rootId)
+    if (index < 0) return
+
+    scrolledToId.current = focusMessageId
+    // Rows are variable-height and there is no getItemLayout, so this can miss —
+    // onScrollToIndexFailed below is the fallback, not an optional nicety.
+    listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.2 })
+    setHighlightId(focusMessageId)
+    const timer = setTimeout(() => setHighlightId(null), 2000)
+    return () => clearTimeout(timer)
+  }, [focusMessageId, messages, threadRoots])
+
   return (
     <FlatList
       ref={listRef}
@@ -115,6 +150,7 @@ export function MessageList({
           uploadsByMessage={uploadsByMessage}
           currentUserId={currentUserId}
           onReply={onReply}
+          highlightId={highlightId}
         />
       )}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -122,6 +158,22 @@ export function MessageList({
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      // Rows are variable-height and getItemLayout would be a lie, so FlatList can
+      // fail to reach an index it has not measured yet. Nudge to the best estimate,
+      // let it render, then land the jump exactly.
+      onScrollToIndexFailed={({ index, averageItemLength }) => {
+        listRef.current?.scrollToOffset({
+          offset: index * averageItemLength,
+          animated: true,
+        })
+        setTimeout(() => {
+          listRef.current?.scrollToIndex({
+            index,
+            animated: true,
+            viewPosition: 0.2,
+          })
+        }, 300)
+      }}
     />
   )
 }
