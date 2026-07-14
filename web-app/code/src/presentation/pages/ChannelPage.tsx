@@ -90,6 +90,7 @@ export function ChannelPage({
     taskDesc,
     setTaskDesc,
     isSubmittingTask,
+    taskNameTaken,
     handleAddMember,
     handleRemoveMember,
     handleAddTask,
@@ -387,9 +388,14 @@ export function ChannelPage({
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
                 />
               </div>
+              {taskNameTaken && (
+                <p className="text-sm text-red-700">
+                  A task with this name already exists in this channel.
+                </p>
+              )}
               <button
                 type="submit"
-                disabled={isSubmittingTask || !taskName.trim()}
+                disabled={isSubmittingTask || !taskName.trim() || taskNameTaken}
                 className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
                 {isSubmittingTask ? "Adding…" : "Add Task"}

@@ -85,9 +85,19 @@ export function useChannelPage(channelId: string, buildUnitId: string, projectId
     }
   }
 
+  // Task names must be unique within a channel — the server enforces it with a
+  // unique index, and this app's task URL IS the name ($taskName), so a duplicate
+  // would make one of the two tasks unreachable. Checked here so the common case is
+  // an inline message rather than a silently auto-suffixed name on sync.
+  // Case-insensitive, matching the index's lower(name).
+  const taskNameTaken = (tasks ?? []).some(
+    (t) => t.name.trim().toLowerCase() === taskName.trim().toLowerCase(),
+  )
+
   const handleAddTask = async (e: FormEvent) => {
     e.preventDefault()
     if (!session?.user || !channelId || !buildUnitId || !taskName.trim()) return
+    if (taskNameTaken) return
     setIsSubmittingTask(true)
     try {
       createTaskAction({
@@ -135,6 +145,7 @@ export function useChannelPage(channelId: string, buildUnitId: string, projectId
     dbTasksReady: dbTasks !== undefined,
     taskName,
     setTaskName,
+    taskNameTaken,
     taskDesc,
     setTaskDesc,
     isSubmittingTask,

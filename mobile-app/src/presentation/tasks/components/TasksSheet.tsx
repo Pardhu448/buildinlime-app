@@ -138,13 +138,21 @@ export function TasksSheet({ channelId, buildUnitId, projectId }: TasksSheetProp
     setAddOpen(false)
   }
 
+  // Task names must be unique within a channel — the server enforces it with a
+  // unique index, and web's task URL IS the name. Check here so the common case is
+  // an inline message instead of a silently auto-suffixed name on sync.
+  // Case-insensitive, matching the index's lower(name).
+  const nameTaken = tasks.some(
+    (t) => t.name.trim().toLowerCase() === name.trim().toLowerCase()
+  )
+
   async function handleAdd() {
     const userId = session?.user?.id
     if (!userId) {
       Alert.alert("Cannot add task", "Your session is still loading — try again.")
       return
     }
-    if (!name.trim()) return
+    if (!name.trim() || nameTaken) return
     setSubmitting(true)
     try {
       createTaskAction({
@@ -242,14 +250,22 @@ export function TasksSheet({ channelId, buildUnitId, projectId }: TasksSheetProp
                   placeholder="Description (optional)"
                   placeholderTextColor={colors.mutedForeground}
                 />
+                {nameTaken && (
+                  <Text style={styles.nameTaken}>
+                    A task with this name already exists in this channel.
+                  </Text>
+                )}
                 <View style={styles.addActions}>
                   <TouchableOpacity onPress={resetForm} activeOpacity={0.7}>
                     <Text style={styles.cancelText}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.submitBtn, !name.trim() && styles.submitBtnDisabled]}
+                    style={[
+                      styles.submitBtn,
+                      (!name.trim() || nameTaken) && styles.submitBtnDisabled,
+                    ]}
                     onPress={handleAdd}
-                    disabled={!name.trim() || submitting}
+                    disabled={!name.trim() || nameTaken || submitting}
                     activeOpacity={0.8}
                   >
                     <Text style={styles.submitText}>
@@ -392,6 +408,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-end",
     gap: 14,
+  },
+  nameTaken: {
+    fontSize: 11,
+    fontFamily: "InstrumentSans_400Regular",
+    color: "#b91c1c",
   },
   cancelText: {
     fontSize: 13,

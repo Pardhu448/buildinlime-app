@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "tasks_channel_name_unique" ON "tasks" USING btree ("channel_id",lower("name"));

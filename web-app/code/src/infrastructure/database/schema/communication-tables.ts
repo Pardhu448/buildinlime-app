@@ -1,6 +1,7 @@
 import {
   pgTable,
   primaryKey,
+  uniqueIndex,
   timestamp,
   varchar,
   text,
@@ -8,6 +9,7 @@ import {
   bigint,
   jsonb,
 } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
 import { createSchemaFactory } from "drizzle-zod"
 import { z } from "zod"
 import { users } from "./auth-schema"
@@ -34,7 +36,17 @@ export const tasksTable = pgTable(`tasks`, {
     .references(() => users.id, { onDelete: `cascade` }),
   assignee_id: text(`assignee_id`)
     .references(() => users.id, { onDelete: `set null` }),
-})
+}, (t) => [
+  // A task name must be unique within its channel. This is not a nicety: the WEB
+  // ROUTE IS THE NAME (/…/$channelName/$taskName, resolved by
+  // `find(t => t.name === taskName)` in use-task-route). Two tasks sharing a name
+  // meant one of them was simply unreachable on web, and which one depended on
+  // collection iteration order.
+  //
+  // lower(name) so "Site Survey" and "site survey" collide — two tasks a human
+  // cannot tell apart should not be allowed to coexist either.
+  uniqueIndex(`tasks_channel_name_unique`).on(t.channel_id, sql`lower(${t.name})`),
+])
 
 export const messagesTable = pgTable(`messages`, {
   id: text(`id`).primaryKey(),

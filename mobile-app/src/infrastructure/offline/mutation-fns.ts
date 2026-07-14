@@ -38,23 +38,60 @@ function wrapTrpcError(err: unknown): never {
 
 // -------------------- tasks --------------------
 
+const isConflict = (err: unknown) =>
+  (err as { data?: { code?: string } } | null)?.data?.code === `CONFLICT`
+
+/** How many suffixed names to try before giving up and failing the transaction. */
+const MAX_NAME_ATTEMPTS = 50
+
+/**
+ * Create the task, auto-suffixing its name if that name is already taken in the
+ * channel: "Site Survey" → "Site Survey (2)" → "Site Survey (3)"…
+ *
+ * The add form already blocks duplicate names, so this only fires when the check
+ * could not be trusted: the task was created OFFLINE and someone else took the
+ * name before it replayed, or two clients raced. On mobile that is the common
+ * path, not a corner case.
+ *
+ * Suffixing rather than failing is what keeps offline work from being lost. On a
+ * CONFLICT the outbox would drop the transaction and roll the optimistic row back
+ * — the task would silently vanish from the user's screen, with nobody around to
+ * be asked about it (there is no global error hook, and on a replay after restart
+ * no caller is even awaiting the promise). Retrying is safe precisely because the
+ * id is CLIENT-generated and unchanged: only the name collided, so the retry
+ * inserts the row the user already sees, and Electric reconciles it back by id
+ * with the new name.
+ */
 const createTask: MutationFn = async ({ transaction }) => {
   const { modified } = transaction.mutations[0]
   const t = modified as Record<string, unknown>
-  try {
-    await trpc.tasks.create.mutate({
-      id: t.id as string,
-      name: t.name as string,
-      description: t.description as string,
-      completed: coerceBool(t.completed),
-      channel_id: t.channel_id as string,
-      buildunit_id: t.buildunit_id as string,
-      createdby_id: t.createdby_id as string,
-      assignee_id: (t.assignee_id as string | null) ?? null,
-    })
-  } catch (err) {
-    wrapTrpcError(err)
+  const baseName = t.name as string
+
+  for (let attempt = 1; attempt <= MAX_NAME_ATTEMPTS; attempt++) {
+    const name = attempt === 1 ? baseName : `${baseName} (${attempt})`
+    try {
+      await trpc.tasks.create.mutate({
+        id: t.id as string,
+        name,
+        description: t.description as string,
+        completed: coerceBool(t.completed),
+        channel_id: t.channel_id as string,
+        buildunit_id: t.buildunit_id as string,
+        createdby_id: t.createdby_id as string,
+        assignee_id: (t.assignee_id as string | null) ?? null,
+      })
+      return
+    } catch (err) {
+      // Any other failure is the outbox's business — retriable or not, it is not
+      // ours to paper over.
+      if (!isConflict(err)) wrapTrpcError(err)
+    }
   }
+  // 50 taken names in one channel is not a collision, it is a bug or an abuse.
+  // Fail non-retriably rather than hammering the server forever.
+  throw new NonRetriableError(
+    `Could not find a free name for task "${baseName}" after ${MAX_NAME_ATTEMPTS} attempts`,
+  )
 }
 
 const updateTask: MutationFn = async ({ transaction }) => {
