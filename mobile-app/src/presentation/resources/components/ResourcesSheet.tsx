@@ -30,9 +30,13 @@ import type { Resource } from "@buildinlime/domain-types"
 function ResourceRow({
   resource,
   canDelete,
+  source,
 }: {
   resource: Resource
   canDelete: boolean
+  /** Where the file came from — only set in channel mode, where the list mixes
+   *  message attachments, task attachments and legacy standalone uploads. */
+  source?: string
 }) {
   const { download, downloading } = useResourceDownload()
 
@@ -68,6 +72,11 @@ function ResourceRow({
           {formatBytes(resource.file_size_bytes)}
           {resource.description ? ` · ${resource.description}` : ""}
         </Text>
+        {source ? (
+          <Text style={styles.source} numberOfLines={1}>
+            {source}
+          </Text>
+        ) : null}
       </View>
       <TouchableOpacity
         style={[styles.actionBtn, downloading && styles.actionBtnActive]}
@@ -170,10 +179,13 @@ interface ResourcesSheetProps {
  * Resources as a header button that opens a half-screen scrollable sheet,
  * rather than an always-present section competing with the message list.
  *
- * Two modes, one component (mirroring web, where TaskPage reuses
- * ResourcesSection with a taskId):
- *   - channel: standalone channel resources.
- *   - task:    resources attached to one task.
+ * Two modes, one component, mirroring web:
+ *   - channel: an INDEX of every file in the channel, however it got there —
+ *              message attachments, task attachments, legacy standalone uploads.
+ *              Read-and-delete only; there is no upload here, because a file
+ *              enters a channel by being attached to a message or a task.
+ *              (Web's equivalent is ResourceDisplay on ChannelPage.)
+ *   - task:    the files attached to one task, with upload. (Web: ResourcesSection.)
  */
 export function ResourcesSheet({
   channelId,
@@ -193,10 +205,15 @@ export function ResourcesSheet({
         .where(({ resourcesCollection: r }) => eq(r.channel_id, channelId)),
     [channelId]
   )
-  // Task mode lists that task's attachments. Channel mode lists STANDALONE
-  // resources only: message attachments render inside their bubble (see
-  // MessageAttachments), and task attachments live on the task, so neither
-  // belongs in the channel's sheet even though both carry its channel_id.
+  // Task mode lists that task's attachments. Channel mode is an INDEX: every file
+  // in the channel, whatever it hangs off — message attachments, task attachments,
+  // and the legacy standalone uploads. This mirrors web's channel ResourceDisplay.
+  //
+  // It used to list standalone resources ONLY, on the reasoning that message
+  // attachments render in their bubble and task attachments live on the task. But
+  // that left the channel with no place to answer "where is that file someone sent
+  // last week" — you had to scroll the thread to find it. The two views serve
+  // different questions, and the index is the one this sheet is for.
   //
   // Newest upload first. The live query returns the collection's keyed-map order,
   // which is not upload order and is not stable as rows sync in — so the sort has
@@ -204,7 +221,7 @@ export function ResourcesSheet({
   // column, and they already render as a group above these, which is where the
   // most recent things belong.
   const resources = ((data ?? []) as Resource[])
-    .filter((r) => (taskId ? r.task_id === taskId : !r.message_id && !r.task_id))
+    .filter((r) => (taskId ? r.task_id === taskId : true))
     .sort(
       (a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()
     )
@@ -212,22 +229,40 @@ export function ResourcesSheet({
   const { pendingUploads, enqueue, start, retry, cancel, schedule, rename } =
     usePendingUploads(taskId ? { taskId } : { channelId })
 
+  // Every task in this channel, keyed by id. Channel mode needs this per ROW, not
+  // per sheet: the list now mixes files from different tasks, so each row has to
+  // resolve its own task to know who may delete it and where it came from.
+  const { data: channelTasks } = useLiveQuery(
+    (q) =>
+      q
+        .from({ tasksCollection })
+        .where(({ tasksCollection: t }) => eq(t.channel_id, channelId)),
+    [channelId]
+  )
+  const taskById = new Map(
+    ((channelTasks ?? []) as { id: string; name?: string; createdby_id?: string }[])
+      .map((t) => [t.id, t]),
+  )
+
+  const userId = session?.user?.id
+
   // A file may be deleted by its uploader OR by the creator of the task it hangs
   // off — tasks.delete already soft-deletes every attachment on a task whoever
   // uploaded it, so uploader-only would have let you destroy a file by deleting
   // the whole task while forbidding you to remove it singly. The server enforces
   // this (FORBIDDEN otherwise); gating the button is courtesy, not the control.
-  const { data: taskRows } = useLiveQuery(
-    (q) =>
-      q
-        .from({ tasksCollection })
-        .where(({ tasksCollection: t }) => eq(t.id, taskId ?? "")),
-    [taskId]
-  )
-  const isTaskCreator =
-    !!taskId &&
-    (taskRows?.[0] as { createdby_id?: string } | undefined)?.createdby_id ===
-      session?.user?.id
+  const canDelete = (r: Resource) =>
+    r.createdby_id === userId ||
+    (!!r.task_id && taskById.get(r.task_id)?.createdby_id === userId)
+
+  // In the channel index a file's origin is not obvious from the row alone.
+  // Task mode needs no label — everything there belongs to the one task.
+  const sourceLabel = (r: Resource): string | undefined => {
+    if (taskId) return undefined
+    if (r.task_id) return `In task · ${taskById.get(r.task_id)?.name ?? `task`}`
+    if (r.message_id) return `In a message`
+    return undefined
+  }
 
   // The just-picked file, parked in `awaiting_schedule` while the user decides
   // upload-now vs. schedule-for-later in the modal.
@@ -313,14 +348,20 @@ export function ResourcesSheet({
 
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Resources</Text>
-            <TouchableOpacity
-              style={styles.attachBtn}
-              onPress={handleAttach}
-              activeOpacity={0.7}
-            >
-              <Plus size={14} color={colors.primaryForeground} strokeWidth={2.5} />
-              <Text style={styles.attachText}>Attach</Text>
-            </TouchableOpacity>
+            {/* Task mode only. A file enters a channel by being attached to a
+                message or a task — the channel sheet is an index of those, not a
+                third place to upload into (matching web, which has no channel-level
+                upload either). The standalone rows already in the data still list. */}
+            {taskId && (
+              <TouchableOpacity
+                style={styles.attachBtn}
+                onPress={handleAttach}
+                activeOpacity={0.7}
+              >
+                <Plus size={14} color={colors.primaryForeground} strokeWidth={2.5} />
+                <Text style={styles.attachText}>Attach</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               onPress={() => setOpen(false)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -347,12 +388,15 @@ export function ResourcesSheet({
               <ResourceRow
                 key={r.id}
                 resource={r}
-                canDelete={r.createdby_id === session?.user?.id || isTaskCreator}
+                canDelete={canDelete(r)}
+                source={sourceLabel(r)}
               />
             ))}
             {count === 0 && (
               <Text style={styles.empty}>
-                No resources yet. Tap Attach to add one.
+                {taskId
+                  ? `No resources yet. Tap Attach to add one.`
+                  : `No files in this channel yet. Attach one to a message or a task.`}
               </Text>
             )}
           </ScrollView>
@@ -507,6 +551,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "InstrumentSans_400Regular",
     color: colors.mutedForeground,
+  },
+  source: {
+    fontSize: 11,
+    fontFamily: "InstrumentSans_500Medium",
+    color: colors.primary,
   },
   errorMeta: {
     color: colors.destructive,
