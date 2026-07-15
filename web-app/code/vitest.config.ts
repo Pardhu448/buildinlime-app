@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config"
 import react from "@vitejs/plugin-react"
 import path from "node:path"
+import { TEST_DATABASE_URL } from "./tests/integration/setup/config"
 
 // Standalone test config — deliberately NOT importing the app's vite.config.ts.
 //
@@ -40,11 +41,14 @@ export default defineConfig({
           name: "integration",
           environment: "node",
           include: ["tests/integration/**/*.test.ts"],
-          // The real Postgres harness + globalSetup land in Phase 2. Until a
-          // spec exists, an empty run must pass rather than fail the suite.
-          passWithNoTests: true,
-          // Integration specs talk to a real DB; never run them in parallel
-          // against the same schema.
+          // Real migrated Postgres: create+migrate the test DB once (globalSetup),
+          // truncate before each test (setupFiles). See tests/integration/setup.
+          globalSetup: ["./tests/integration/setup/global.ts"],
+          setupFiles: ["./tests/integration/setup/setup.ts"],
+          // DATABASE_URL is read by the app's connection.ts when a router is
+          // imported (Phase 3); point it at the test DB for the whole project.
+          env: { DATABASE_URL: TEST_DATABASE_URL },
+          // One shared database, mutated serially — never run files in parallel.
           fileParallelism: false,
         },
       },
