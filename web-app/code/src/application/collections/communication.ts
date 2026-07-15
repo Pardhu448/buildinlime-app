@@ -7,13 +7,13 @@ import {
   selectMessageSchema,
   selectResourceSchema,
   selectPropertySchema,
-  selectReadSchema,
+  selectSeenStateSchema,
   PROPERTY_TYPES,
   ENTITY_TYPES,
   STATUS_VALUES,
   PRIORITY_VALUES,
   TASK_STATUS_VALUES,
-  READ_ITEM_TYPES,
+  SEEN_SCOPES,
 } from "%/infrastructure/database/schema/admin-schema"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
 import { retryOnError, coerceBool, origin, NEVER_GC, IDLE_GC_MS } from "./_shared"
@@ -35,8 +35,8 @@ const electricTaskSchema = selectTaskSchema.extend({
   completed: z.preprocess(coerceBool, z.boolean()),
 })
 
-const electricReadSchema = selectReadSchema.extend({
-  item_type: z.preprocess(unwrapJsonb, z.enum(READ_ITEM_TYPES)),
+const electricSeenStateSchema = selectSeenStateSchema.extend({
+  scope: z.preprocess(unwrapJsonb, z.enum(SEEN_SCOPES)),
 })
 
 // ---------------------------------------------------------------------------
@@ -67,12 +67,12 @@ function _makeTasksCollection(
         },
         schema: electricTaskSchema,
         getKey: (item) => item.id,
-        // Idle-GC: the always-mounted Sidebar "My Tasks" badge now reads the
-        // user-scoped myTasksCollection slice (see below), and useReads no longer
-        // subscribes to the full tasks set — so nothing always-mounted holds this
-        // collection. Its only subscribers are the channel/task views, so it
-        // idles (and closes its shape stream) on the project list, Inbox and
-        // My-Tasks screens, resurrecting + resuming from OPFS on the next visit.
+        // Idle-GC: the always-mounted Sidebar "My Tasks" badge reads the
+        // user-scoped myTasksCollection slice, and useSeen reads only seen_state
+        // — so nothing always-mounted holds this full collection. Its only
+        // subscribers are the channel/task views, so it idles (and closes its
+        // shape stream) on the project list, Inbox and My-Tasks screens,
+        // resurrecting + resuming from OPFS on the next visit.
         gcTime: IDLE_GC_MS,
         // Task writes go through @tanstack/offline-transactions — see
         // application/actions/tasks.ts. Direct collection.insert/update/delete
@@ -232,10 +232,10 @@ function _makeMessagesCollection(
         getKey: (item) => item.id,
         // Idle-GC: with the Sidebar's per-channel unread pills removed, the
         // always-mounted inbox badge reading the inbox-mentions slice, and
-        // useReads now consumed only by route-level pages, nothing always-mounted
-        // holds this collection. It idles (and closes its shape stream) on the
-        // project list / My-Tasks / Inbox-badge-only screens, and resurrects +
-        // resumes from OPFS when a channel or the Inbox view opens.
+        // useSeen reading only seen_state, nothing always-mounted holds this full
+        // collection. It idles (and closes its shape stream) on the project list
+        // / My-Tasks / Inbox screens, and resurrects + resumes from OPFS when a
+        // channel or the Inbox view opens.
         gcTime: IDLE_GC_MS,
         // Message writes go through @tanstack/offline-transactions —
         // see application/actions/messages.ts. Delete is not currently
@@ -248,31 +248,33 @@ function _makeMessagesCollection(
   )
 }
 
-const READS_SCHEMA_VERSION = 3
+const SEEN_STATE_SCHEMA_VERSION = 3
 
 /**
- * The reads collection's key. Exported because the optimistic write in
- * actions/reads.ts must check for an existing row before inserting, and a key
- * built differently there would silently miss and throw "already exists".
+ * The seen_state collection's key. Exported because the optimistic upsert in
+ * actions/seen.ts must look up an existing row before deciding insert-vs-update,
+ * and a key built differently there would silently miss.
  */
-export const readKey = (userId: string, itemType: string, itemId: string) =>
-  `${userId}:${itemType}:${itemId}`
+export const seenKey = (userId: string, scope: string, scopeId: string) =>
+  `${userId}:${scope}:${scopeId}`
 
 /**
- * The current user's read state. The shape is scoped `user_id = me` server-side
- * (see routes/api/reads.ts) — there is no id set to pass, so unlike the other
- * collections this needs no membership params and never rebuilds on scope change.
+ * The current user's "last seen" markers — the timestamp successor to the reads
+ * collection (web has cut over; the reads TABLE stays for mobile). Shape scoped
+ * `user_id = me` server-side (see routes/api/seen-state.ts) — no id set to pass,
+ * so it needs no membership params and never rebuilds on scope change.
  *
- * The key is composite: one row per (user, item_type, item_id).
+ * Key is composite: one row per (user, scope, scope_id). NEVER_GC because the
+ * always-mounted inbox / my-tasks badges subscribe to it, so it never idles.
  */
-function _makeReadsCollection(
+function _makeSeenStateCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
 ) {
-  const url = new URL(`/api/reads`, origin)
+  const url = new URL(`/api/seen-state`, origin)
   return createCollection(
     persistedCollectionOptions({
       ...electricCollectionOptions({
-        id: `reads`,
+        id: `seen-state`,
         shapeOptions: {
           url: url.toString(),
           onError: retryOnError,
@@ -282,14 +284,14 @@ function _makeReadsCollection(
             },
           },
         },
-        schema: electricReadSchema,
-        getKey: (item) => readKey(item.user_id, item.item_type, item.item_id),
+        schema: electricSeenStateSchema,
+        getKey: (item) => seenKey(item.user_id, item.scope, item.scope_id),
         gcTime: NEVER_GC,
-        // Reads are written through @tanstack/offline-transactions —
-        // see application/actions/reads.ts.
+        // Seen markers are written through @tanstack/offline-transactions —
+        // see application/actions/seen.ts.
       }),
       persistence,
-      schemaVersion: READS_SCHEMA_VERSION,
+      schemaVersion: SEEN_STATE_SCHEMA_VERSION,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any,
   )
@@ -388,7 +390,7 @@ export let myTasksCollection: ReturnType<typeof _makeMyTasksCollection> = null!
 export let resourcesCollection: ReturnType<typeof _makeResourcesCollection> = null!
 export let propertiesCollection: ReturnType<typeof _makePropertiesCollection> = null!
 export let messagesCollection: ReturnType<typeof _makeMessagesCollection> = null!
-export let readsCollection: ReturnType<typeof _makeReadsCollection> = null!
+export let seenStateCollection: ReturnType<typeof _makeSeenStateCollection> = null!
 
 export async function initializeCommunicationCollections(params: {
   memberChannelIds: string[]
@@ -401,11 +403,11 @@ export async function initializeCommunicationCollections(params: {
   resourcesCollection = _makeResourcesCollection(persistence, params.memberChannelIds)
   inboxMentionsCollection = _makeInboxMentionsCollection(persistence, params.memberChannelIds)
   myTasksCollection = _makeMyTasksCollection(persistence, params.memberChannelIds)
-  // Reads are scoped `user_id = me` server-side, not by membership, so this is
-  // built once and deliberately NOT rebuilt on a membership resync (which
-  // re-enters this function) — rebuilding would orphan the live instance for no
-  // gain.
-  if (!readsCollection) readsCollection = _makeReadsCollection(persistence)
+  // Seen markers are scoped `user_id = me` server-side, not by membership, so
+  // this is built once and deliberately NOT rebuilt on a membership resync
+  // (which re-enters this function) — rebuilding would orphan the live instance
+  // for no gain.
+  if (!seenStateCollection) seenStateCollection = _makeSeenStateCollection(persistence)
   if (import.meta.env.DEV) console.log(`[OPFS:comm] Collections created in ${(performance.now() - t0).toFixed(0)}ms`)
 }
 

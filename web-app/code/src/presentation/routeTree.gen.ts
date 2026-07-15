@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiUsersRouteImport } from './routes/api/users'
 import { Route as ApiTeamsRouteImport } from './routes/api/teams'
 import { Route as ApiTasksRouteImport } from './routes/api/tasks'
+import { Route as ApiSeenStateRouteImport } from './routes/api/seen-state'
 import { Route as ApiResourcesRouteImport } from './routes/api/resources'
 import { Route as ApiReadsRouteImport } from './routes/api/reads'
 import { Route as ApiPropertiesRouteImport } from './routes/api/properties'
@@ -68,6 +69,11 @@ const ApiTeamsRoute = ApiTeamsRouteImport.update({
 const ApiTasksRoute = ApiTasksRouteImport.update({
   id: '/api/tasks',
   path: '/api/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSeenStateRoute = ApiSeenStateRouteImport.update({
+  id: '/api/seen-state',
+  path: '/api/seen-state',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiResourcesRoute = ApiResourcesRouteImport.update({
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/api/properties': typeof ApiPropertiesRoute
   '/api/reads': typeof ApiReadsRoute
   '/api/resources': typeof ApiResourcesRouteWithChildren
+  '/api/seen-state': typeof ApiSeenStateRoute
   '/api/tasks': typeof ApiTasksRoute
   '/api/teams': typeof ApiTeamsRoute
   '/api/users': typeof ApiUsersRoute
@@ -259,6 +266,7 @@ export interface FileRoutesByTo {
   '/api/properties': typeof ApiPropertiesRoute
   '/api/reads': typeof ApiReadsRoute
   '/api/resources': typeof ApiResourcesRouteWithChildren
+  '/api/seen-state': typeof ApiSeenStateRoute
   '/api/tasks': typeof ApiTasksRoute
   '/api/teams': typeof ApiTeamsRoute
   '/api/users': typeof ApiUsersRoute
@@ -290,6 +298,7 @@ export interface FileRoutesById {
   '/api/properties': typeof ApiPropertiesRoute
   '/api/reads': typeof ApiReadsRoute
   '/api/resources': typeof ApiResourcesRouteWithChildren
+  '/api/seen-state': typeof ApiSeenStateRoute
   '/api/tasks': typeof ApiTasksRoute
   '/api/teams': typeof ApiTeamsRoute
   '/api/users': typeof ApiUsersRoute
@@ -324,6 +333,7 @@ export interface FileRouteTypes {
     | '/api/properties'
     | '/api/reads'
     | '/api/resources'
+    | '/api/seen-state'
     | '/api/tasks'
     | '/api/teams'
     | '/api/users'
@@ -356,6 +366,7 @@ export interface FileRouteTypes {
     | '/api/properties'
     | '/api/reads'
     | '/api/resources'
+    | '/api/seen-state'
     | '/api/tasks'
     | '/api/teams'
     | '/api/users'
@@ -386,6 +397,7 @@ export interface FileRouteTypes {
     | '/api/properties'
     | '/api/reads'
     | '/api/resources'
+    | '/api/seen-state'
     | '/api/tasks'
     | '/api/teams'
     | '/api/users'
@@ -418,6 +430,7 @@ export interface RootRouteChildren {
   ApiPropertiesRoute: typeof ApiPropertiesRoute
   ApiReadsRoute: typeof ApiReadsRoute
   ApiResourcesRoute: typeof ApiResourcesRouteWithChildren
+  ApiSeenStateRoute: typeof ApiSeenStateRoute
   ApiTasksRoute: typeof ApiTasksRoute
   ApiTeamsRoute: typeof ApiTeamsRoute
   ApiUsersRoute: typeof ApiUsersRoute
@@ -467,6 +480,13 @@ declare module '@tanstack/react-router' {
       path: '/api/tasks'
       fullPath: '/api/tasks'
       preLoaderRoute: typeof ApiTasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/seen-state': {
+      id: '/api/seen-state'
+      path: '/api/seen-state'
+      fullPath: '/api/seen-state'
+      preLoaderRoute: typeof ApiSeenStateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/resources': {
@@ -749,6 +769,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPropertiesRoute: ApiPropertiesRoute,
   ApiReadsRoute: ApiReadsRoute,
   ApiResourcesRoute: ApiResourcesRouteWithChildren,
+  ApiSeenStateRoute: ApiSeenStateRoute,
   ApiTasksRoute: ApiTasksRoute,
   ApiTeamsRoute: ApiTeamsRoute,
   ApiUsersRoute: ApiUsersRoute,

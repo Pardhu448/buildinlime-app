@@ -1,42 +1,39 @@
 import { useMemo } from "react"
 import { useLiveQuery } from "@tanstack/react-db"
-import {
-  readsCollection,
-  myTasksCollection,
-} from "%/infrastructure/database/tanstack-db-electric/admincollections"
+import { myTasksCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
+import { coerceBool } from "%/application/collections/_shared"
+import { useSeen } from "%/presentation/hooks/use-seen"
 
 /**
  * The Sidebar "My Tasks" badge: how many tasks assigned to me are still open and
- * unopened.
+ * arrived since I last opened My Tasks.
  *
- * Reads the user-scoped `my-tasks` slice, NOT the full `tasks` collection. The
- * slice is filtered server-side to `assignee_id = me AND deleted_at IS NULL`
- * (see routes/api/my-tasks.ts), so the always-mounted badge no longer holds every
- * channel's tasks open — which is what now lets the full `tasks` collection
- * garbage-collect when no channel/task view is mounted.
+ * Reads the user-scoped `my-tasks` slice + a single `mytasks` seen timestamp (not
+ * the full tasks collection, and no per-item reads). A task is unseen iff
+ * opened_at > mytasksSeenAt; opening My Tasks pushes that timestamp forward (on
+ * leave), clearing the badge.
  */
 export function useMyTasksBadge() {
-  const { data: reads } = useLiveQuery((q) => q.from({ readsCollection }), [])
+  const { mytasksSeenAt } = useSeen()
+
   const { data: myTasks } = useLiveQuery(
     (q) => q.from({ myTasksCollection }),
     [],
   )
 
-  const readTaskIds = useMemo(
-    () =>
-      new Set(
-        (reads ?? []).filter((r) => r.item_type === "task").map((r) => r.item_id),
-      ),
-    [reads],
-  )
-
-  // The slice already guarantees these are assigned to me and not deleted; we
-  // only drop completed and already-opened ones. `completed` is a column, not
-  // part of the server-side filter, so it is checked here.
+  // coerceBool: Electric delivers boolean columns as the STRING "false"/"true"
+  // on SYNCED rows (the schema's coerceBool preprocess only runs on optimistic
+  // client writes, not on sync — there is no boolean parser). A bare `!t.completed`
+  // would read the non-empty string "false" as truthy and drop every open task,
+  // pinning the badge at 0.
   const myUnopenedTaskCount = useMemo(
     () =>
-      (myTasks ?? []).filter((t) => !t.completed && !readTaskIds.has(t.id)).length,
-    [myTasks, readTaskIds],
+      (myTasks ?? []).filter(
+        (t) =>
+          !coerceBool(t.completed) &&
+          new Date(t.opened_at as string | Date) > mytasksSeenAt,
+      ).length,
+    [myTasks, mytasksSeenAt],
   )
 
   return { myUnopenedTaskCount }

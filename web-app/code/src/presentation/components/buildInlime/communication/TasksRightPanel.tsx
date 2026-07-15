@@ -5,13 +5,17 @@ export interface Task {
   id: string;
   name: string;
   completed?: boolean;
+  // Needed by the timestamp "seen" model: a task is unseen if it was created
+  // after the viewer last opened this channel (see useSeen.isTaskUnseen).
+  opened_at: string | Date;
+  channel_id: string;
 }
 
 export interface TasksRightPanelProps {
   tasks: Task[];
   onTaskClick?: (taskId: string) => void;
-  /** Tasks the viewer has not opened yet — shown bold with a dot. */
-  isUnread?: (taskId: string) => boolean;
+  /** Tasks that arrived since the viewer last opened this channel — shown bold with a dot. */
+  isUnread?: (task: Task) => boolean;
 }
 
 export function TasksRightPanel({ tasks, onTaskClick, isUnread }: TasksRightPanelProps) {
@@ -30,7 +34,7 @@ export function TasksRightPanel({ tasks, onTaskClick, isUnread }: TasksRightPane
         <div className="space-y-2">
           {tasks.length === 0 && <p className="text-sm text-[#717182]">No tasks yet.</p>}
           {tasks.map((task) => {
-            const unread = isUnread?.(task.id) ?? false;
+            const unread = isUnread?.(task) ?? false;
             return (
               <button key={task.id} onClick={() => onTaskClick?.(task.id)}
                 className="w-full flex items-center gap-2 text-left hover:bg-[#f0e5d8] px-2 py-1.5 rounded transition-colors">

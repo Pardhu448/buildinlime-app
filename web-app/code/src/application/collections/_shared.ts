@@ -56,25 +56,28 @@ export const retryOnMembershipsError = async (error: Error) => {
 // offset (changes_only) rather than refetching the whole shape — cheap.
 //
 // NEVER_GC is therefore no longer a correctness requirement; it is kept only
-// where GC would never fire ANYWAY or where we have chosen not to enable it yet:
+// where GC would never fire ANYWAY (an always-mounted subscriber) or where we
+// have chosen not to enable it yet:
 //   - spine (projects/buildUnits/channels/users/teams): the persistent <Sidebar>
 //     keeps them subscribed for the whole session, so they never idle.
-//   - messages/tasks/reads: the Sidebar's unread-badge computation (useReads)
-//     holds full-collection live queries on all three for the whole session, so
-//     they never idle either. Flipping their gcTime would be inert until those
-//     badges stop full-scanning — a deliberate future change, not this pass.
+//   - seen-state, inbox-mentions, my-tasks: the always-mounted Sidebar badges
+//     subscribe to these tiny user-scoped collections for the whole session, so
+//     they never idle. (These REPLACED the old full-collection badge scans; that
+//     rework is exactly what freed messages/tasks below to idle-GC.)
 //   - resources: persistence was only just added; kept eager until that path is
 //     validated, then it can move to IDLE_GC_MS.
+// messages, tasks and properties are now IDLE_GC_MS (see below) — nothing
+// always-mounted holds them anymore.
 export const NEVER_GC = Infinity
 
 // GC delay for collections that GENUINELY go idle (no always-mounted subscriber)
 // AND are persisted (so resurrection resumes from offset, not a full refetch).
 // The shape's long-poll closes this many ms after the last live query unmounts,
 // and re-subscribing on the next visit transparently restarts + resumes it.
-// Applied to `properties` today: nothing outside the channel/build-unit/task
-// routes subscribes to it, so it streams only while those views are open.
-// Tunable — shorter closes idle streams sooner at the cost of more resume
-// round-trips when navigating quickly; 60s balances the two.
+// Applied to properties / messages / tasks: nothing outside the channel /
+// build-unit / task / inbox routes subscribes to them, so they stream only while
+// those views are open. Tunable — shorter closes idle streams sooner at the cost
+// of more resume round-trips when navigating quickly; 60s balances the two.
 export const IDLE_GC_MS = 60_000
 
 // Electric returns boolean columns as the string "true"/"false".

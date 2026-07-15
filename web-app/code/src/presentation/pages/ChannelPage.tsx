@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
-import { useReads } from "%/presentation/hooks/use-reads";
+import { useSeen } from "%/presentation/hooks/use-seen";
 import {
   ChevronRight,
   ChevronDown,
@@ -97,25 +97,18 @@ export function ChannelPage({
     handleTaskClick,
   } = useChannelPage(channelId, buildUnitId, projectId, buildUnitName, channelName);
 
-  // Tasks are marked opened by TaskPage itself, not here — that way every route
-  // into a task counts, not just the ones that remembered to call it.
-  const { isTaskUnread, markChannelMessagesRead, markMessageRead } = useReads();
+  const { isTaskUnseen, markChannelSeen } = useSeen();
 
-  // Arriving from the Inbox on a specific message marks that one read even if
-  // the bulk pass below has not caught it yet.
-  useEffect(() => {
-    if (!focusMessageId || !channelId) return;
-    markMessageRead(focusMessageId, channelId);
-  }, [focusMessageId, channelId, markMessageRead]);
-
-  // Opening a channel marks its messages read — bulk, because nobody clicks each
-  // message. Runs on every message change too, so messages that arrive while you
-  // are sitting in the channel are marked read as they land rather than
-  // accumulating an unread count on a channel you are literally looking at.
+  // Mark the channel seen on LEAVE (unmount or channel switch). While you are in
+  // the channel, tasks that arrived since your last visit show bold; advancing
+  // the timestamp on the way out clears them for next time. There is no
+  // per-message seen state anymore — Inbox mentions are handled by the Inbox's
+  // own seen marker, so arriving here from an Inbox deep link no longer needs to
+  // mark anything (focusMessageId still drives the scroll-to-message below).
   useEffect(() => {
     if (!channelId) return;
-    markChannelMessagesRead(channelId);
-  }, [channelId, markChannelMessagesRead]);
+    return () => markChannelSeen(channelId);
+  }, [channelId, markChannelSeen]);
 
   if (!dbTasksReady) return null;
 
@@ -299,7 +292,7 @@ export function ChannelPage({
               <TasksRightPanel
                 tasks={tasks}
                 onTaskClick={handleTaskClick}
-                isUnread={isTaskUnread}
+                isUnread={isTaskUnseen}
               />
 
               {/* Members */}

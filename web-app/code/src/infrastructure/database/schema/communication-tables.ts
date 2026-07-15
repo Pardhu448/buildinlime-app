@@ -218,6 +218,43 @@ export const readsTable = pgTable(
   (t) => [primaryKey({ columns: [t.user_id, t.item_type, t.item_id] })],
 )
 
+/**
+ * Per-user "last seen" markers — the timestamp successor to the per-item `reads`
+ * table (which stays for now because mobile still uses it; web has cut over to
+ * this). Instead of one row per item read, one row per VIEW marks when the user
+ * last looked at it: opening a view marks everything currently in it seen, and an
+ * item is "unseen" iff it arrived after that timestamp. Chronological, not
+ * per-item — see the seen hooks on the client.
+ *
+ * scope + scope_id:
+ *   - ('inbox', '')        → the Inbox mentions view (one per user)
+ *   - ('mytasks', '')      → the My-Tasks view (one per user)
+ *   - ('channel', chanId)  → one per channel the user has opened
+ * scope_id is '' (not null) for the singleton scopes so the composite PK and the
+ * client key stay simple. No FK on scope_id: it is '' for the singletons, so it
+ * cannot reference channels; an orphaned channel row after a channel delete is
+ * harmless.
+ *
+ * The shape is scoped `user_id = me` (see routes/api/seen-state.ts) — purely
+ * user-owned, like reads, so it needs no membership params and never rebuilds on
+ * scope change.
+ */
+export const SEEN_SCOPES = ["inbox", "mytasks", "channel"] as const
+export type SeenScope = typeof SEEN_SCOPES[number]
+
+export const seenStateTable = pgTable(
+  `seen_state`,
+  {
+    user_id: text(`user_id`)
+      .notNull()
+      .references(() => users.id, { onDelete: `cascade` }),
+    scope: jsonb(`scope`).$type<SeenScope>().notNull(),
+    scope_id: text(`scope_id`).notNull().default(``),
+    seen_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.user_id, t.scope, t.scope_id] })],
+)
+
 // deleted_at / deleted_by_id are omitted from every insert schema: soft-deletion is
 // the server's to stamp (routers/*.ts), never something a client may assert on the
 // way in. Otherwise a client could create a row that is already deleted.
@@ -302,6 +339,11 @@ export const selectReadSchema = createSelectSchema(readsTable).extend({
   item_type: z.enum(READ_ITEM_TYPES),
 })
 export const createReadSchema = createInsertSchema(readsTable).omit({ read_at: true })
+
+export const selectSeenStateSchema = createSelectSchema(seenStateTable).extend({
+  scope: z.enum(SEEN_SCOPES),
+})
+export const createSeenStateSchema = createInsertSchema(seenStateTable).omit({ seen_at: true })
 
 export type Task = z.infer<typeof selectTaskSchema>
 export type UpdateTask = z.infer<typeof updateTaskSchema>

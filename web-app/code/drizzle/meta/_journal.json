@@ -50,6 +50,13 @@
       "when": 1784026804362,
       "tag": "0006_flippant_amphibian",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784103500249,
+      "tag": "0007_fluffy_nemesis",
+      "breakpoints": true
     }
   ]
 }
