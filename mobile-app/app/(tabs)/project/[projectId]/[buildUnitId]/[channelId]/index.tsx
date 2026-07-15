@@ -7,14 +7,14 @@ import {
   ActivityIndicator,
   StatusBar,
 } from "react-native"
-import { useEffect, useState } from "react"
-import { useLocalSearchParams, useRouter } from "expo-router"
+import { useCallback, useState } from "react"
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router"
 import { useMessages } from "@/src/presentation/messages/hooks/useMessages"
 import { MessageList } from "@/src/presentation/messages/components/MessageList"
 import { MessageInput } from "@/src/presentation/messages/components/MessageInput"
 import { ResourcesSheet } from "@/src/presentation/resources/components/ResourcesSheet"
 import { useUsers } from "@/src/presentation/shared/hooks/useUsers"
-import { useReads } from "@/src/presentation/shared/hooks/useReads"
+import { useSeen } from "@/src/presentation/shared/hooks/useSeen"
 import { TasksSheet } from "@/src/presentation/tasks/components/TasksSheet"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useLiveQuery, eq } from "@tanstack/react-db"
@@ -46,14 +46,20 @@ export default function ChannelScreen() {
   const { messages, isLoading } = useMessages(channelId)
   const usersMap = useUsers()
 
-  // Opening a channel marks its messages read, and keeps marking them as they
-  // arrive while you sit in it — otherwise a channel you are literally looking at
-  // would accumulate an unread count.
-  const { markChannelMessagesRead } = useReads()
-  useEffect(() => {
-    if (!channelId) return
-    markChannelMessagesRead(channelId)
-  }, [channelId, markChannelMessagesRead])
+  // Leaving a channel marks it seen: one timestamp per channel, pushed forward so
+  // everything present up to that moment counts as seen and the channel's task
+  // badge clears. Timestamp model — no per-message writes. useFocusEffect (cleanup
+  // on BLUR), NOT useEffect: a stack screen stays mounted underneath a pushed task
+  // route, so an unmount cleanup wouldn't fire when you drill into a task. Blur
+  // covers both leaving the channel AND opening a task from it — matching web's
+  // ChannelPage, which unmounts on either.
+  const { markChannelSeen } = useSeen()
+  useFocusEffect(
+    useCallback(() => {
+      if (!channelId) return
+      return () => markChannelSeen(channelId)
+    }, [channelId, markChannelSeen])
+  )
 
   const currentUserId = session?.user?.id ?? ""
 

@@ -6,7 +6,8 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native"
-import { useRouter } from "expo-router"
+import { useCallback } from "react"
+import { useRouter, useFocusEffect } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLiveQuery } from "@tanstack/react-db"
 import { MessageSquare } from "lucide-react-native"
@@ -14,7 +15,7 @@ import { ScreenHeader } from "@/src/presentation/shared/components/ScreenHeader"
 import { Breadcrumb } from "@/src/presentation/shared/components/Breadcrumb"
 import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
 import { useLookups } from "@/src/presentation/shared/hooks/useLookups"
-import { useReads } from "@/src/presentation/shared/hooks/useReads"
+import { useSeen } from "@/src/presentation/shared/hooks/useSeen"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { messagesCollection } from "@/src/application/collections/communication"
@@ -82,7 +83,20 @@ function InboxContent() {
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
   const lookups = useLookups()
-  const { isMessageUnread, markMessageRead } = useReads()
+  const { isMessageUnseen, markInboxSeen } = useSeen()
+
+  // Leaving the Inbox marks it seen: one timestamp, pushed forward so every
+  // mention present up to that moment counts as seen and the drawer badge clears.
+  // Timestamp model — no per-message writes. useFocusEffect, NOT useEffect: the
+  // Drawer keeps this screen MOUNTED when you switch drawer items, so an unmount
+  // cleanup would never fire and the badge would go stale. The focus-effect
+  // cleanup runs on BLUR (navigating away), which is the real "leave". Mirrors
+  // web's InboxPage unmount, adapted to the mobile navigator.
+  useFocusEffect(
+    useCallback(() => {
+      return () => markInboxSeen()
+    }, [markInboxSeen])
+  )
 
   const { data: rawMessages, isLoading } = useLiveQuery(
     (q) => q.from({ messagesCollection }),
@@ -128,11 +142,11 @@ function InboxContent() {
         <MentionRow
           message={item}
           lookups={lookups}
-          unread={isMessageUnread(item.id)}
+          unread={isMessageUnseen(item.created_at)}
           onPress={() => {
-            // The channel screen bulk-marks on open anyway, but marking here too
-            // means the badge drops the instant you tap, not a frame later.
-            markMessageRead(item.id, item.channel_id)
+            // No per-tap mark: leaving the Inbox marks the whole view seen
+            // (markInboxSeen on unmount). Opening a mention navigates away, which
+            // unmounts the Inbox and fires that mark.
             // Carry the message id through, or the channel opens at the top and you
             // have to hunt for the thing you just tapped. Mirrors web's ?messageId=.
             router.push(

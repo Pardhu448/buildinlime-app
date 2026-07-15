@@ -2,12 +2,12 @@ import {
   initializeMembershipsCollection,
   initializeUsersCollection,
   initializeTeamsCollection,
-  initializeReadsCollection,
+  initializeSeenStateCollection,
   resetAdminCollections,
   membershipsCollection,
   usersCollection,
   teamsCollection,
-  readsCollection,
+  seenStateCollection,
 } from "./admin"
 import {
   initializeProjectsCollection,
@@ -29,6 +29,8 @@ import {
   messagesCollection,
   resourcesCollection,
   propertiesCollection,
+  inboxMentionsCollection,
+  myTasksCollection,
 } from "./communication"
 import { membershipsShapeErrored, clearMembershipsShapeError } from "./_shared"
 
@@ -174,11 +176,11 @@ export async function initBootstrapCollections(): Promise<void> {
   initializeUsersCollection()
   usersCollection.startSyncImmediate()
 
-  // Read state is scoped `user_id = me` server-side, not by membership, so it
+  // Seen state is scoped `user_id = me` server-side, not by membership, so it
   // belongs in bootstrap alongside users — it takes no id sets and never needs
   // rebuilding when the visible channel set changes.
-  initializeReadsCollection()
-  readsCollection.startSyncImmediate()
+  initializeSeenStateCollection()
+  seenStateCollection.startSyncImmediate()
 
   // Baseline for the picker (no project selected yet): a change to the global
   // project list — being added to / removed from a whole project — flips
@@ -229,6 +231,9 @@ export async function initProjectCollections(projectId: string): Promise<void> {
   messagesCollection.startSyncImmediate()
   resourcesCollection.startSyncImmediate()
   propertiesCollection.startSyncImmediate()
+  // Badge slices — created inside initializeCommunicationCollections above.
+  inboxMentionsCollection.startSyncImmediate()
+  myTasksCollection.startSyncImmediate()
 
   // Record the scope these collections were built with, so a later self-
   // membership change can be diffed against it (see resyncProjectCollections).
@@ -294,6 +299,8 @@ export async function resyncProjectCollections(projectId: string | null): Promis
     tasksCollection.startSyncImmediate()
     messagesCollection.startSyncImmediate()
     resourcesCollection.startSyncImmediate()
+    inboxMentionsCollection.startSyncImmediate()
+    myTasksCollection.startSyncImmediate()
   }
 
   // The roster has no owner escape hatch (see initializeChannelMembersCollection),

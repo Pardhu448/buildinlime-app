@@ -1,8 +1,9 @@
+import { useEffect } from "react";
 import { ArrowLeft, MessageSquare, ChevronRight } from "lucide-react";
 import { Sidebar } from "../components/buildInlime";
 import { unwrapJsonb } from "%/presentation/lib/utils";
 import { useInboxPage } from "../hooks/use-inbox-page";
-import { useReads } from "../hooks/use-reads";
+import { useSeen } from "../hooks/use-seen";
 
 export function InboxPage() {
   const {
@@ -16,10 +17,17 @@ export function InboxPage() {
     handleMessageClick,
   } = useInboxPage();
 
-  // Read rows stay in the list, de-emphasised. The Inbox is a record of what
-  // needed you, not a queue to drain — a mention you have read is still
-  // something you may need to find again.
-  const { isMessageUnread } = useReads();
+  // Seen mentions stay in the list, de-emphasised. The Inbox is a record of what
+  // needed you, not a queue to drain — a mention you have seen is still
+  // something you may need to find again. Opening the Inbox marks everything in
+  // it seen (on leave), so the badge clears without visiting each channel.
+  const { isMessageUnseen, markInboxSeen } = useSeen();
+
+  useEffect(() => {
+    // Mark on LEAVE: the unread emphasis stays visible while you are looking,
+    // then the timestamp advances on unmount so the badge clears.
+    return () => markInboxSeen();
+  }, [markInboxSeen]);
 
   return (
     <div className="flex h-screen bg-white font-['Instrument_Sans',sans-serif]">
@@ -57,7 +65,7 @@ export function InboxPage() {
                 const project = getProject(msg.project_id);
                 const channelName = channel ? unwrapJsonb(channel.name) : null;
 
-                const unread = isMessageUnread(msg.id);
+                const unread = isMessageUnseen(msg.created_at);
 
                 return (
                   <button

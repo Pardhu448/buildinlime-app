@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { ArrowLeft, CheckSquare, ChevronRight } from "lucide-react";
 import { Sidebar } from "../components/buildInlime";
 import { unwrapJsonb } from "%/presentation/lib/utils";
 import { useMyTasksPage } from "../hooks/use-my-tasks-page";
+import { useSeen } from "../hooks/use-seen";
 
 export function MyTasksPage() {
   const {
@@ -14,6 +16,13 @@ export function MyTasksPage() {
     getProject,
     handleTaskClick,
   } = useMyTasksPage();
+
+  // Opening My Tasks marks the assigned-task list seen on leave, clearing the
+  // sidebar badge without needing to open each task.
+  const { markMyTasksSeen } = useSeen();
+  useEffect(() => {
+    return () => markMyTasksSeen();
+  }, [markMyTasksSeen]);
 
   return (
     <div className="flex h-screen bg-white font-['Instrument_Sans',sans-serif]">

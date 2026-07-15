@@ -15,12 +15,15 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiUsersRouteImport } from './routes/api/users'
 import { Route as ApiTeamsRouteImport } from './routes/api/teams'
 import { Route as ApiTasksRouteImport } from './routes/api/tasks'
+import { Route as ApiSeenStateRouteImport } from './routes/api/seen-state'
 import { Route as ApiResourcesRouteImport } from './routes/api/resources'
 import { Route as ApiReadsRouteImport } from './routes/api/reads'
 import { Route as ApiPropertiesRouteImport } from './routes/api/properties'
 import { Route as ApiProjectsRouteImport } from './routes/api/projects'
+import { Route as ApiMyTasksRouteImport } from './routes/api/my-tasks'
 import { Route as ApiMessagesRouteImport } from './routes/api/messages'
 import { Route as ApiMembershipsRouteImport } from './routes/api/memberships'
+import { Route as ApiInboxMentionsRouteImport } from './routes/api/inbox-mentions'
 import { Route as ApiChannelsRouteImport } from './routes/api/channels'
 import { Route as ApiChannelMembersRouteImport } from './routes/api/channel-members'
 import { Route as ApiBuildunitsRouteImport } from './routes/api/buildunits'
@@ -68,6 +71,11 @@ const ApiTasksRoute = ApiTasksRouteImport.update({
   path: '/api/tasks',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSeenStateRoute = ApiSeenStateRouteImport.update({
+  id: '/api/seen-state',
+  path: '/api/seen-state',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiResourcesRoute = ApiResourcesRouteImport.update({
   id: '/api/resources',
   path: '/api/resources',
@@ -88,6 +96,11 @@ const ApiProjectsRoute = ApiProjectsRouteImport.update({
   path: '/api/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMyTasksRoute = ApiMyTasksRouteImport.update({
+  id: '/api/my-tasks',
+  path: '/api/my-tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMessagesRoute = ApiMessagesRouteImport.update({
   id: '/api/messages',
   path: '/api/messages',
@@ -96,6 +109,11 @@ const ApiMessagesRoute = ApiMessagesRouteImport.update({
 const ApiMembershipsRoute = ApiMembershipsRouteImport.update({
   id: '/api/memberships',
   path: '/api/memberships',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiInboxMentionsRoute = ApiInboxMentionsRouteImport.update({
+  id: '/api/inbox-mentions',
+  path: '/api/inbox-mentions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChannelsRoute = ApiChannelsRouteImport.update({
@@ -207,12 +225,15 @@ export interface FileRoutesByFullPath {
   '/api/buildunits': typeof ApiBuildunitsRoute
   '/api/channel-members': typeof ApiChannelMembersRoute
   '/api/channels': typeof ApiChannelsRoute
+  '/api/inbox-mentions': typeof ApiInboxMentionsRoute
   '/api/memberships': typeof ApiMembershipsRoute
   '/api/messages': typeof ApiMessagesRoute
+  '/api/my-tasks': typeof ApiMyTasksRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/properties': typeof ApiPropertiesRoute
   '/api/reads': typeof ApiReadsRoute
   '/api/resources': typeof ApiResourcesRouteWithChildren
+  '/api/seen-state': typeof ApiSeenStateRoute
   '/api/tasks': typeof ApiTasksRoute
   '/api/teams': typeof ApiTeamsRoute
   '/api/users': typeof ApiUsersRoute
@@ -237,12 +258,15 @@ export interface FileRoutesByTo {
   '/api/buildunits': typeof ApiBuildunitsRoute
   '/api/channel-members': typeof ApiChannelMembersRoute
   '/api/channels': typeof ApiChannelsRoute
+  '/api/inbox-mentions': typeof ApiInboxMentionsRoute
   '/api/memberships': typeof ApiMembershipsRoute
   '/api/messages': typeof ApiMessagesRoute
+  '/api/my-tasks': typeof ApiMyTasksRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/properties': typeof ApiPropertiesRoute
   '/api/reads': typeof ApiReadsRoute
   '/api/resources': typeof ApiResourcesRouteWithChildren
+  '/api/seen-state': typeof ApiSeenStateRoute
   '/api/tasks': typeof ApiTasksRoute
   '/api/teams': typeof ApiTeamsRoute
   '/api/users': typeof ApiUsersRoute
@@ -266,12 +290,15 @@ export interface FileRoutesById {
   '/api/buildunits': typeof ApiBuildunitsRoute
   '/api/channel-members': typeof ApiChannelMembersRoute
   '/api/channels': typeof ApiChannelsRoute
+  '/api/inbox-mentions': typeof ApiInboxMentionsRoute
   '/api/memberships': typeof ApiMembershipsRoute
   '/api/messages': typeof ApiMessagesRoute
+  '/api/my-tasks': typeof ApiMyTasksRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/properties': typeof ApiPropertiesRoute
   '/api/reads': typeof ApiReadsRoute
   '/api/resources': typeof ApiResourcesRouteWithChildren
+  '/api/seen-state': typeof ApiSeenStateRoute
   '/api/tasks': typeof ApiTasksRoute
   '/api/teams': typeof ApiTeamsRoute
   '/api/users': typeof ApiUsersRoute
@@ -298,12 +325,15 @@ export interface FileRouteTypes {
     | '/api/buildunits'
     | '/api/channel-members'
     | '/api/channels'
+    | '/api/inbox-mentions'
     | '/api/memberships'
     | '/api/messages'
+    | '/api/my-tasks'
     | '/api/projects'
     | '/api/properties'
     | '/api/reads'
     | '/api/resources'
+    | '/api/seen-state'
     | '/api/tasks'
     | '/api/teams'
     | '/api/users'
@@ -328,12 +358,15 @@ export interface FileRouteTypes {
     | '/api/buildunits'
     | '/api/channel-members'
     | '/api/channels'
+    | '/api/inbox-mentions'
     | '/api/memberships'
     | '/api/messages'
+    | '/api/my-tasks'
     | '/api/projects'
     | '/api/properties'
     | '/api/reads'
     | '/api/resources'
+    | '/api/seen-state'
     | '/api/tasks'
     | '/api/teams'
     | '/api/users'
@@ -356,12 +389,15 @@ export interface FileRouteTypes {
     | '/api/buildunits'
     | '/api/channel-members'
     | '/api/channels'
+    | '/api/inbox-mentions'
     | '/api/memberships'
     | '/api/messages'
+    | '/api/my-tasks'
     | '/api/projects'
     | '/api/properties'
     | '/api/reads'
     | '/api/resources'
+    | '/api/seen-state'
     | '/api/tasks'
     | '/api/teams'
     | '/api/users'
@@ -386,12 +422,15 @@ export interface RootRouteChildren {
   ApiBuildunitsRoute: typeof ApiBuildunitsRoute
   ApiChannelMembersRoute: typeof ApiChannelMembersRoute
   ApiChannelsRoute: typeof ApiChannelsRoute
+  ApiInboxMentionsRoute: typeof ApiInboxMentionsRoute
   ApiMembershipsRoute: typeof ApiMembershipsRoute
   ApiMessagesRoute: typeof ApiMessagesRoute
+  ApiMyTasksRoute: typeof ApiMyTasksRoute
   ApiProjectsRoute: typeof ApiProjectsRoute
   ApiPropertiesRoute: typeof ApiPropertiesRoute
   ApiReadsRoute: typeof ApiReadsRoute
   ApiResourcesRoute: typeof ApiResourcesRouteWithChildren
+  ApiSeenStateRoute: typeof ApiSeenStateRoute
   ApiTasksRoute: typeof ApiTasksRoute
   ApiTeamsRoute: typeof ApiTeamsRoute
   ApiUsersRoute: typeof ApiUsersRoute
@@ -443,6 +482,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTasksRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/seen-state': {
+      id: '/api/seen-state'
+      path: '/api/seen-state'
+      fullPath: '/api/seen-state'
+      preLoaderRoute: typeof ApiSeenStateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/resources': {
       id: '/api/resources'
       path: '/api/resources'
@@ -471,6 +517,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/my-tasks': {
+      id: '/api/my-tasks'
+      path: '/api/my-tasks'
+      fullPath: '/api/my-tasks'
+      preLoaderRoute: typeof ApiMyTasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/messages': {
       id: '/api/messages'
       path: '/api/messages'
@@ -483,6 +536,13 @@ declare module '@tanstack/react-router' {
       path: '/api/memberships'
       fullPath: '/api/memberships'
       preLoaderRoute: typeof ApiMembershipsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/inbox-mentions': {
+      id: '/api/inbox-mentions'
+      path: '/api/inbox-mentions'
+      fullPath: '/api/inbox-mentions'
+      preLoaderRoute: typeof ApiInboxMentionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/channels': {
@@ -701,12 +761,15 @@ const rootRouteChildren: RootRouteChildren = {
   ApiBuildunitsRoute: ApiBuildunitsRoute,
   ApiChannelMembersRoute: ApiChannelMembersRoute,
   ApiChannelsRoute: ApiChannelsRoute,
+  ApiInboxMentionsRoute: ApiInboxMentionsRoute,
   ApiMembershipsRoute: ApiMembershipsRoute,
   ApiMessagesRoute: ApiMessagesRoute,
+  ApiMyTasksRoute: ApiMyTasksRoute,
   ApiProjectsRoute: ApiProjectsRoute,
   ApiPropertiesRoute: ApiPropertiesRoute,
   ApiReadsRoute: ApiReadsRoute,
   ApiResourcesRoute: ApiResourcesRouteWithChildren,
+  ApiSeenStateRoute: ApiSeenStateRoute,
   ApiTasksRoute: ApiTasksRoute,
   ApiTeamsRoute: ApiTeamsRoute,
   ApiUsersRoute: ApiUsersRoute,

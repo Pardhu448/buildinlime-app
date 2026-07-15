@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useReads } from "%/presentation/hooks/use-reads";
 import {
   ChevronRight,
   ChevronDown,
@@ -86,14 +85,9 @@ export function TaskPage({
     });
   };
 
-  // A task counts as opened when its page is opened — whichever way you got here
-  // (My Tasks, the channel rail, a deep link, a pasted URL). Marking read at each
-  // call site instead would mean every new entry point silently forgets to.
-  const { markTaskRead } = useReads();
-  useEffect(() => {
-    if (!taskId || !channelId) return;
-    markTaskRead(taskId, channelId);
-  }, [taskId, channelId, markTaskRead]);
+  // No per-task "seen" write anymore: task seen-ness is per-channel and chronological
+  // (see useSeen). Leaving the channel marks its tasks seen — and navigating into a
+  // task unmounts the channel, so that path is already covered.
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);

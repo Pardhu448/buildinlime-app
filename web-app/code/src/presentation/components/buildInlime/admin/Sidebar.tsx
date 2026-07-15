@@ -12,7 +12,6 @@ import {
 } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 import { createTeamAction, updateTeamAction } from "%/application/actions/teams";
 import { unwrapJsonb } from "%/presentation/lib/utils";
-import { useReads } from "%/presentation/hooks/use-reads";
 import { UserInfo } from "./UserInfo";
 import { InboxNav } from "./InboxNav";
 import { MyTasksNav } from "./MyTasksNav";
@@ -38,7 +37,6 @@ export function Sidebar({ projectId }: SidebarProps) {
 
   const { data: session } = useSession();
   const currentUserId = session?.user?.id ?? "";
-  const { unreadMessageCount } = useReads();
 
   const { data: allTeams } = useLiveQuery((q) => q.from({ teamsCollection }), []);
   const { data: allUsers } = useLiveQuery((q) => q.from({ usersCollection }), []);
@@ -255,7 +253,6 @@ export function Sidebar({ projectId }: SidebarProps) {
                               ) : (
                                 channels.map((ch) => {
                                   const channelName = unwrapJsonb(ch.name);
-                                  const unread = unreadMessageCount(ch.id);
                                   return (
                                     <Link
                                       key={ch.id}
@@ -264,14 +261,9 @@ export function Sidebar({ projectId }: SidebarProps) {
                                       className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-[#717182] hover:text-[#1e1e1e] hover:bg-[#f0e5d8] rounded transition-colors"
                                     >
                                       <Hash className="w-3 h-3 flex-shrink-0" />
-                                      <span className={`truncate flex-1 ${unread > 0 ? "font-semibold text-[#1e1e1e]" : ""}`}>
+                                      <span className="truncate flex-1">
                                         {channelName}
                                       </span>
-                                      {unread > 0 && (
-                                        <span className="flex-shrink-0 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#976623] text-white text-[10px] font-semibold">
-                                          {unread > 99 ? "99+" : unread}
-                                        </span>
-                                      )}
                                     </Link>
                                   );
                                 })

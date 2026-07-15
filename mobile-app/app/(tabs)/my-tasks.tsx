@@ -1,3 +1,4 @@
+import { useCallback } from "react"
 import {
   View,
   Text,
@@ -6,7 +7,7 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native"
-import { useRouter } from "expo-router"
+import { useRouter, useFocusEffect } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { CheckSquare, Square } from "lucide-react-native"
 import { ScreenHeader } from "@/src/presentation/shared/components/ScreenHeader"
@@ -14,6 +15,7 @@ import { Breadcrumb } from "@/src/presentation/shared/components/Breadcrumb"
 import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
 import { useLookups } from "@/src/presentation/shared/hooks/useLookups"
 import { useTasks } from "@/src/presentation/tasks/hooks/useTasks"
+import { useSeen } from "@/src/presentation/shared/hooks/useSeen"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { colors } from "@/src/presentation/shared/colors"
@@ -81,6 +83,17 @@ function MyTasksContent() {
   const currentUserId = session?.user?.id
   const { tasks, isLoading } = useTasks(currentUserId)
   const lookups = useLookups()
+  const { markMyTasksSeen } = useSeen()
+
+  // Leaving My Tasks marks it seen so the drawer's My Tasks badge clears.
+  // useFocusEffect (cleanup runs on BLUR), NOT useEffect: the Drawer keeps this
+  // screen mounted across drawer navigation, so an unmount cleanup would never
+  // fire and the badge would go stale. Mirrors web's MyTasksPage unmount.
+  useFocusEffect(
+    useCallback(() => {
+      return () => markMyTasksSeen()
+    }, [markMyTasksSeen])
+  )
 
   // Open tasks first, newest first within each group.
   const sorted = [...tasks].sort((a, b) => {

@@ -11,7 +11,7 @@ import {
   buildUnitsCollection,
   channelsCollection,
 } from "../../application/collections/organization"
-import { teamsCollection, readsCollection } from "../../application/collections/admin"
+import { teamsCollection, seenStateCollection } from "../../application/collections/admin"
 import { mutationFns } from "./mutation-fns"
 import { sqliteStorageAdapter } from "./storage"
 import { getOnlineDetector } from "./online-detector"
@@ -43,7 +43,7 @@ export async function initOfflineExecutor(): Promise<OfflineExecutor> {
       teams: teamsCollection,
       buildUnits: buildUnitsCollection,
       channels: channelsCollection,
-      reads: readsCollection,
+      seenState: seenStateCollection,
     },
     mutationFns,
     storage: sqliteStorageAdapter,
