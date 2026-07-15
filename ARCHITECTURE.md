@@ -244,7 +244,7 @@ Instead the **upload *is* the resource create.** The client POSTs multipart form
 Two details:
 
 - The server **polls up to 15 seconds for the parent message or task to exist** before inserting. The parent row is created optimistically on the client and replayed through the outbox, so the upload can genuinely arrive first.
-- **Downloads are authorized on every request.** `/api/resources/:id/file` re-checks the session, rejects soft-deleted resources, and verifies an active membership in the resource's channel. This is not belt-and-braces — the file outlives its soft delete on disk (a separate purge script reclaims the bytes), and the resource id is not a secret: it survives in `messages.resource_ids` and in every client's local store from before the delete.
+- **Downloads are authorized on every request.** `/api/resources/:id/file` re-checks the session, rejects soft-deleted resources, and verifies an active membership in the resource's channel. This is not belt-and-braces — the file outlives its soft delete on disk (a separate purge script is meant to reclaim the bytes on a delay, though it is not yet scheduled — see §12), and the resource id is not a secret: it survives in `messages.resource_ids` and in every client's local store from before the delete.
 
 Mobile's upload manager (`infrastructure/offline/upload-manager.ts`) is a **singleton service, not a hook** — uploads must survive screen unmounts. It persists its queue to SQLite, copies picked files out of OS-managed temp directories into `documentDirectory` so a queued upload still has its bytes after an app restart, resumes interrupted uploads on launch, retries with exponential backoff, and supports *scheduled* uploads (defer a large file to a chosen time slot).
 
@@ -307,6 +307,7 @@ These are the things to fix before this stops being a POC. Every one of them is 
 5. **Client logic is duplicated** across the two apps' application layers. A shared package for collections and actions is the natural next step, and would have prevented the drift already observed.
 6. **The txid handshake is skipped.** `mutation-fns.ts` deliberately does not `awaitTxId()` after a tRPC mutation, because awaiting it through a persistence-wrapped Electric collection never resolves — the outbox entry stays pending forever and the event loop starves. Electric's normal stream reconciles by id instead, leaving a brief, harmless pre-reconciliation window. This is a workaround for an upstream limitation and should be revisited when the library allows.
 7. **No automated test coverage of the sync, bootstrap, or offline paths.** Vitest is configured; the intricate logic in §5 and §6 is currently protected only by its (excellent) comments.
+8. **The resource purge is never scheduled.** Soft-deleting a resource stamps `deleted_at` and stops serving the file, but the bytes are reclaimed only by `scripts/purge-resources.ts` (retention purge + orphan sweep), which is a manual, dry-run-by-default command with no cron, routine, or timer invoking it with `--apply`. Until it is scheduled, deleted files and orphaned uploads accumulate on disk indefinitely. Wiring up a periodic `pnpm purge:resources -- --apply` is future work.
 
 ---
 
