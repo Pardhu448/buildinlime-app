@@ -3,20 +3,57 @@ import { createCookieFetch } from "../../infrastructure/auth/cookie-fetch"
 export const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://10.0.2.2:3000"
 export const cookieFetch = createCookieFetch()
 
-// Disable TanStack DB garbage collection on these Electric collections.
+// GC (garbage collection) fires when a collection has no mounted live query,
+// and its cleanup ABORTS the Electric shape's long-poll — so GC is precisely the
+// lever for closing an idle shape stream.
 //
-// GC (default gcTime 5 min) fires when a collection has no mounted live query,
-// and its cleanup ABORTS the Electric shape's long-poll (electric-db-collection
-// aborts the fetch on cleanup). Because the app starts sync imperatively once
-// via startSyncImmediate() and never restarts it, a GC'd collection goes
-// permanently silent — no inbound sync, and optimistic writes are dropped on
-// commit with nothing to redeliver them. On mobile the drawer/leaf-screen
-// navigation routinely leaves collections with zero subscribers, so this bites
-// (the web app dodges it only because a persistent sidebar keeps them
-// subscribed). These collections are session-scoped and torn down explicitly
-// (cleanup on project switch / reset), so GC is both redundant and harmful.
+// HISTORY / CORRECTION: this used to be blanket-disabled everywhere on the claim
+// that "the app starts sync once and never restarts it, so a GC'd collection
+// goes permanently silent". That is NO LONGER TRUE. The monorepo resolves
+// @tanstack/db@0.6.5 (one root lockfile; web verified this): changes
+// .addSubscriber() calls sync.startSync() whenever a collection in status
+// `cleaned-up` (or `idle`) gains a subscriber, and the lifecycle allows the
+// `cleaned-up → loading` transition. So a GC'd collection RESURRECTS the moment a
+// live query subscribes again, and — because these collections are wrapped in
+// persistedCollectionOptions — the restart RESUMES from the persisted SQLite
+// offset (changes_only) rather than refetching the whole shape. Optimistic
+// writes are unaffected: they replay through the offline-transactions outbox, not
+// the collection's own sync.
+//
+// This makes idle-GC MORE valuable on mobile than on web, for two compounding
+// reasons the web app doesn't get:
+//   1. The drawer/leaf-screen navigation routinely leaves collections with ZERO
+//      subscribers (a channel closed, a sheet dismissed). Web's persistent
+//      sidebar kept the spine warm and rarely idled; mobile idles constantly, so
+//      GC actually gets to fire and close streams.
+//   2. Mobile is PROJECT-SCOPED — messages/tasks/resources/properties are built
+//      for the SELECTED project's channels only (see collections/init.ts), where
+//      web scopes them to every channel across every project. So a resurrected
+//      shape resumes a project-bounded row set, not the whole membership, and the
+//      live working set is bounded by (current project × current screen) — a
+//      two-dimensional reduction where web gets only the screen dimension.
+//
+// NEVER_GC is therefore no longer a correctness requirement; it is kept only
+// where an always-mounted subscriber holds a collection for the whole session,
+// so GC would never fire ANYWAY:
+//   - the spine (projects/buildUnits/channels/users/teams/memberships): the
+//     Drawer keeps them subscribed the whole session.
+//   - reads: the always-mounted DrawerContent badges scan it (and messages/tasks)
+//     for unread counts, so those three are pinned too — until the badge rework
+//     (tiny inbox_mentions/my_tasks shapes + seen_state) lands, mirroring web.
 // A non-finite gcTime makes startGCTimer() skip scheduling (see @tanstack/db).
 export const NEVER_GC = Infinity
+
+// GC delay for collections that GENUINELY go idle (no always-mounted subscriber)
+// AND are persisted (so resurrection resumes from the SQLite offset, not a full
+// refetch). The shape's long-poll closes this many ms after the last live query
+// unmounts, and re-subscribing on the next visit transparently restarts + resumes
+// it. Applied to properties and resources today: nothing always-mounted holds
+// them (only channel / build-unit / task / sheet screens subscribe), so they
+// stream only while those views are open. messages/tasks will join once the
+// DrawerContent badge pin above is removed. 60s balances closing idle streams
+// against resume round-trips when navigating quickly.
+export const IDLE_GC_MS = 60_000
 
 // Stop an Electric collection's sync and release its shape + SQLite handles.
 // With GC disabled (NEVER_GC), nothing auto-stops an orphaned collection, so

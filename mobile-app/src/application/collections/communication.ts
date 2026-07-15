@@ -11,7 +11,7 @@ import {
 } from "@buildinlime/domain-types"
 import { trpc } from "../../infrastructure/trpc/client"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
-import { apiUrl, cookieFetch, retryOnError, coerceBool, unwrapJsonb, parser, NEVER_GC, safeCleanup } from "./_shared"
+import { apiUrl, cookieFetch, retryOnError, coerceBool, unwrapJsonb, parser, NEVER_GC, IDLE_GC_MS, safeCleanup } from "./_shared"
 
 // --- Schemas ---
 
@@ -166,26 +166,43 @@ function _makeMessagesCollection(
   )
 }
 
-function _makeResourcesCollection(memberChannelIds: string[]) {
+// Persisted at the shared v3 like every other collection (was previously
+// UNpersisted — a divergence from web that made idle-GC pointless, since
+// resurrection would refetch the whole shape instead of resuming from offset).
+const RESOURCES_SCHEMA_VERSION = 3
+
+function _makeResourcesCollection(
+  persistence: ReturnType<typeof getPersistence>["persistence"],
+  memberChannelIds: string[],
+) {
   const url = new URL(`/api/resources`, apiUrl)
   if (memberChannelIds.length > 0) {
     url.searchParams.set(`member_channel_ids`, memberChannelIds.join(`,`))
   }
   return createCollection(
-    electricCollectionOptions({
-      id: `resources`,
-      shapeOptions: {
-        url: url.toString(),
-        fetchClient: cookieFetch,
-        onError: retryOnError,
-        parser,
-      },
-      schema: selectResourceSchema,
-      getKey: (item) => item.id,
-      gcTime: NEVER_GC,
-      // onDelete removed — routed through @tanstack/offline-transactions
-      // (see application/actions/resources.ts → deleteResourceAction).
-    })
+    persistedCollectionOptions({
+      ...electricCollectionOptions({
+        id: `resources`,
+        shapeOptions: {
+          url: url.toString(),
+          fetchClient: cookieFetch,
+          onError: retryOnError,
+          parser,
+        },
+        schema: selectResourceSchema,
+        getKey: (item) => item.id,
+        // Idle-GC: resources has NO always-mounted subscriber (only the
+        // ResourcesSheet and in-message attachment views, both mounted on
+        // demand), so it idles off-screen. Now persisted (below), so resurrection
+        // resumes from the SQLite offset rather than refetching. See IDLE_GC_MS.
+        gcTime: IDLE_GC_MS,
+        // onDelete removed — routed through @tanstack/offline-transactions
+        // (see application/actions/resources.ts → deleteResourceAction).
+      }),
+      persistence,
+      schemaVersion: RESOURCES_SCHEMA_VERSION,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any,
   )
 }
 
@@ -235,7 +252,11 @@ function _makePropertiesCollection(
         },
         schema: selectPropertySchema,
         getKey: (item) => item.id,
-        gcTime: NEVER_GC,
+        // Idle-GC: properties is subscribed ONLY by the channel / build-unit /
+        // task screens — nothing always-mounted holds it (the Drawer badges scan
+        // messages/tasks/reads, never properties). Persisted, so the next visit
+        // resurrects it and resumes from the SQLite offset. See IDLE_GC_MS.
+        gcTime: IDLE_GC_MS,
         // onInsert removed — routed through @tanstack/offline-transactions
         // (see application/actions/properties.ts → createPropertyAction).
         onUpdate: async ({ transaction }) => {
@@ -282,7 +303,7 @@ export function initializeCommunicationCollections(params: {
   safeCleanup(resourcesCollection)
   tasksCollection = _makeTasksCollection(persistence, params.memberChannelIds)
   messagesCollection = _makeMessagesCollection(persistence, params.memberChannelIds)
-  resourcesCollection = _makeResourcesCollection(params.memberChannelIds)
+  resourcesCollection = _makeResourcesCollection(persistence, params.memberChannelIds)
 }
 
 // Properties are scoped by entity_id (project/build-unit) and channel_id
