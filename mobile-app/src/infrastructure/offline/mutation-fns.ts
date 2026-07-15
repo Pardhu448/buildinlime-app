@@ -15,7 +15,9 @@ type MutationFn = (params: {
   idempotencyKey: string
 }) => Promise<unknown>
 
-const NON_RETRIABLE_TRPC_CODES = new Set([
+// Exported for the parity guard test (tests/); compared against the canonical
+// list in @buildinlime/domain-types.
+export const NON_RETRIABLE_TRPC_CODES = new Set([
   "BAD_REQUEST",
   "UNAUTHORIZED",
   "FORBIDDEN",

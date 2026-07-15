@@ -6,7 +6,12 @@ import { TEST_DATABASE_URL } from "./config"
 // infrastructure/database/connection.ts (same `casing`, no schema binding), so
 // it is assignable to the tRPC `Context.db` — which is how makeCtx (ctx.ts)
 // hands routers a real, transaction-capable db.
-export const pool = new Pool({ connectionString: TEST_DATABASE_URL })
+//
+// `max: 1` — a single connection. Tests run serially (fileParallelism: false),
+// and one connection means a router transaction and the between-test TRUNCATE
+// can never sit on two connections with locks acquired in different orders,
+// which otherwise deadlocks TRUNCATE ... CASCADE.
+export const pool = new Pool({ connectionString: TEST_DATABASE_URL, max: 1 })
 export const db = drizzle({ client: pool, casing: "snake_case" })
 
 /**

@@ -22,6 +22,12 @@ export default defineConfig({
     dedupe: ["react", "react-dom"],
   },
   test: {
+    // Serialise ALL test files. Root-level, not per-project: `fileParallelism`
+    // is a global runner option and is ignored inside a project config. The
+    // integration files each open a pool against the one shared test database;
+    // running them concurrently deadlocks TRUNCATE ... CASCADE against another
+    // file's in-flight transaction. Unit tests are few, so the cost is trivial.
+    fileParallelism: false,
     // Vitest 3.2+ `projects`: one command, two environments.
     projects: [
       {
@@ -48,8 +54,6 @@ export default defineConfig({
           // DATABASE_URL is read by the app's connection.ts when a router is
           // imported (Phase 3); point it at the test DB for the whole project.
           env: { DATABASE_URL: TEST_DATABASE_URL },
-          // One shared database, mutated serially — never run files in parallel.
-          fileParallelism: false,
         },
       },
     ],

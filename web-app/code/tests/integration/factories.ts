@@ -8,6 +8,7 @@ import {
   membershipTable,
   tasksTable,
   resourcesTable,
+  messagesTable,
   CHANNEL_NAMES,
   type MembershipRole,
 } from "%/infrastructure/database/schema/admin-schema"
@@ -156,6 +157,32 @@ export async function createResource(
       buildunit_id: buildUnitId,
       project_id: projectId,
       createdby_id: createdById,
+      ...rest,
+    })
+    .returning()
+  return row
+}
+
+export async function createMessage(
+  opts: {
+    channelId: string
+    buildUnitId: string
+    projectId: string
+    createdById: string
+  } & Partial<InferInsertModel<typeof messagesTable>>,
+): Promise<InferSelectModel<typeof messagesTable>> {
+  const { channelId, buildUnitId, projectId, createdById, ...rest } = opts
+  const [row] = await db
+    .insert(messagesTable)
+    .values({
+      id: uuid(),
+      text: faker.lorem.sentence(),
+      channel_id: channelId,
+      buildunit_id: buildUnitId,
+      project_id: projectId,
+      createdby_id: createdById,
+      mention_ids: [],
+      resource_ids: [],
       ...rest,
     })
     .returning()
