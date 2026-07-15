@@ -384,53 +384,34 @@ const deleteChannel: MutationFn = async ({ transaction }) => {
   }
 }
 
-// -------------------- reads --------------------
+// -------------------- seen --------------------
 
 /**
- * Unlike every other mutationFn here, this reads ALL of the transaction's
- * mutations rather than mutations[0]: marking a channel read inserts one row per
- * message, and they must reach the server as a single call — not collapse to
- * whichever row happened to be first.
- *
- * Grouped by (item_type, channel_id) rather than assuming the whole transaction
- * shares them; one wrong assumption here marks the wrong items read.
+ * Advance a "last seen" marker (the timestamp successor to markRead). One marker
+ * per transaction (mutations[0]); the server upserts and keeps the LATEST seen_at
+ * (GREATEST), so an out-of-order outbox replay can never move the line backward.
+ * scope_id is '' for the singleton inbox / mytasks scopes and the channel id for
+ * a channel. seen_at rides the outbox as an ISO string.
  */
-const markRead: MutationFn = async ({ transaction }) => {
-  const rows = transaction.mutations.map(
-    (m) => m.modified as Record<string, unknown>,
-  )
-  if (rows.length === 0) return
-
-  const groups = new Map<
-    string,
-    { item_type: string; channel_id: string; item_ids: string[] }
-  >()
-  for (const r of rows) {
-    const item_type = r.item_type as string
-    const channel_id = r.channel_id as string
-    const key = `${item_type}:${channel_id}`
-    const group = groups.get(key)
-    if (group) group.item_ids.push(r.item_id as string)
-    else groups.set(key, { item_type, channel_id, item_ids: [r.item_id as string] })
-  }
-
+const markSeen: MutationFn = async ({ transaction }) => {
+  const s = transaction.mutations[0].modified as Record<string, unknown>
   try {
-    for (const g of groups.values()) {
-      await trpc.reads.markRead.mutate({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        item_type: g.item_type as any,
-        item_ids: g.item_ids,
-        channel_id: g.channel_id,
-      })
-    }
+    await trpc.seen.markSeen.mutate({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      scope: s.scope as any,
+      scope_id: (s.scope_id as string) ?? ``,
+      seen_at: (s.seen_at instanceof Date
+        ? s.seen_at.toISOString()
+        : s.seen_at) as string,
+    })
   } catch (err) {
     wrapTrpcError(err)
   }
 }
 
 export const mutationFns = {
-  // reads
-  markRead,
+  // seen
+  markSeen,
   // tasks
   createTask,
   updateTask,

@@ -35,8 +35,17 @@ export type TaskStatusValue = typeof TASK_STATUS_VALUES[number]
 
 // Per-user read state (the `reads` table). Unread is the ABSENCE of a row, so
 // there is no "unread" member here — an item is read once a row exists for it.
+// NOTE: web has cut over to the timestamp `seen_state` model below; the `reads`
+// table/enum stays only while mobile finishes migrating.
 export const READ_ITEM_TYPES = ["message", "task"] as const
 export type ReadItemType = typeof READ_ITEM_TYPES[number]
+
+// Per-user "last seen" markers (the `seen_state` table) — the timestamp
+// successor to `reads`. One marker per (user, scope, scope_id): 'inbox' and
+// 'mytasks' are singletons (scope_id ''), 'channel' has one marker per channel.
+// An item is "unseen" iff it arrived after the marker for its view.
+export const SEEN_SCOPES = ["inbox", "mytasks", "channel"] as const
+export type SeenScope = typeof SEEN_SCOPES[number]
 
 export const ENTITY_TYPES = ["project", "buildUnit", "channel", "task"] as const
 export type EntityType = typeof ENTITY_TYPES[number]

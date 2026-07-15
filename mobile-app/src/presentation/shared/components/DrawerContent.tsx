@@ -9,7 +9,8 @@ import { useSignOut } from "@/app/_layout"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { useProjects } from "@/src/presentation/projects/hooks/useProjects"
-import { useReads } from "@/src/presentation/shared/hooks/useReads"
+import { useInboxBadge } from "@/src/presentation/shared/hooks/useInboxBadge"
+import { useMyTasksBadge } from "@/src/presentation/shared/hooks/useMyTasksBadge"
 import { colors } from "../colors"
 
 const brickLogo = require("@/assets/images/brick-logo-brown.png")
@@ -44,7 +45,11 @@ const NAV_ITEMS: NavItem[] = [
  * initProjectCollections runs, and the drawer renders before that on the picker.
  */
 function UnreadBadge({ kind }: { kind: BadgeKind }) {
-  const { myUnopenedTaskCount, unreadMentionCount } = useReads()
+  // Two tiny user-scoped slices + seen timestamps, NOT a scan of the full
+  // messages/tasks collections (which used to pin them open for the whole
+  // session). Each hook subscribes only to its own badge slice.
+  const { myUnopenedTaskCount } = useMyTasksBadge()
+  const { unreadMentionCount } = useInboxBadge()
   const count = kind === "tasks" ? myUnopenedTaskCount : unreadMentionCount
   if (!count) return null
   return (

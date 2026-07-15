@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import {
   View,
   Text,
@@ -34,7 +34,6 @@ import { usePropertiesByEntity } from "@/src/presentation/properties/hooks/usePr
 import { PropertyPill } from "@/src/presentation/properties/components/PropertyPill"
 import { ResourcesSheet } from "@/src/presentation/resources/components/ResourcesSheet"
 import { useUsers } from "@/src/presentation/shared/hooks/useUsers"
-import { useReads } from "@/src/presentation/shared/hooks/useReads"
 import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { colors } from "@/src/presentation/shared/colors"
@@ -61,14 +60,11 @@ export default function TaskScreen() {
   const propsByEntity = usePropertiesByEntity("task")
   const properties = propsByEntity.get(taskId) ?? []
   const usersMap = useUsers()
-  const { markTaskRead } = useReads()
 
-  // Opening the task IS the "open" — mark it read here rather than at each call
-  // site, so every route in counts (the channel sheet, My Tasks, a deep link).
-  useEffect(() => {
-    if (!taskId || !channelId) return
-    markTaskRead(taskId, channelId)
-  }, [taskId, channelId, markTaskRead])
+  // No per-task "seen" write: under the timestamp model a task is seen once you
+  // leave its channel (see the channel screen's markChannelSeen on unmount), which
+  // covers every route in — the channel sheet, My Tasks, a deep link. Mirrors
+  // web's TaskPage, which likewise marks nothing here.
 
   // Channel members — who a task can be assigned to. This MUST read the roster
   // (channelMembersCollection), not membershipsCollection: the latter is scoped

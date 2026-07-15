@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { ListTodo, Plus, X, CheckCircle2, Circle } from "lucide-react-native"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useChannelTasks } from "@/src/presentation/tasks/hooks/useChannelTasks"
-import { useReads } from "@/src/presentation/shared/hooks/useReads"
+import { useSeen } from "@/src/presentation/shared/hooks/useSeen"
 import { useLookups } from "@/src/presentation/shared/hooks/useLookups"
 import { createTaskAction } from "@/src/application/actions/tasks"
 import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
@@ -119,12 +119,14 @@ export function TasksSheet({ channelId, buildUnitId, projectId }: TasksSheetProp
   }, [])
 
   const { tasks } = useChannelTasks(channelId)
-  const { isTaskUnread } = useReads()
+  const { isTaskUnseen } = useSeen()
   const { getUserName } = useLookups()
 
   // The badge counts what is NEW to you, not how many tasks exist — a count that
-  // never goes down as you work tells you nothing.
-  const unopenedCount = tasks.filter((t) => isTaskUnread(t.id)).length
+  // never goes down as you work tells you nothing. A task is unseen if it arrived
+  // after you last opened this channel (the channel screen marks it seen on
+  // leave); the channel's `seen` timestamp is shared across all its tasks.
+  const unopenedCount = tasks.filter((t) => isTaskUnseen(t)).length
 
   // Open tasks first, newest first within each group — same order as My Tasks.
   const sorted = [...tasks].sort((a, b) => {
@@ -288,7 +290,7 @@ export function TasksSheet({ channelId, buildUnitId, projectId }: TasksSheetProp
                 <TaskRow
                   key={task.id}
                   task={task}
-                  unread={isTaskUnread(task.id)}
+                  unread={isTaskUnseen(task)}
                   assigneeName={
                     task.assignee_id ? getUserName(task.assignee_id) : undefined
                   }

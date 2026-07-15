@@ -2,7 +2,7 @@ import { createCollection } from "@tanstack/react-db"
 import { electricCollectionOptions } from "@tanstack/electric-db-collection"
 import { persistedCollectionOptions } from "@tanstack/expo-db-sqlite-persistence"
 import { z } from "zod"
-import { MEMBERSHIP_ROLES, READ_ITEM_TYPES } from "@buildinlime/domain-types"
+import { MEMBERSHIP_ROLES, SEEN_SCOPES } from "@buildinlime/domain-types"
 import { trpc } from "../../infrastructure/trpc/client"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
 import { apiUrl, cookieFetch, retryOnError, retryOnMembershipsError, coerceBool, parser, NEVER_GC, safeCleanup } from "./_shared"
@@ -32,17 +32,18 @@ const selectTeamSchema = z.object({
   created_at: z.union([z.string(), z.date()]).optional(),
 })
 
-// Per-user read state. Unread is the ABSENCE of a row — nothing to backfill for
-// content that predates the feature, it simply all starts unread.
-const electricReadSchema = z.object({
+// Per-user "last seen" markers — the timestamp successor to reads. One row per
+// (user, scope, scope_id); an item is "unseen" iff it arrived after the marker
+// for its view. scope arrives JSON-encoded from Electric (jsonb column), so it is
+// unwrapped before the enum check, same as the properties enums.
+const electricSeenStateSchema = z.object({
   user_id: z.string(),
-  item_type: z.preprocess(
+  scope: z.preprocess(
     (v) => (typeof v === "string" && v.startsWith(`"`) ? JSON.parse(v) : v),
-    z.enum(READ_ITEM_TYPES)
+    z.enum(SEEN_SCOPES)
   ),
-  item_id: z.string(),
-  channel_id: z.string(),
-  read_at: z.union([z.string(), z.date()]).optional(),
+  scope_id: z.string().default(``),
+  seen_at: z.union([z.string(), z.date()]).optional(),
 })
 
 // Both the SELF stream (this file's membershipsCollection, `user_id = me`) and the
@@ -87,38 +88,42 @@ function _makeUsersCollection(
   )
 }
 
-const READS_SCHEMA_VERSION = 3
+// Added at the shared schemaVersion 3 (NOT bumped): a new collection at the
+// existing version reuses the one cached adapter; the orphaned `reads` SQLite
+// namespace left behind is harmless (nothing reads it, and sign-out wipes the DB).
+const SEEN_STATE_SCHEMA_VERSION = 3
 
 /**
- * The current user's read state. The shape is scoped `user_id = me` server-side
- * (web-app routes/api/reads.ts) with no query parameter able to widen it — so
- * unlike the scoped collections this takes no membership ids and never needs
- * rebuilding when the visible channel set changes.
+ * The current user's "last seen" markers — the timestamp successor to the reads
+ * collection. Shape scoped `user_id = me` server-side (web-app
+ * routes/api/seen-state.ts) with no query parameter able to widen it — so it
+ * takes no membership ids and never rebuilds on scope change, exactly like reads.
  *
- * The key is composite: one row per (user, item_type, item_id).
+ * Key is composite: one row per (user, scope, scope_id). NEVER_GC because the
+ * always-mounted DrawerContent badges subscribe to it, so it never idles.
  */
-export const readKey = (userId: string, itemType: string, itemId: string) =>
-  `${userId}:${itemType}:${itemId}`
+export const seenKey = (userId: string, scope: string, scopeId: string) =>
+  `${userId}:${scope}:${scopeId}`
 
-function _makeReadsCollection(
+function _makeSeenStateCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
 ) {
   return createCollection(
     persistedCollectionOptions({
       ...electricCollectionOptions({
-        id: `reads`,
+        id: `seen-state`,
         shapeOptions: {
-          url: `${apiUrl}/api/reads`,
+          url: `${apiUrl}/api/seen-state`,
           fetchClient: cookieFetch,
           onError: retryOnError,
           parser,
         },
-        schema: electricReadSchema,
-        getKey: (item) => readKey(item.user_id, item.item_type, item.item_id),
+        schema: electricSeenStateSchema,
+        getKey: (item) => seenKey(item.user_id, item.scope, item.scope_id),
         gcTime: NEVER_GC,
       }),
       persistence,
-      schemaVersion: READS_SCHEMA_VERSION,
+      schemaVersion: SEEN_STATE_SCHEMA_VERSION,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any,
   )
@@ -193,7 +198,7 @@ function _makeMembershipsCollection(
 export let usersCollection: ReturnType<typeof _makeUsersCollection> = null!
 export let teamsCollection: ReturnType<typeof _makeTeamsCollection> = null!
 export let membershipsCollection: ReturnType<typeof _makeMembershipsCollection> = null!
-export let readsCollection: ReturnType<typeof _makeReadsCollection> = null!
+export let seenStateCollection: ReturnType<typeof _makeSeenStateCollection> = null!
 
 export function initializeUsersCollection() {
   const { persistence } = getPersistence()
@@ -201,10 +206,10 @@ export function initializeUsersCollection() {
   usersCollection = _makeUsersCollection(persistence)
 }
 
-export function initializeReadsCollection() {
+export function initializeSeenStateCollection() {
   const { persistence } = getPersistence()
-  safeCleanup(readsCollection)
-  readsCollection = _makeReadsCollection(persistence)
+  safeCleanup(seenStateCollection)
+  seenStateCollection = _makeSeenStateCollection(persistence)
 }
 
 export function initializeTeamsCollection() {
@@ -224,9 +229,9 @@ export function resetAdminCollections() {
   safeCleanup(usersCollection)
   safeCleanup(teamsCollection)
   safeCleanup(membershipsCollection)
-  safeCleanup(readsCollection)
+  safeCleanup(seenStateCollection)
   usersCollection = null!
   teamsCollection = null!
   membershipsCollection = null!
-  readsCollection = null!
+  seenStateCollection = null!
 }

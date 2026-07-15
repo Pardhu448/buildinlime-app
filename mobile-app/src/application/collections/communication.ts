@@ -114,7 +114,12 @@ function _makeTasksCollection(
         },
         schema: selectTaskSchema,
         getKey: (item) => item.id,
-        gcTime: NEVER_GC,
+        // Idle-GC: with the DrawerContent My-Tasks badge now reading the tiny
+        // my-tasks slice (not scanning this full collection), nothing
+        // always-mounted holds tasks. It idles on the drawer / home / inbox
+        // screens and resurrects + resumes from the SQLite offset when a channel /
+        // My-Tasks view opens. See IDLE_GC_MS.
+        gcTime: IDLE_GC_MS,
         // onInsert/onUpdate/onDelete removed — routed through
         // @tanstack/offline-transactions (see application/actions/tasks.ts).
       }),
@@ -149,7 +154,11 @@ function _makeMessagesCollection(
         },
         schema: selectMessageSchema,
         getKey: (item) => item.id,
-        gcTime: NEVER_GC,
+        // Idle-GC: with the DrawerContent inbox badge now reading the tiny
+        // inbox-mentions slice (not scanning this full collection), nothing
+        // always-mounted holds messages. It idles off the channel / inbox screens
+        // and resurrects + resumes from the SQLite offset on return. See IDLE_GC_MS.
+        gcTime: IDLE_GC_MS,
         // onInsert removed — routed through @tanstack/offline-transactions
         // (see application/actions/messages.ts → createMessageAction).
         //
@@ -284,6 +293,81 @@ function _makePropertiesCollection(
 }
 
 // ---------------------------------------------------------------------------
+// Badge slices — user-scoped subsets that exist so the ALWAYS-MOUNTED
+// DrawerContent inbox / my-tasks badges don't have to hold the full
+// channel-scoped messages / tasks collections open for the whole session just to
+// count the few rows that concern the current user. The server does the mention /
+// assignee filter (web-app routes/api/inbox-mentions.ts and api/my-tasks.ts); the
+// badge subscribes to these tiny shapes, and the full collections are freed to
+// idle-GC. NEVER_GC — these ARE the always-mounted subscription. Read-only: no
+// mutation handlers (messages/tasks are written via their full collections).
+// Channel-scoped, so they rebuild with the other channel-scoped collections on a
+// membership resync. Added at the shared v3 (not bumped — see resources above).
+// ---------------------------------------------------------------------------
+
+const INBOX_MENTIONS_SCHEMA_VERSION = 3
+
+function _makeInboxMentionsCollection(
+  persistence: ReturnType<typeof getPersistence>["persistence"],
+  memberChannelIds: string[],
+) {
+  const url = new URL(`/api/inbox-mentions`, apiUrl)
+  if (memberChannelIds.length > 0) {
+    url.searchParams.set(`member_channel_ids`, memberChannelIds.join(`,`))
+  }
+  return createCollection(
+    persistedCollectionOptions({
+      ...electricCollectionOptions({
+        id: `inbox-mentions`,
+        shapeOptions: {
+          url: url.toString(),
+          fetchClient: cookieFetch,
+          onError: retryOnError,
+          parser,
+        },
+        schema: selectMessageSchema,
+        getKey: (item) => item.id,
+        gcTime: NEVER_GC,
+      }),
+      persistence,
+      schemaVersion: INBOX_MENTIONS_SCHEMA_VERSION,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any,
+  )
+}
+
+const MY_TASKS_SCHEMA_VERSION = 3
+
+function _makeMyTasksCollection(
+  persistence: ReturnType<typeof getPersistence>["persistence"],
+  memberChannelIds: string[],
+) {
+  const url = new URL(`/api/my-tasks`, apiUrl)
+  if (memberChannelIds.length > 0) {
+    url.searchParams.set(`member_channel_ids`, memberChannelIds.join(`,`))
+  }
+  return createCollection(
+    persistedCollectionOptions({
+      ...electricCollectionOptions({
+        id: `my-tasks`,
+        shapeOptions: {
+          url: url.toString(),
+          fetchClient: cookieFetch,
+          onError: retryOnError,
+          parser,
+        },
+        schema: selectTaskSchema,
+        getKey: (item) => item.id,
+        gcTime: NEVER_GC,
+      }),
+      persistence,
+      schemaVersion: MY_TASKS_SCHEMA_VERSION,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any,
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Deferred exports — initialized by initializeCommunicationCollections()
 // and initializePropertiesCollection() after memberships and tasks preload.
 // ---------------------------------------------------------------------------
@@ -291,6 +375,8 @@ export let tasksCollection: ReturnType<typeof _makeTasksCollection> = null!
 export let messagesCollection: ReturnType<typeof _makeMessagesCollection> = null!
 export let resourcesCollection: ReturnType<typeof _makeResourcesCollection> = null!
 export let propertiesCollection: ReturnType<typeof _makePropertiesCollection> = null!
+export let inboxMentionsCollection: ReturnType<typeof _makeInboxMentionsCollection> = null!
+export let myTasksCollection: ReturnType<typeof _makeMyTasksCollection> = null!
 
 export function initializeCommunicationCollections(params: {
   memberChannelIds: string[]
@@ -301,9 +387,13 @@ export function initializeCommunicationCollections(params: {
   safeCleanup(tasksCollection)
   safeCleanup(messagesCollection)
   safeCleanup(resourcesCollection)
+  safeCleanup(inboxMentionsCollection)
+  safeCleanup(myTasksCollection)
   tasksCollection = _makeTasksCollection(persistence, params.memberChannelIds)
   messagesCollection = _makeMessagesCollection(persistence, params.memberChannelIds)
   resourcesCollection = _makeResourcesCollection(persistence, params.memberChannelIds)
+  inboxMentionsCollection = _makeInboxMentionsCollection(persistence, params.memberChannelIds)
+  myTasksCollection = _makeMyTasksCollection(persistence, params.memberChannelIds)
 }
 
 // Properties are scoped by entity_id (project/build-unit) and channel_id
@@ -325,8 +415,12 @@ export function resetCommunicationCollections() {
   safeCleanup(messagesCollection)
   safeCleanup(resourcesCollection)
   safeCleanup(propertiesCollection)
+  safeCleanup(inboxMentionsCollection)
+  safeCleanup(myTasksCollection)
   tasksCollection = null!
   messagesCollection = null!
   resourcesCollection = null!
   propertiesCollection = null!
+  inboxMentionsCollection = null!
+  myTasksCollection = null!
 }

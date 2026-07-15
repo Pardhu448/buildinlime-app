@@ -14,7 +14,7 @@ import { MessageList } from "@/src/presentation/messages/components/MessageList"
 import { MessageInput } from "@/src/presentation/messages/components/MessageInput"
 import { ResourcesSheet } from "@/src/presentation/resources/components/ResourcesSheet"
 import { useUsers } from "@/src/presentation/shared/hooks/useUsers"
-import { useReads } from "@/src/presentation/shared/hooks/useReads"
+import { useSeen } from "@/src/presentation/shared/hooks/useSeen"
 import { TasksSheet } from "@/src/presentation/tasks/components/TasksSheet"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useLiveQuery, eq } from "@tanstack/react-db"
@@ -46,14 +46,15 @@ export default function ChannelScreen() {
   const { messages, isLoading } = useMessages(channelId)
   const usersMap = useUsers()
 
-  // Opening a channel marks its messages read, and keeps marking them as they
-  // arrive while you sit in it — otherwise a channel you are literally looking at
-  // would accumulate an unread count.
-  const { markChannelMessagesRead } = useReads()
+  // Leaving a channel marks it seen: one timestamp per channel, pushed forward on
+  // unmount, so everything present up to that moment counts as seen and the
+  // channel's task badge clears. Timestamp model — no per-message writes. Mirrors
+  // web's ChannelPage unmount effect.
+  const { markChannelSeen } = useSeen()
   useEffect(() => {
     if (!channelId) return
-    markChannelMessagesRead(channelId)
-  }, [channelId, markChannelMessagesRead])
+    return () => markChannelSeen(channelId)
+  }, [channelId, markChannelSeen])
 
   const currentUserId = session?.user?.id ?? ""
 

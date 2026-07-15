@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import {
   View,
   Text,
@@ -14,6 +15,7 @@ import { Breadcrumb } from "@/src/presentation/shared/components/Breadcrumb"
 import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
 import { useLookups } from "@/src/presentation/shared/hooks/useLookups"
 import { useTasks } from "@/src/presentation/tasks/hooks/useTasks"
+import { useSeen } from "@/src/presentation/shared/hooks/useSeen"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { colors } from "@/src/presentation/shared/colors"
@@ -81,6 +83,13 @@ function MyTasksContent() {
   const currentUserId = session?.user?.id
   const { tasks, isLoading } = useTasks(currentUserId)
   const lookups = useLookups()
+  const { markMyTasksSeen } = useSeen()
+
+  // Leaving My Tasks marks it seen: one timestamp, pushed forward on unmount, so
+  // the drawer's My Tasks badge clears. Mirrors web's MyTasksPage.
+  useEffect(() => {
+    return () => markMyTasksSeen()
+  }, [markMyTasksSeen])
 
   // Open tasks first, newest first within each group.
   const sorted = [...tasks].sort((a, b) => {
