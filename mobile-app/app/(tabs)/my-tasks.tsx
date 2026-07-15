@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useCallback } from "react"
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native"
-import { useRouter } from "expo-router"
+import { useRouter, useFocusEffect } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { CheckSquare, Square } from "lucide-react-native"
 import { ScreenHeader } from "@/src/presentation/shared/components/ScreenHeader"
@@ -85,11 +85,15 @@ function MyTasksContent() {
   const lookups = useLookups()
   const { markMyTasksSeen } = useSeen()
 
-  // Leaving My Tasks marks it seen: one timestamp, pushed forward on unmount, so
-  // the drawer's My Tasks badge clears. Mirrors web's MyTasksPage.
-  useEffect(() => {
-    return () => markMyTasksSeen()
-  }, [markMyTasksSeen])
+  // Leaving My Tasks marks it seen so the drawer's My Tasks badge clears.
+  // useFocusEffect (cleanup runs on BLUR), NOT useEffect: the Drawer keeps this
+  // screen mounted across drawer navigation, so an unmount cleanup would never
+  // fire and the badge would go stale. Mirrors web's MyTasksPage unmount.
+  useFocusEffect(
+    useCallback(() => {
+      return () => markMyTasksSeen()
+    }, [markMyTasksSeen])
+  )
 
   // Open tasks first, newest first within each group.
   const sorted = [...tasks].sort((a, b) => {

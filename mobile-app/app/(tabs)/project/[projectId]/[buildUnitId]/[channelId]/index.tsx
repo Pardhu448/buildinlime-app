@@ -7,8 +7,8 @@ import {
   ActivityIndicator,
   StatusBar,
 } from "react-native"
-import { useEffect, useState } from "react"
-import { useLocalSearchParams, useRouter } from "expo-router"
+import { useCallback, useState } from "react"
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router"
 import { useMessages } from "@/src/presentation/messages/hooks/useMessages"
 import { MessageList } from "@/src/presentation/messages/components/MessageList"
 import { MessageInput } from "@/src/presentation/messages/components/MessageInput"
@@ -46,15 +46,20 @@ export default function ChannelScreen() {
   const { messages, isLoading } = useMessages(channelId)
   const usersMap = useUsers()
 
-  // Leaving a channel marks it seen: one timestamp per channel, pushed forward on
-  // unmount, so everything present up to that moment counts as seen and the
-  // channel's task badge clears. Timestamp model — no per-message writes. Mirrors
-  // web's ChannelPage unmount effect.
+  // Leaving a channel marks it seen: one timestamp per channel, pushed forward so
+  // everything present up to that moment counts as seen and the channel's task
+  // badge clears. Timestamp model — no per-message writes. useFocusEffect (cleanup
+  // on BLUR), NOT useEffect: a stack screen stays mounted underneath a pushed task
+  // route, so an unmount cleanup wouldn't fire when you drill into a task. Blur
+  // covers both leaving the channel AND opening a task from it — matching web's
+  // ChannelPage, which unmounts on either.
   const { markChannelSeen } = useSeen()
-  useEffect(() => {
-    if (!channelId) return
-    return () => markChannelSeen(channelId)
-  }, [channelId, markChannelSeen])
+  useFocusEffect(
+    useCallback(() => {
+      if (!channelId) return
+      return () => markChannelSeen(channelId)
+    }, [channelId, markChannelSeen])
+  )
 
   const currentUserId = session?.user?.id ?? ""
 

@@ -6,8 +6,8 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native"
-import { useEffect } from "react"
-import { useRouter } from "expo-router"
+import { useCallback } from "react"
+import { useRouter, useFocusEffect } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLiveQuery } from "@tanstack/react-db"
 import { MessageSquare } from "lucide-react-native"
@@ -85,12 +85,18 @@ function InboxContent() {
   const lookups = useLookups()
   const { isMessageUnseen, markInboxSeen } = useSeen()
 
-  // Leaving the Inbox marks it seen: one timestamp, pushed forward on unmount, so
-  // every mention present up to that moment counts as seen and the badge clears.
-  // Timestamp model — no per-message writes. Mirrors web's InboxPage.
-  useEffect(() => {
-    return () => markInboxSeen()
-  }, [markInboxSeen])
+  // Leaving the Inbox marks it seen: one timestamp, pushed forward so every
+  // mention present up to that moment counts as seen and the drawer badge clears.
+  // Timestamp model — no per-message writes. useFocusEffect, NOT useEffect: the
+  // Drawer keeps this screen MOUNTED when you switch drawer items, so an unmount
+  // cleanup would never fire and the badge would go stale. The focus-effect
+  // cleanup runs on BLUR (navigating away), which is the real "leave". Mirrors
+  // web's InboxPage unmount, adapted to the mobile navigator.
+  useFocusEffect(
+    useCallback(() => {
+      return () => markInboxSeen()
+    }, [markInboxSeen])
+  )
 
   const { data: rawMessages, isLoading } = useLiveQuery(
     (q) => q.from({ messagesCollection }),
