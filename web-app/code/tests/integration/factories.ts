@@ -10,8 +10,8 @@ import {
   resourcesTable,
   messagesTable,
   CHANNEL_NAMES,
-  type MembershipRole,
 } from "%/infrastructure/database/schema/admin-schema"
+import type { MembershipRole } from "%/infrastructure/database/schema/admin-schema"
 import { db } from "./setup/db"
 
 // Insert-and-return factories. Each mints a client-style UUID id (mirroring the

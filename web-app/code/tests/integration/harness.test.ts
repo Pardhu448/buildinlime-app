@@ -24,8 +24,8 @@ describe("integration harness", () => {
       .select()
       .from(tasksTable)
       .where(eq(tasksTable.id, task.id))
-    expect(found?.name).toBe(task.name)
-    expect(found?.channel_id).toBe(seeded.channel.id)
+    expect(found.name).toBe(task.name)
+    expect(found.channel_id).toBe(seeded.channel.id)
   })
 
   it("truncates between tests — the previous test's rows are gone", async () => {

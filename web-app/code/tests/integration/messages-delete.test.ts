@@ -6,7 +6,8 @@ import {
   resourcesTable,
 } from "%/infrastructure/database/schema/admin-schema"
 import { db } from "./setup/db"
-import { makeCtx, type AppUser } from "./setup/ctx"
+import { makeCtx } from "./setup/ctx"
+import type { AppUser } from "./setup/ctx"
 import {
   createUser,
   seedChannel,

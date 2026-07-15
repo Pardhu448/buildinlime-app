@@ -1,6 +1,5 @@
 import path from "node:path"
-import { Client } from "pg"
-import { Pool } from "pg"
+import { Client, Pool } from "pg"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import {

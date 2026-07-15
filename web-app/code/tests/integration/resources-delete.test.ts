@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm"
 import { resourcesRouter } from "%/infrastructure/trpc/routers/resources"
 import { resourcesTable } from "%/infrastructure/database/schema/admin-schema"
 import { db } from "./setup/db"
-import { makeCtx, type AppUser } from "./setup/ctx"
+import { makeCtx } from "./setup/ctx"
+import type { AppUser } from "./setup/ctx"
 import { createUser, seedChannel, createTask, createResource } from "./factories"
 
 // Authorization rules for resources.delete (ARCHITECTURE.md §3a / router comment).

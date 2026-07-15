@@ -1,5 +1,5 @@
 import type { InferSelectModel } from "drizzle-orm"
-import { users } from "%/infrastructure/database/schema/admin-schema"
+import type { users } from "%/infrastructure/database/schema/admin-schema"
 import type { Context } from "%/infrastructure/trpc/lib/trpc"
 import { db } from "./db"
 

@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# One run per branch/PR; cancel superseded runs.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PNPM_VERSION: 10.30.3
+  NODE_VERSION: 22
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Green today → hard gate.
+  # ---------------------------------------------------------------------------
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build web
+        run: pnpm --filter buildinlime build
+        env:
+          # Dummy values: nothing connects at build time, but connection.ts and
+          # auth throw if these are unset when the server bundle is prerendered.
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/electric
+          BETTER_AUTH_SECRET: ci-build-secret-not-used-at-runtime-000000
+          BETTER_AUTH_URL: http://localhost:3000
+
+  # ---------------------------------------------------------------------------
+  # Unit tests — web (jsdom) + mobile (node). No database needed.
+  # ---------------------------------------------------------------------------
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Unit tests (web + mobile)
+        run: pnpm test:unit
+
+  # ---------------------------------------------------------------------------
+  # Integration tests — tRPC routers against a real Postgres.
+  # No Electric / wal_level=logical needed: these exercise SQL + generateTxId,
+  # not replication.
+  # ---------------------------------------------------------------------------
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          # The harness connects here to CREATE DATABASE buildinlime_test.
+          POSTGRES_DB: electric
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:password@localhost:5432/buildinlime_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Integration tests (creates + migrates buildinlime_test)
+        run: pnpm test:integration
+
+  # ---------------------------------------------------------------------------
+  # E2E (Playwright) — added in Phase 4. Needs compose (Postgres + Electric),
+  # a build, and the specs, so it is intentionally not wired yet.
+  # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # Quality ratchet — typecheck + lint are red at baseline, so this fails only
+  # on a NET regression past .github/quality-baseline.json (see the script).
+  # ---------------------------------------------------------------------------
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Quality ratchet (typecheck + lint vs baseline)
+        run: bash .github/scripts/ratchet.sh
