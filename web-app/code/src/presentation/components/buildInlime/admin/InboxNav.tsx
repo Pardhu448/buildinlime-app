@@ -1,10 +1,11 @@
 import { Inbox } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { useReads } from "%/presentation/hooks/use-reads";
+import { useInboxBadge } from "%/presentation/hooks/use-inbox-badge";
 
 export function InboxNav() {
-  // Messages mentioning me that I have not read.
-  const { unreadMentionCount } = useReads();
+  // Messages mentioning me that I have not read — read from the user-scoped
+  // inbox-mentions slice, not the full messages collection.
+  const { unreadMentionCount } = useInboxBadge();
 
   return (
     <Link

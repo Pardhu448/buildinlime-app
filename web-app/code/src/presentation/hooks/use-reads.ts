@@ -4,15 +4,23 @@ import { useSession } from "%/infrastructure/auth/client"
 import {
   readsCollection,
   messagesCollection,
-  tasksCollection,
 } from "%/infrastructure/database/tanstack-db-electric/admincollections"
 import { markReadAction } from "%/application/actions/reads"
-import { parseTextArray } from "%/presentation/lib/utils"
 
 /**
  * Unread state, derived by absence: an item is unread when there is no `reads`
  * row for it. Nothing to backfill for content that predates the feature — it
  * simply all starts unread.
+ *
+ * Scope note: this hook is consumed ONLY by route-level pages (InboxPage,
+ * ChannelPage, TaskPage) — nothing always-mounted uses it anymore, now that the
+ * Sidebar's per-channel unread pills are gone and the nav badges moved to
+ * useInboxBadge / useMyTasksBadge. It subscribes to `reads` + the FULL `messages`
+ * collection (markChannelMessagesRead needs every message in a channel to find
+ * the unread ones), but because its only callers are pages, `messages` has no
+ * always-mounted subscriber and is free to garbage-collect when no channel/inbox
+ * view is open. It does NOT subscribe to `tasks` at all — the task read helpers
+ * below need only the `reads` set, not the task rows.
  */
 export function useReads() {
   const { data: session } = useSession()
@@ -20,7 +28,6 @@ export function useReads() {
 
   const { data: reads } = useLiveQuery((q) => q.from({ readsCollection }), [])
   const { data: allMessages } = useLiveQuery((q) => q.from({ messagesCollection }), [])
-  const { data: allTasks } = useLiveQuery((q) => q.from({ tasksCollection }), [])
 
   // The shape only ever contains this user's rows, but key by item so lookups
   // are O(1) rather than a scan per message.
@@ -41,30 +48,6 @@ export function useReads() {
     [reads],
   )
 
-  /** Unread messages in a channel — excluding your own, which you have by definition read. */
-  const unreadMessageCount = useCallback(
-    (channelId: string) =>
-      (allMessages ?? []).filter(
-        (m) =>
-          m.channel_id === channelId &&
-          m.createdby_id !== userId &&
-          !readMessageIds.has(m.id),
-      ).length,
-    [allMessages, readMessageIds, userId],
-  )
-
-  /** Tasks in a channel you have not opened yet — excluding ones you created. */
-  const unopenedTaskCount = useCallback(
-    (channelId: string) =>
-      (allTasks ?? []).filter(
-        (t) =>
-          t.channel_id === channelId &&
-          t.createdby_id !== userId &&
-          !readTaskIds.has(t.id),
-      ).length,
-    [allTasks, readTaskIds, userId],
-  )
-
   const isTaskUnread = useCallback(
     (taskId: string) => !readTaskIds.has(taskId),
     [readTaskIds],
@@ -73,37 +56,6 @@ export function useReads() {
   const isMessageUnread = useCallback(
     (messageId: string) => !readMessageIds.has(messageId),
     [readMessageIds],
-  )
-
-  /**
-   * Tasks assigned to me that I have not opened — the My Tasks badge.
-   * Scoped to my own tasks, not the whole channel: "My Tasks" means mine.
-   */
-  const myUnopenedTaskCount = useMemo(
-    () =>
-      (allTasks ?? []).filter(
-        (t) =>
-          t.assignee_id === userId &&
-          !t.completed &&
-          !readTaskIds.has(t.id),
-      ).length,
-    [allTasks, readTaskIds, userId],
-  )
-
-  /**
-   * Messages that mention me and that I have not read — the Inbox badge.
-   * mention_ids arrives from Electric as a `{a,b}` array literal, hence
-   * parseTextArray rather than a plain includes().
-   */
-  const unreadMentionCount = useMemo(
-    () =>
-      (allMessages ?? []).filter(
-        (m) =>
-          parseTextArray(m.mention_ids).includes(userId) &&
-          m.createdby_id !== userId &&
-          !readMessageIds.has(m.id),
-      ).length,
-    [allMessages, readMessageIds, userId],
   )
 
   /**
@@ -163,10 +115,6 @@ export function useReads() {
   )
 
   return {
-    unreadMessageCount,
-    unopenedTaskCount,
-    myUnopenedTaskCount,
-    unreadMentionCount,
     isTaskUnread,
     isMessageUnread,
     markChannelMessagesRead,

@@ -41,20 +41,41 @@ export const retryOnMembershipsError = async (error: Error) => {
   return retryOnError(error)
 }
 
-// Disable TanStack DB garbage collection on these Electric collections.
+// GC (garbage collection) fires when a collection has no mounted live query,
+// and its cleanup ABORTS the Electric shape's long-poll — so GC is precisely the
+// lever for closing idle shape streams.
 //
-// GC (default gcTime 5 min) fires when a collection has no mounted live query,
-// and its cleanup ABORTS the Electric shape's long-poll (electric-db-collection
-// aborts the fetch on cleanup). Sync is started once via startSyncImmediate()
-// and never restarted, so a GC'd collection goes permanently silent: no inbound
-// rows arrive until a local write forces a catch-up fetch. The persistent
-// <Sidebar> keeps projects/buildUnits/channels/users/teams subscribed, but
-// messages/tasks/resources/properties routinely hit zero subscribers (any view
-// without a CommentsSection), so they GC and stall. These collections are
-// session-scoped and torn down explicitly on resync (see _authenticated.tsx),
-// so GC is both redundant and harmful. A non-finite gcTime makes
-// startGCTimer() skip scheduling (see @tanstack/db).
+// HISTORY / CORRECTION: this used to be blanket-disabled everywhere on the claim
+// that "sync is started once and never restarted, so a GC'd collection goes
+// permanently silent". That is NO LONGER TRUE. Verified against the installed
+// @tanstack/db@0.6.5: changes.addSubscriber() calls sync.startSync() whenever a
+// collection in status `cleaned-up` (or `idle`) gains a subscriber, and
+// lifecycle allows the `cleaned-up → loading` transition. So a GC'd collection
+// RESURRECTS the moment a live query subscribes to it again. If it is also
+// wrapped in persistedCollectionOptions, the restart RESUMES from the persisted
+// offset (changes_only) rather than refetching the whole shape — cheap.
+//
+// NEVER_GC is therefore no longer a correctness requirement; it is kept only
+// where GC would never fire ANYWAY or where we have chosen not to enable it yet:
+//   - spine (projects/buildUnits/channels/users/teams): the persistent <Sidebar>
+//     keeps them subscribed for the whole session, so they never idle.
+//   - messages/tasks/reads: the Sidebar's unread-badge computation (useReads)
+//     holds full-collection live queries on all three for the whole session, so
+//     they never idle either. Flipping their gcTime would be inert until those
+//     badges stop full-scanning — a deliberate future change, not this pass.
+//   - resources: persistence was only just added; kept eager until that path is
+//     validated, then it can move to IDLE_GC_MS.
 export const NEVER_GC = Infinity
+
+// GC delay for collections that GENUINELY go idle (no always-mounted subscriber)
+// AND are persisted (so resurrection resumes from offset, not a full refetch).
+// The shape's long-poll closes this many ms after the last live query unmounts,
+// and re-subscribing on the next visit transparently restarts + resumes it.
+// Applied to `properties` today: nothing outside the channel/build-unit/task
+// routes subscribes to it, so it streams only while those views are open.
+// Tunable — shorter closes idle streams sooner at the cost of more resume
+// round-trips when navigating quickly; 60s balances the two.
+export const IDLE_GC_MS = 60_000
 
 // Electric returns boolean columns as the string "true"/"false".
 export const coerceBool = (v: unknown) => v === "true" || v === true

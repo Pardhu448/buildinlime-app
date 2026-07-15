@@ -1,10 +1,11 @@
 import { ListTodo } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { useReads } from "%/presentation/hooks/use-reads";
+import { useMyTasksBadge } from "%/presentation/hooks/use-my-tasks-badge";
 
 export function MyTasksNav() {
-  // Tasks assigned to me that I have not opened yet.
-  const { myUnopenedTaskCount } = useReads();
+  // Tasks assigned to me that I have not opened yet — read from the user-scoped
+  // my-tasks slice, not the full tasks collection.
+  const { myUnopenedTaskCount } = useMyTasksBadge();
 
   return (
     <Link
