@@ -106,7 +106,7 @@ Each shape route (`presentation/routes/api/*.ts`) does the same three things:
 
 The client passes its membership-derived id sets as query params (e.g. `member_channel_ids`), the route validates them as UUIDs, and the `where` clause is built from them. **A user with no memberships gets `where 1 = 0`** — literally zero rows. This is a clean, if blunt, default-deny.
 
-Fourteen collections sync this way: `projects`, `build_units`, `channels`, `memberships`, `channel_members`, `users`, `teams`, `messages`, `tasks`, `resources`, `properties`, `seen_state`, `inbox_mentions`, `my_tasks`. The last three are tiny user-scoped slices that feed the always-mounted sidebar badges; `seen_state` also replaced the old per-item `reads` collection (see §1).
+Fourteen collections sync this way: `projects`, `build_units`, `channels`, `memberships`, `channel_members`, `users`, `teams`, `messages`, `tasks`, `resources`, `properties`, `seen_state`, `inbox_mentions`, `my_tasks`. The last three are tiny user-scoped slices that feed the always-mounted badges (web sidebar / mobile drawer); `seen_state` also replaced the old per-item `reads` collection on both apps (see §1).
 
 Two scoping patterns coexist:
 
@@ -206,12 +206,14 @@ The rebuild must happen while the authenticated content is **unmounted** — `cl
 
 TanStack DB's GC fires when a collection has no mounted live query, and its cleanup **aborts the Electric long-poll** — so GC is precisely the lever for closing an idle shape stream.
 
-This used to be blanket-disabled (`gcTime = Infinity`) everywhere, on the claim that "sync is started once and never restarted, so a GC'd collection goes permanently silent." **That is no longer true.** Verified against `@tanstack/db@0.6.5`: `changes.addSubscriber()` calls `sync.startSync()` whenever a collection in status `cleaned-up` (or `idle`) gains a subscriber, and the lifecycle allows the `cleaned-up → loading` transition. A GC'd collection therefore **resurrects the moment a live query subscribes to it again**, and — because every collection is wrapped in `persistedCollectionOptions` — the restart **resumes from the persisted OPFS offset (`changes_only`)** rather than refetching the whole shape. Cheap.
+This used to be blanket-disabled (`gcTime = Infinity`) everywhere, on the claim that "sync is started once and never restarted, so a GC'd collection goes permanently silent." **That is no longer true.** Verified against `@tanstack/db@0.6.5`: `changes.addSubscriber()` calls `sync.startSync()` whenever a collection in status `cleaned-up` (or `idle`) gains a subscriber, and the lifecycle allows the `cleaned-up → loading` transition. A GC'd collection therefore **resurrects the moment a live query subscribes to it again**, and — because every collection is wrapped in `persistedCollectionOptions` — the restart **resumes from the persisted offset (`changes_only`, in OPFS on web / expo-sqlite on mobile)** rather than refetching the whole shape. Cheap.
 
 So GC is no longer redundant-and-harmful; it is a deliberate tool, and collections fall into two tiers:
 
-- **`NEVER_GC` (`Infinity`)** — collections an *always-mounted* subscriber holds for the whole session, so GC would never fire anyway. The persistent `<Sidebar>` keeps the spine (`projects`, `build_units`, `channels`, `users`, `teams`) subscribed; the always-mounted sidebar badges keep the tiny user-scoped `seen_state`, `inbox_mentions` and `my_tasks` slices subscribed. (Those three badge slices *replaced* the old full-collection unread scans — that rework is exactly what freed the heavy collections below to idle.)
-- **`IDLE_GC_MS` (60s)** — heavy, screen-scoped collections that genuinely go idle. `messages`, `tasks`, `properties` and `resources` are subscribed only by the channel / build-unit / task / inbox routes; nothing always-mounted holds them. They stream only while such a view is open, close their long-poll 60s after the last live query unmounts, and resurrect + resume from OPFS on the next visit. (`resources` was the last holdout — kept eager until its persistence path was validated, then moved here.)
+- **`NEVER_GC` (`Infinity`)** — collections an *always-mounted* subscriber holds for the whole session, so GC would never fire anyway. The persistent web `<Sidebar>` — and the mobile Drawer's `DrawerContent` — keep the spine (`projects`, `build_units`, `channels`, `users`, `teams`) subscribed; their always-mounted badges keep the tiny user-scoped `seen_state`, `inbox_mentions` and `my_tasks` slices subscribed. (Those three badge slices *replaced* the old full-collection unread scans — that rework is exactly what freed the heavy collections below to idle.)
+- **`IDLE_GC_MS` (60s)** — heavy, screen-scoped collections that genuinely go idle. `messages`, `tasks`, `properties` and `resources` are subscribed only by the channel / build-unit / task / inbox routes; nothing always-mounted holds them. They stream only while such a view is open, close their long-poll 60s after the last live query unmounts, and resurrect + resume from the persisted offset (OPFS on web, expo-sqlite on mobile) on the next visit. (`resources` was the last holdout on both apps — and on mobile it was also the one collection not yet persisted, which had to be fixed first, since idle-GC without persistence refetches the whole shape on every resurrection.)
+
+**Both apps implement this two-tier model, and it pays off more on mobile** for two compounding reasons web doesn't get: (1) the drawer/leaf-screen navigation idles collections *constantly* — a channel closed, a sheet dismissed — where web's persistent sidebar kept the spine warm and rarely idled, so GC actually gets to fire; and (2) mobile shapes are **project-scoped** (§10), so a resurrected shape resumes a project-bounded row set, and the live working set is bounded by *(current project × current screen)* — a two-dimensional reduction where web gets only the screen dimension.
 
 The explicit `cleanup()` + rebuild on resync (above) is unchanged and orthogonal: it rebuilds collections whose *shape URL* must change because the membership-derived id set changed. Idle-GC closes and resumes the *same* shape; resync tears down and rebuilds a *different* one.
 
@@ -266,7 +268,7 @@ The tradeoff is documented candidly in `infrastructure/auth/server.ts` and is ac
 
 **Genuinely shared:** the backend, the Postgres schema, the tRPC contract, the Electric shape routes, and `@buildinlime/domain-types`.
 
-**Parallel but duplicated** (same design, two implementations): the collections layer, the actions layer, the offline executor wiring, and the mutation-fns. They are structurally near-identical and drift is a real risk — a `CONFLICT` code was once present in mobile's non-retriable set and missing from web's.
+**Parallel but duplicated** (same design, two implementations): the collections layer, the actions layer, the offline executor wiring, and the mutation-fns. They are structurally near-identical and drift is a real risk — a `CONFLICT` code was once present in mobile's non-retriable set and missing from web's. The lazy-load rework (timestamp `seen_state` replacing per-item `reads`, the `inbox_mentions` / `my_tasks` badge slices, and idle-GC on the heavy collections) was ported to mobile to keep the two in step; both now run it.
 
 **Deliberately different:**
 
@@ -279,6 +281,12 @@ The tradeoff is documented candidly in `infrastructure/auth/server.ts` and is ac
 | Connectivity | browser default | custom `OnlineDetector` over NetInfo |
 | File uploads | browser `FormData` | singleton upload manager with a persisted queue |
 | Auth transport | browser cookies | SecureStore + `cookie-fetch` wrapper |
+| Collection scope | all member channels across **every** project at once | the **selected** project's channels only, rebuilt on project switch |
+| "Mark seen" trigger | page unmount (`useEffect` cleanup) | screen **blur** (`useFocusEffect` cleanup) — the Drawer keeps screens mounted, so unmount never fires |
+
+The **collection-scope** difference is load-bearing for §6's resync and for the GC section above: mobile derives its channel-scoped shapes from the *selected* project's memberships, so switching projects tears down and rebuilds those collections, and a resurrected shape only ever spans one project.
+
+The **mark-seen trigger** difference is a genuine platform trap: web pages unmount on navigation, so seen-markers fire from `useEffect` cleanup; mobile's Drawer keeps `inbox`/`my-tasks` mounted across navigation, so the same pattern left the badges stale — the marks must fire on blur via `useFocusEffect` instead.
 
 Mobile's `OnlineDetector` exists because the library's built-in React Native detector notifies its listeners *before* updating its internal connected flag — the executor wakes, reads the stale offline value, and never schedules the retry, so transactions queued offline never drain on reconnect. The local implementation updates state first, then notifies, and is shared as a singleton between the executor and the upload manager.
 
