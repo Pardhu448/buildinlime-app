@@ -130,7 +130,15 @@ function _makeResourcesCollection(
           ),
         }),
         getKey: (item) => item.id,
-        gcTime: NEVER_GC,
+        // Idle-GC (not NEVER_GC): resources is subscribed ONLY by the channel
+        // Resources view and the message/task attachment sections — nothing
+        // always-mounted holds it (the Sidebar and badges never touch it). The
+        // shape carries metadata only; file bytes/thumbnails load from the
+        // separate /api/resources/:id/file route, so GC'ing this collection
+        // never affects a rendered thumbnail. Persisted at the shared v3, so the
+        // next Resources visit resurrects it and resumes from the OPFS offset
+        // rather than refetching. See IDLE_GC_MS.
+        gcTime: IDLE_GC_MS,
         // Resource deletes go through @tanstack/offline-transactions —
         // see application/actions/resources.ts.
       }),

@@ -56,18 +56,17 @@ export const retryOnMembershipsError = async (error: Error) => {
 // offset (changes_only) rather than refetching the whole shape — cheap.
 //
 // NEVER_GC is therefore no longer a correctness requirement; it is kept only
-// where GC would never fire ANYWAY (an always-mounted subscriber) or where we
-// have chosen not to enable it yet:
+// where GC would never fire ANYWAY, because an always-mounted subscriber holds
+// the collection for the whole session:
 //   - spine (projects/buildUnits/channels/users/teams): the persistent <Sidebar>
 //     keeps them subscribed for the whole session, so they never idle.
 //   - seen-state, inbox-mentions, my-tasks: the always-mounted Sidebar badges
 //     subscribe to these tiny user-scoped collections for the whole session, so
 //     they never idle. (These REPLACED the old full-collection badge scans; that
 //     rework is exactly what freed messages/tasks below to idle-GC.)
-//   - resources: persistence was only just added; kept eager until that path is
-//     validated, then it can move to IDLE_GC_MS.
-// messages, tasks and properties are now IDLE_GC_MS (see below) — nothing
-// always-mounted holds them anymore.
+// messages, tasks, properties and resources are now IDLE_GC_MS (see below) —
+// nothing always-mounted holds them anymore. (resources was the last holdout,
+// kept eager until its persistence path was validated.)
 export const NEVER_GC = Infinity
 
 // GC delay for collections that GENUINELY go idle (no always-mounted subscriber)
