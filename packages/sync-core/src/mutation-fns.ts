@@ -13,12 +13,28 @@ import type { AppRouter } from "@buildinlime/contracts"
 import { coerceBool } from "./collections"
 
 // NOTE: we intentionally do NOT call `collection.utils.awaitTxId(result.txid)`
-// after the tRPC mutation. Doing so jams the offline-transactions executor
-// because awaiting the txid through a `persistedCollectionOptions`-wrapped
-// Electric collection never resolves, so the outbox entry stays "pending"
-// forever, the FIFO queue grows, and the event loop ends up starved. Electric's
-// normal stream reconciles the optimistic row by id; the brief pre-reconciliation
-// window is harmless (ARCHITECTURE.md §12.6).
+// after the tRPC mutation. Electric's normal stream reconciles the optimistic row
+// by id, and the brief pre-reconciliation window has never produced an observable
+// flicker.
+//
+// This was once explained as an upstream limitation — that awaiting a txid through
+// a `persistedCollectionOptions`-wrapped collection "never resolves". That is NOT
+// true, so do not repeat it: `awaitTxId` takes a 5s timeout and REJECTS, the
+// persistence wrapper spreads `utils` through untouched, and web's projects /
+// build-units / channels collections have always run this exact handshake through
+// persisted collections (they return `{ txid }`, which electric-db-collection
+// awaits for them).
+//
+// What actually jammed the executor: the original pilot awaited INSIDE the
+// try/catch below. A timeout carries no `.data.code`, so wrapTrpcError rethrew it
+// as retriable, the executor re-ran the whole mutation-fn — re-issuing the tRPC
+// call — and timed out again, forever.
+//
+// So if you re-add it: keep it OUT of the retriable path and swallow a timeout
+// (the server has already committed; retrying re-issues the write and throwing
+// rolls back a mutation that succeeded), and skip it when the collection is
+// idle-GC'd, since GC aborts the shape stream that would carry the txid.
+// See ARCHITECTURE.md §12.6.
 
 type Inputs = inferRouterInputs<AppRouter>
 
