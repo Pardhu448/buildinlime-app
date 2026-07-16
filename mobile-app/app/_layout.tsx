@@ -106,7 +106,6 @@ function AuthGuard() {
     if (!isSigningOut) return
     let cancelled = false
     void (async () => {
-      console.log(">>> signOut: start")
       await clearProject()
       if (cancelled) return
       await waitForLiveQueryRelease()
@@ -115,7 +114,6 @@ function AuthGuard() {
       await signOutAndDispose()
       if (cancelled) return
       await clearAuthCookies()
-      console.log(">>> signOut: complete")
       // AuthGuard's session effect detects !session and navigates to login.
     })()
     return () => {
