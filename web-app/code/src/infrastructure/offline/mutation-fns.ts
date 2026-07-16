@@ -1,4 +1,5 @@
 import { NonRetriableError } from "@tanstack/offline-transactions"
+import { NON_RETRIABLE_TRPC_CODES as NON_RETRIABLE_CODE_LIST } from "@buildinlime/domain-types"
 import { trpc } from "%/infrastructure/trpc/lib/trpc-client"
 import { coerceBool } from "%/application/collections/_shared"
 
@@ -15,22 +16,13 @@ type MutationFn = (params: {
   idempotencyKey: string
 }) => Promise<unknown>
 
-// Exported for the parity guard test (tests/unit); compared against the
-// canonical list in @buildinlime/domain-types.
-export const NON_RETRIABLE_TRPC_CODES = new Set([
-  "BAD_REQUEST",
-  "UNAUTHORIZED",
-  "FORBIDDEN",
-  "NOT_FOUND",
-  // Retriable errors are retried FOREVER and the outbox drains strictly in order,
-  // so anything the server will never accept must fail fast or it wedges the queue
-  // and stalls every write behind it. CONFLICT (e.g. a duplicate task name) was
-  // missing here while mobile already had it.
-  "CONFLICT",
-  "PRECONDITION_FAILED",
-  "PAYLOAD_TOO_LARGE",
-  "UNPROCESSABLE_CONTENT",
-])
+// The single source of truth for these codes is @buildinlime/domain-types; we
+// derive the lookup Set from it so web and mobile can no longer drift (CONFLICT
+// once did — it was in mobile but missing here). Retriable errors are retried
+// FOREVER and the outbox drains strictly in order, so anything the server will
+// never accept must fail fast or it wedges the queue and stalls every write
+// behind it (ARCHITECTURE.md §5).
+export const NON_RETRIABLE_TRPC_CODES = new Set<string>(NON_RETRIABLE_CODE_LIST)
 
 function wrapTrpcError(err: unknown): never {
   const code = (err as { data?: { code?: string } } | null)?.data?.code

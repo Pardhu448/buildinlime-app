@@ -55,10 +55,10 @@ export type EntityType = typeof ENTITY_TYPES[number]
 // errors forever, so an error the server will never accept must fail fast or it
 // wedges the queue and stalls every write behind it (see ARCHITECTURE.md §5).
 //
-// Each client (web + mobile) keeps its own Set literal in offline/mutation-fns.ts
-// for zero-import locality on the hot path; those duplicates drifted once
-// (CONFLICT was missing from web). This list is the single source of truth the
-// parity unit tests assert both clients against.
+// Both clients derive their lookup Set directly from this list
+// (`new Set(NON_RETRIABLE_TRPC_CODES)` in each offline/mutation-fns.ts), so the
+// two can no longer drift. They once did — CONFLICT was in mobile but missing
+// from web — back when each kept its own hand-maintained literal.
 export const NON_RETRIABLE_TRPC_CODES = [
   "BAD_REQUEST",
   "UNAUTHORIZED",
