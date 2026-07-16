@@ -1,17 +1,16 @@
 import { router, authedProcedure, generateTxId } from "../lib/trpc"
-import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { eq, and, ilike } from "drizzle-orm"
+import { buildUnitsTable, projectsTable } from "../../database/schema/admin-schema"
 import {
-  buildUnitsTable,
-  projectsTable,
-  createBuildUnitSchema,
-  updateBuildUnitSchema,
-} from "../../database/schema/admin-schema"
+  createBuildUnitInput,
+  updateBuildUnitInput,
+  deleteBuildUnitInput,
+} from "@buildinlime/contracts"
 
 export const buildUnitsRouter = router({
   create: authedProcedure
-    .input(createBuildUnitSchema)
+    .input(createBuildUnitInput)
     .mutation(async ({ ctx, input }) => {
       // Only project owners can create build units
       const [project] = await ctx.db
@@ -50,12 +49,7 @@ export const buildUnitsRouter = router({
     }),
 
   update: authedProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        data: updateBuildUnitSchema,
-      })
-    )
+    .input(updateBuildUnitInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
@@ -84,7 +78,7 @@ export const buildUnitsRouter = router({
     }),
 
   delete: authedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(deleteBuildUnitInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)

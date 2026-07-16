@@ -1,29 +1,12 @@
 import { router, authedProcedure, generateTxId } from "../lib/trpc"
-import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { eq } from "drizzle-orm"
+import { tasksTable, resourcesTable } from "../../database/schema/admin-schema"
 import {
-  tasksTable,
-  resourcesTable,
-  createTaskSchema,
-} from "../../database/schema/admin-schema"
-
-/**
- * Only the fields a task's lifecycle may legitimately change.
- *
- * This used to be `updateTaskSchema` — a full partial — which meant any
- * authenticated user could set ANY column on ANY task, including `createdby_id`,
- * `channel_id` and `buildunit_id`: rewriting authorship or moving a task into
- * another channel entirely. The client only ever sent four fields, so nothing
- * broke, but nothing stopped it either.
- */
-const taskPatchSchema = z.object({
-  name: z.string().optional(),
-  description: z.string().optional(),
-  completed: z.boolean().optional(),
-  assignee_id: z.string().nullish(),
-  closed_at: z.coerce.date().optional(),
-})
+  createTaskInput,
+  updateTaskInput,
+  deleteTaskInput,
+} from "@buildinlime/contracts"
 
 /**
  * Did this error come from tasks_channel_name_unique — i.e. a duplicate task name
@@ -48,7 +31,7 @@ function isTaskNameConflict(err: unknown): boolean {
 
 export const tasksRouter = router({
   create: authedProcedure
-    .input(createTaskSchema)
+    .input(createTaskInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
@@ -90,12 +73,7 @@ export const tasksRouter = router({
     }),
 
   update: authedProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        data: taskPatchSchema,
-      })
-    )
+    .input(updateTaskInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
@@ -163,7 +141,7 @@ export const tasksRouter = router({
    * task page that no longer exists.
    */
   delete: authedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(deleteTaskInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)

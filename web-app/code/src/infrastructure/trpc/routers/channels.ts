@@ -7,13 +7,16 @@ import {
   buildUnitsTable,
   projectsTable,
   membershipTable,
-  createChannelSchema,
-  updateChannelSchema,
 } from "../../database/schema/admin-schema"
+import {
+  createChannelInput,
+  updateChannelInput,
+  deleteChannelInput,
+} from "@buildinlime/contracts"
 
 export const channelsRouter = router({
   create: authedProcedure
-    .input(createChannelSchema)
+    .input(createChannelInput)
     .mutation(async ({ ctx, input }) => {
       // Only project owners can create channels — walk buildUnit → project
       const [buildUnit] = await ctx.db
@@ -71,12 +74,7 @@ export const channelsRouter = router({
     }),
 
   update: authedProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        data: updateChannelSchema,
-      })
-    )
+    .input(updateChannelInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
@@ -204,7 +202,7 @@ export const channelsRouter = router({
     }),
 
   delete: authedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(deleteChannelInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)

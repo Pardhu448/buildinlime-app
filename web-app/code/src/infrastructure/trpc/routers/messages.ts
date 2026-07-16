@@ -1,16 +1,12 @@
 import { router, authedProcedure, generateTxId } from "../lib/trpc"
-import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { eq } from "drizzle-orm"
-import {
-  messagesTable,
-  resourcesTable,
-  createMessageSchema,
-} from "../../database/schema/admin-schema"
+import { messagesTable, resourcesTable } from "../../database/schema/admin-schema"
+import { createMessageInput, deleteMessageInput } from "@buildinlime/contracts"
 
 export const messagesRouter = router({
   create: authedProcedure
-    .input(createMessageSchema)
+    .input(createMessageInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
@@ -50,7 +46,7 @@ export const messagesRouter = router({
    * the message that carried them.
    */
   delete: authedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(deleteMessageInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)

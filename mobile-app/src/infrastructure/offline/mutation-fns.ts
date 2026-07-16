@@ -1,4 +1,13 @@
 import { NonRetriableError } from "@tanstack/offline-transactions"
+import {
+  NON_RETRIABLE_TRPC_CODES as NON_RETRIABLE_CODE_LIST,
+  type PropertyType,
+  type EntityType,
+  type StatusValue,
+  type PriorityValue,
+  type TaskStatusValue,
+  type ChannelName,
+} from "@buildinlime/domain-types"
 import { trpc } from "../trpc/client"
 import { coerceBool } from "../../application/collections/_shared"
 
@@ -15,18 +24,13 @@ type MutationFn = (params: {
   idempotencyKey: string
 }) => Promise<unknown>
 
-// Exported for the parity guard test (tests/); compared against the canonical
-// list in @buildinlime/domain-types.
-export const NON_RETRIABLE_TRPC_CODES = new Set([
-  "BAD_REQUEST",
-  "UNAUTHORIZED",
-  "FORBIDDEN",
-  "NOT_FOUND",
-  "CONFLICT",
-  "PRECONDITION_FAILED",
-  "PAYLOAD_TOO_LARGE",
-  "UNPROCESSABLE_CONTENT",
-])
+// The single source of truth for these codes is @buildinlime/domain-types; we
+// derive the lookup Set from it so mobile and web can no longer drift (CONFLICT
+// once did — it was here but missing from web). Retriable errors are retried
+// FOREVER and the outbox drains strictly in order, so anything the server will
+// never accept must fail fast or it wedges the queue and stalls every write
+// behind it (ARCHITECTURE.md §5).
+export const NON_RETRIABLE_TRPC_CODES = new Set<string>(NON_RETRIABLE_CODE_LIST)
 
 function wrapTrpcError(err: unknown): never {
   const code = (err as { data?: { code?: string } } | null)?.data?.code
@@ -204,16 +208,16 @@ const createProperty: MutationFn = async ({ transaction }) => {
   try {
     await trpc.properties.create.mutate({
       id: p.id as string,
-      type: p.type,
-      entity: p.entity,
+      type: p.type as PropertyType,
+      entity: p.entity as EntityType,
       entity_id: p.entity_id as string,
       // Denormalized channel scope — must reach the server, or a channel/task
       // property persists with a null channel_id and syncs back to nobody but
       // its creator (the properties shape matches them BY channel_id).
       channel_id: (p.channel_id as string | null) ?? null,
-      status_value: p.status_value ?? null,
-      priority_value: p.priority_value ?? null,
-      task_status_value: p.task_status_value ?? null,
+      status_value: (p.status_value as StatusValue | null) ?? null,
+      priority_value: (p.priority_value as PriorityValue | null) ?? null,
+      task_status_value: (p.task_status_value as TaskStatusValue | null) ?? null,
       target_date: (p.target_date as string | null) ?? null,
       start_date: (p.start_date as string | null) ?? null,
       pending_task: (p.pending_task as string | null) ?? null,
@@ -237,9 +241,9 @@ const updateProperty: MutationFn = async ({ transaction }) => {
     await trpc.properties.update.mutate({
       id: p.id as string,
       data: {
-        status_value: p.status_value ?? null,
-        priority_value: p.priority_value ?? null,
-        task_status_value: p.task_status_value ?? null,
+        status_value: (p.status_value as StatusValue | null) ?? null,
+        priority_value: (p.priority_value as PriorityValue | null) ?? null,
+        task_status_value: (p.task_status_value as TaskStatusValue | null) ?? null,
         target_date: (p.target_date as string | null) ?? null,
         start_date: (p.start_date as string | null) ?? null,
         pending_task: (p.pending_task as string | null) ?? null,
@@ -350,7 +354,7 @@ const createChannel: MutationFn = async ({ transaction }) => {
   try {
     await trpc.channels.create.mutate({
       id: c.id as string,
-      name: c.name,
+      name: c.name as ChannelName,
       description: (c.description as string | null) ?? null,
       buildunit_id: c.buildunit_id as string,
       owner_id: c.owner_id as string,
@@ -367,7 +371,7 @@ const updateChannel: MutationFn = async ({ transaction }) => {
     await trpc.channels.update.mutate({
       id: c.id as string,
       data: {
-        name: c.name,
+        name: c.name as ChannelName,
         description: (c.description as string | null) ?? null,
       },
     })

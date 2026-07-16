@@ -275,8 +275,10 @@ function _makePropertiesCollection(
             data: {
               status_value: p.status_value,
               priority_value: p.priority_value,
-              target_date: p.target_date,
-              start_date: p.start_date,
+              // The collection row widens these text columns to string | Date;
+              // the wire contract is string. They hold ISO strings at runtime.
+              target_date: p.target_date as string | null | undefined,
+              start_date: p.start_date as string | null | undefined,
               pending_task: p.pending_task,
             },
           })

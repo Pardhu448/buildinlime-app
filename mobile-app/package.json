@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@babel/traverse--for-generate-function-map": "npm:@babel/traverse@^7.29.0",
+    "@buildinlime/contracts": "workspace:*",
     "@buildinlime/domain-types": "workspace:*",
     "@electric-sql/client": "1.5.15",
     "@expo-google-fonts/instrument-sans": "^0.4.2",
