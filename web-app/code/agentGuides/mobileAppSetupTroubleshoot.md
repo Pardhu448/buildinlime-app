@@ -283,7 +283,9 @@ Then restart the web server for the change to take effect.
 
 ---
 
-## Issue 6: Messages/Data Stop Syncing After a Few Minutes (Electric Collections Silently Die)
+## Issue 6: Messages/Data Stop Syncing After a Few Minutes (Electric Collections Silently Die) — RESOLVED
+
+> Fixed and verified 2026-07-16. Kept for its symptom/diagnosis, which is the fastest way to recognise a stalled shape. **The Solution section is superseded — read the note there before applying any of it.**
 
 ### Symptom
 
@@ -331,9 +333,11 @@ If Postgres has newer rows than the device (and the Electric shape returns them 
 
 ### Solution
 
-> **⚠️ Partly superseded — read this first.** This section reflects the code as of 2026-07-09. The lazy-load work (2026-07-15) deliberately put `tasks`, `messages`, `resources` and `properties` back onto a finite `gcTime` (`IDLE_GC_MS`, 60s) precisely so their idle shapes DO close, and relies on a GC'd collection resurrecting when a live query subscribes again. Only the always-mounted spine and the badge slices are still `NEVER_GC`. So "`gcTime: Infinity` on **every** factory" below is no longer what the code does.
+> **✅ RESOLVED (verified 2026-07-16). The fix below has been superseded — do not apply it wholesale.**
 >
-> The two rest on opposite premises about the same library version (`@tanstack/db` 0.6.5, unchanged since before either was written), and step 5 of the root cause above is the disputed one. `changes.ts → addSubscriber()` reads:
+> "`gcTime: Infinity` on **every** factory" was the 2026-07-09 fix and is **no longer what the code does**. The lazy-load work (2026-07-15) deliberately put `tasks`, `messages`, `resources` and `properties` back onto a finite `gcTime` (`IDLE_GC_MS`, 60s) so their idle shapes *do* close, keeping only the always-mounted spine and the badge slices on `NEVER_GC`. That design depends on a GC'd collection **resurrecting** when a live query subscribes again — the direct opposite of step 5 above, on an identical `@tanstack/db` 0.6.5.
+>
+> Resurrection is real, on both counts that matter. In the source, `changes.ts → addSubscriber()`:
 >
 > ```js
 > // Start sync if collection was cleaned up
@@ -342,11 +346,11 @@ If Postgres has newer rows than the device (and the Electric shape returns them 
 > }
 > ```
 >
-> — i.e. the library *does* restart sync on resubscribe, which is the assumption the idle-GC design is built on. But this section documents a **reproduced** field failure with a clear diagnostic signature, and a source reading does not outrank that. The gap is most likely a collection that gets GC'd and is then read WITHOUT anything subscribing (resurrection is driven by `addSubscriber`, not by `startSyncImmediate` or a bare `.get()`).
+> And in the field: the verification below was re-run against the current two-tier GC — idle past the GC window, then send from web — and messages arrive live. **So step 5's "dead for the rest of the session" does not hold for the current code, and the two-tier GC is safe.**
 >
-> **Unresolved.** Re-run the verification below against the current two-tier GC before trusting either account. Until then, treat the steps here as the fallback if idle-GC'd collections are seen to stop syncing.
+> What was never re-established is why the ORIGINAL failure stayed dead, given that the library has always restarted sync on resubscribe. The likeliest explanation is a collection GC'd and then read WITHOUT anything subscribing — resurrection is driven by `addSubscriber`, not by `startSyncImmediate` or a bare `.get()` — so the original `NEVER_GC` fix worked by side-stepping GC rather than by addressing that. Keep the symptom and diagnosis above: they remain the fastest way to recognise a stalled shape if one ever recurs. Reach for the steps below only as a fallback, and prefer `NEVER_GC` on a *specific* collection over reverting the whole tiering.
 
-Disable GC on these session-scoped collections and tear them down explicitly instead:
+The historical fix — disable GC on these session-scoped collections and tear them down explicitly instead:
 
 1. **`gcTime: Infinity`** on every Electric collection factory (`organization.ts`, `communication.ts`, `admin.ts`). A non-finite `gcTime` makes `startGCTimer()` skip scheduling, so the sync never GC-aborts. See the shared `NEVER_GC` constant in `collections/_shared.ts`.
 2. **Explicit `cleanup()` on teardown**, since GC no longer does it for us: call `.cleanup()` on the old instance before replacing it (project switch / membership resync) and in the `reset*Collections()` paths (sign-out), *before* `disposePersistence()` deletes the DB. See the shared `safeCleanup()` helper.

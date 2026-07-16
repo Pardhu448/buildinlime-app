@@ -11,9 +11,19 @@ export { coerceBool, unwrapJsonb } from "@buildinlime/contracts"
 // TanStack DB's GC fires when a collection has no mounted live query, and its
 // cleanup ABORTS the Electric shape's long-poll — so GC is the lever for closing
 // an idle shape stream. A GC'd collection RESURRECTS the moment a live query
-// subscribes again (changes.addSubscriber() restarts sync), and because every
-// collection is wrapped in persistedCollectionOptions the restart RESUMES from the
-// persisted offset (changes_only) rather than refetching the whole shape.
+// subscribes again (changes.addSubscriber() restarts sync when the status is
+// `cleaned-up`/`idle`), and because every collection is wrapped in
+// persistedCollectionOptions the restart RESUMES from the persisted offset
+// (changes_only) rather than refetching the whole shape.
+//
+// Resurrection is load-bearing for the IDLE_GC tier, and it is verified, not
+// assumed: an earlier troubleshooting note (agentGuides/mobileAppSetupTroubleshoot
+// "Issue 6") claimed a GC-aborted shape stays dead for the session, which would
+// make this tier a data-loss bug. That was re-tested on 2026-07-16 against the
+// two-tier GC — idle past the window, then write from the other client — and the
+// stream resumes. Note the subtlety it turned on: resurrection is driven by
+// addSubscriber, so it needs a live query. startSyncImmediate or a bare .get()
+// will NOT revive a GC'd collection.
 //
 // Two tiers result:
 //   NEVER_GC   — collections an always-mounted subscriber holds for the whole
