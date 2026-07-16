@@ -28,13 +28,15 @@ A **Project** is a construction job. A **Build Unit** is a physical or logical p
 
 ## 2. Repository layout
 
-A pnpm workspace with three members:
+A pnpm workspace with five members:
 
 | Path | Package | Role |
 | --- | --- | --- |
 | `web-app/code` | `buildinlime` | The web client **and** the entire backend. TanStack Start (Vite + Nitro) serves both. |
 | `mobile-app` | `buildinlimemobile` | Expo / React Native client. Pure client — it has no server of its own. |
 | `packages/domain-types` | `@buildinlime/domain-types` | Framework-free domain constants and types shared by both clients. |
+| `packages/contracts` | `@buildinlime/contracts` | The wire contract: pure-zod tRPC input schemas (the server validates against them) plus a type-only tRPC router whose `typeof` is the `AppRouter` type mobile imports. See §5. |
+| `packages/sync-core` | `@buildinlime/sync-core` | One copy of the client write layer — the optimistic action factories and the offline outbox's mutation-fns — parameterized by injected platform primitives. See §5 and §10. |
 
 The `android/` and `ios/` directories at the **repo root are stale** — the live native projects are `mobile-app/android` and `mobile-app/ios`. Run Expo commands from `mobile-app/`.
 
@@ -149,9 +151,9 @@ sequenceDiagram
 
 The three moving parts:
 
-- **`application/actions/*.ts`** is the write API the UI calls. Each action is an offline action bound to a named `mutationFn`, with an `onMutate` that applies the optimistic change to the local collection. Collections deliberately reject direct `.insert()`/`.update()` calls outside an offline transaction — the resulting "no handler" error is the intended loud failure mode.
-- **`infrastructure/offline/mutation-fns.ts`** maps each `mutationFnName` to the tRPC call that replays it against the server. This is the only place tRPC is called from the client.
-- **`infrastructure/trpc/routers/*.ts`** applies the write in a transaction and returns a Postgres `txid` for Electric correlation.
+- **`application/actions/*.ts`** is the write API the UI calls. Each action is an offline action bound to a named `mutationFn`, with an `onMutate` that applies the optimistic change to the local collection. Collections deliberately reject direct `.insert()`/`.update()` calls outside an offline transaction — the resulting "no handler" error is the intended loud failure mode. The action *logic* lives once in `@buildinlime/sync-core` (`makeTaskActions`, `makeMessageActions`, …); each app's action file is a thin shim that binds a factory to its own executor and collection, injecting only what differs — the UUID source (`crypto` vs `expo-crypto`) and getters for the app's executor/collection (§10).
+- **`infrastructure/offline/mutation-fns.ts`** maps each `mutationFnName` to the tRPC call that replays it against the server. This is the only place tRPC is called from the client. Its logic also lives once in `sync-core` (`makeCoreMutationFns(trpc)`); web's file *is* the shared spine, and mobile's composes it with the few entities only it writes through the outbox (projects, build units, channels).
+- **`infrastructure/trpc/routers/*.ts`** applies the write in a transaction and returns a Postgres `txid` for Electric correlation. Every router validates its input against a shared pure-zod schema from `@buildinlime/contracts` rather than an inline or drizzle-generated one, so the *same* schema defines what the server accepts and (via §10's `AppRouter` type) what the clients are allowed to send.
 
 Three properties make this safe:
 
@@ -266,9 +268,11 @@ The tradeoff is documented candidly in `infrastructure/auth/server.ts` and is ac
 
 ## 10. Web ↔ mobile: shared, parallel, divergent
 
-**Genuinely shared:** the backend, the Postgres schema, the tRPC contract, the Electric shape routes, and `@buildinlime/domain-types`.
+**Genuinely shared** (one implementation, imported by both): the backend, the Postgres schema, the Electric shape routes, `@buildinlime/domain-types`, the wire contract (`@buildinlime/contracts` — the zod input schemas and the `AppRouter` type), and the client write layer (`@buildinlime/sync-core` — the optimistic action factories and the outbox's mutation-fns spine).
 
-**Parallel but duplicated** (same design, two implementations): the collections layer, the actions layer, the offline executor wiring, and the mutation-fns. They are structurally near-identical and drift is a real risk — a `CONFLICT` code was once present in mobile's non-retriable set and missing from web's. The lazy-load rework (timestamp `seen_state` replacing per-item `reads`, the `inbox_mentions` / `my_tasks` badge slices, and idle-GC on the heavy collections) was ported to mobile to keep the two in step; both now run it.
+**How the write layer is shared without erasing the platform differences.** The action and mutation-fns *logic* is identical between the apps; only a handful of primitives genuinely differ, so `sync-core` exposes **factories** that take those primitives as parameters. An action factory (`makeTaskActions`) is injected with a `randomUUID` (Web Crypto vs `expo-crypto`) and *getters* for the app's executor and collection — getters, not values, because web rebuilds its collections and executor on resync/project-switch, and the memoized actions are reset to rebind, so reading through a getter always targets the current instance. `makeCoreMutationFns` is injected with the app's tRPC client, typed structurally as `inferRouterInputs<AppRouter>` from the contract — and because both routers now validate against the *same* contract schemas, each app's real client satisfies that shape, keeping the shared payloads type-checked. Each app's `application/actions/*.ts` and `infrastructure/offline/mutation-fns.ts` are reduced to thin wiring shims.
+
+**Still parallel and duplicated:** the collections layer (the Electric/persisted collection definitions) and the offline-executor wiring. These stay per-app for now because they are the most platform-entangled — persistence engine, project-scoping, GC tiers — but the earlier drift risk they embodied has largely moved into shared code. (The `CONFLICT` code that was once in mobile's non-retriable set and missing from web's can no longer diverge: both derive it from `domain-types`.) The lazy-load rework (timestamp `seen_state` replacing per-item `reads`, the `inbox_mentions` / `my_tasks` badge slices, and idle-GC on the heavy collections) was ported to mobile to keep the two collection layers in step; both now run it.
 
 **Deliberately different:**
 
@@ -290,7 +294,7 @@ The **mark-seen trigger** difference is a genuine platform trap: web pages unmou
 
 Mobile's `OnlineDetector` exists because the library's built-in React Native detector notifies its listeners *before* updating its internal connected flag — the executor wakes, reads the stale offline value, and never schedules the retry, so transactions queued offline never drain on reconnect. The local implementation updates state first, then notifies, and is shared as a singleton between the executor and the upload manager.
 
-Mobile's tRPC client is typed `AppRouter = any` — **the end-to-end type safety stops at the mobile boundary.** Wiring the real `AppRouter` type across the workspace is the single highest-value cleanup available.
+Mobile's tRPC client is now typed with a real `AppRouter` imported from `@buildinlime/contracts`, so a server contract change breaks mobile at build time rather than silently at runtime. The `AppRouter` there is a *type-only* router: the contract assembles the procedures from the shared zod input schemas with stub resolvers, and mobile imports it with `import type`, so no server code (drizzle, Better Auth, the db connection) is dragged into the React Native bundle. It mirrors the surface mobile actually calls; the web client keeps using the server's own `typeof appRouter`. (This closed what earlier revisions of this document called "the single highest-value cleanup available" — see §12.4.)
 
 ---
 
@@ -311,8 +315,8 @@ These are the things to fix before this stops being a POC. Every one of them is 
 1. **File storage is the local filesystem.** `uploads/resources/` under the server's working directory. This pins the backend to a single machine — it cannot be horizontally scaled or serverless-deployed without moving to object storage.
 2. **Session revocation lags up to 50 seconds** (§9). Ban, sign-out-everywhere, and password-reset need a cache-bypass path.
 3. **Electric runs insecure** in the compose file. Production needs Electric's gatekeeper/auth configuration.
-4. **Mobile has no tRPC types** (`AppRouter = any`), so a server contract change breaks mobile silently at runtime rather than loudly at build time.
-5. **Client logic is duplicated** across the two apps' application layers. A shared package for collections and actions is the natural next step, and would have prevented the drift already observed.
+4. **Mobile tRPC types — RESOLVED.** Mobile was typed `AppRouter = any`, so a server contract change broke it silently at runtime. It now imports a real, type-only `AppRouter` from `@buildinlime/contracts` (§10), so such a change fails `pnpm typecheck`. Remaining gap: the contract router mirrors the surface mobile calls rather than being the *identical* object the server exports, so a procedure the server renames/removes is caught by the shared *input schemas* but not structurally on the router shape.
+5. **Client-logic duplication — MOSTLY RESOLVED.** The actions layer, the mutation-fns spine, and the non-retriable-code set are now single-sourced (`@buildinlime/sync-core` and `@buildinlime/domain-types` / `@buildinlime/contracts`), which removes the largest drift surface — the kind that had already produced the `CONFLICT` divergence. Still duplicated: the collections layer and the offline-executor wiring (§10), the most platform-entangled pieces; folding their common parts into `sync-core` is the natural next step.
 6. **The txid handshake is skipped.** `mutation-fns.ts` deliberately does not `awaitTxId()` after a tRPC mutation, because awaiting it through a persistence-wrapped Electric collection never resolves — the outbox entry stays pending forever and the event loop starves. Electric's normal stream reconciles by id instead, leaving a brief, harmless pre-reconciliation window. This is a workaround for an upstream limitation and should be revisited when the library allows.
 7. **No automated test coverage of the sync, bootstrap, or offline paths.** Vitest is configured; the intricate logic in §5 and §6 is currently protected only by its (excellent) comments.
 8. **The resource purge is never scheduled.** Soft-deleting a resource stamps `deleted_at` and stops serving the file, but the bytes are reclaimed only by `scripts/purge-resources.ts` (retention purge + orphan sweep), which is a manual, dry-run-by-default command with no cron, routine, or timer invoking it with `--apply`. Until it is scheduled, deleted files and orphaned uploads accumulate on disk indefinitely. Wiring up a periodic `pnpm purge:resources -- --apply` is future work.
@@ -331,8 +335,11 @@ These are the things to fix before this stops being a POC. Every one of them is 
 | Auth config | `web-app/code/src/infrastructure/auth/server.ts` |
 | File storage | `web-app/code/src/infrastructure/storage/fileStorage.ts` |
 | Bootstrap / resync | `web-app/code/src/presentation/routes/_authenticated.tsx` |
-| Collections (web / mobile) | `*/src/application/collections/` |
-| Actions (web / mobile) | `*/src/application/actions/` |
-| Offline outbox (web / mobile) | `*/src/infrastructure/offline/` |
+| Collections (web / mobile, still per-app) | `*/src/application/collections/` |
+| Actions — shared logic / per-app wiring | `packages/sync-core/src/actions/` / `*/src/application/actions/` |
+| Mutation-fns — shared spine / per-app wiring | `packages/sync-core/src/mutation-fns.ts` / `*/src/infrastructure/offline/mutation-fns.ts` |
+| Offline executor wiring (web / mobile, still per-app) | `*/src/infrastructure/offline/executor.ts` |
 | Mobile upload manager | `mobile-app/src/infrastructure/offline/upload-manager.ts` |
+| Wire contract (zod input schemas + `AppRouter` type) | `packages/contracts/src/` |
+| Shared client write layer (action + mutation-fns factories) | `packages/sync-core/src/` |
 | Shared domain types | `packages/domain-types/src/` |
