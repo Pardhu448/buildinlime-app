@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
-  StatusBar,
 } from "react-native"
 import { useRouter, useLocalSearchParams } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -32,7 +31,7 @@ export default function ChannelsScreen() {
   return (
     <View style={styles.container}>
       {/* Inline header with back button */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.navigate("/(tabs)" as any)}
@@ -90,7 +89,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: (StatusBar.currentHeight ?? 44) + 8,
+    // paddingTop applied inline from useSafeAreaInsets().top (real device inset).
     paddingBottom: 16,
     paddingHorizontal: 16,
     backgroundColor: colors.background,

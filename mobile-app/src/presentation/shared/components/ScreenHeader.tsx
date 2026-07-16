@@ -1,5 +1,6 @@
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from "react-native"
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { useNavigation, DrawerActions } from "@react-navigation/native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { colors } from "../colors"
 
 interface ScreenHeaderProps {
@@ -9,9 +10,10 @@ interface ScreenHeaderProps {
 
 export function ScreenHeader({ title, subtitle }: ScreenHeaderProps) {
   const navigation = useNavigation()
+  const insets = useSafeAreaInsets()
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <TouchableOpacity
         style={styles.menuButton}
         onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
@@ -37,7 +39,9 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: (StatusBar.currentHeight ?? 44) + 8,
+    // paddingTop is applied inline from useSafeAreaInsets().top — the real
+    // device inset (notch / dynamic island / status bar), which StatusBar
+    // .currentHeight (Android-only, undefined on iOS) got wrong.
     paddingBottom: 16,
     paddingHorizontal: 20,
     backgroundColor: colors.background,
