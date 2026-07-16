@@ -2,6 +2,7 @@
 // primitives (see platform.ts). One copy of the optimistic-action logic that web
 // and mobile both bind to their own executor + collections. See ARCHITECTURE.md §10.
 export * from "./platform"
+export * from "./mutation-fns"
 export * from "./actions/tasks"
 export * from "./actions/messages"
 export * from "./actions/properties"

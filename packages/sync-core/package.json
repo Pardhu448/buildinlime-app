@@ -9,8 +9,10 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@buildinlime/contracts": "workspace:*",
     "@buildinlime/domain-types": "workspace:*",
     "@tanstack/db": "^0.6.5",
-    "@tanstack/offline-transactions": "1.0.30"
+    "@tanstack/offline-transactions": "1.0.30",
+    "@trpc/server": "^11.7.2"
   }
 }
