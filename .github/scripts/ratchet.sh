@@ -7,10 +7,10 @@
 # baseline (a net regression); when a count drops, it says so and asks you to lower
 # the baseline, which is how the debt ratchets down.
 #
-# Chosen over a changed-files ratchet on purpose: whole-file conditions like
-# mobile's `AppRouter = any` (ARCHITECTURE.md §12.4) mean simply *touching* a dirty
-# file would fail a changed-files gate for errors you did not introduce. A count
-# baseline only punishes actually adding errors.
+# Chosen over a changed-files ratchet on purpose: whole-file dirty conditions
+# (historically mobile's `AppRouter = any`, since fixed by the contracts package)
+# mean simply *touching* a dirty file would fail a changed-files gate for errors
+# you did not introduce. A count baseline only punishes actually adding errors.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -60,6 +60,11 @@ check buildinlime typecheck
 check buildinlime lint
 check buildinlimemobile typecheck
 check buildinlimemobile lint
+# Shared packages were born clean → baseline 0, i.e. a hard typecheck gate.
+# (No lint entries: the packages have no eslint config yet.)
+check "@buildinlime/contracts" typecheck
+check "@buildinlime/sync-core" typecheck
+check "@buildinlime/domain-types" typecheck
 
 if [ "$fail" -ne 0 ]; then
   echo "" >> "$SUMMARY"

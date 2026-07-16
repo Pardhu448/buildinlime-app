@@ -14,5 +14,8 @@
     "@tanstack/db": "^0.6.5",
     "@tanstack/offline-transactions": "1.0.30",
     "@trpc/server": "^11.7.2"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
   }
 }

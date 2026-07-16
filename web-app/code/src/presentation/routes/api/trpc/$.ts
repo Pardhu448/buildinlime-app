@@ -1,35 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch"
-import { router } from "%/infrastructure/trpc/lib/trpc"
-import { projectsRouter } from "%/infrastructure/trpc/routers/projects"
-import { buildUnitsRouter } from "%/infrastructure/trpc/routers/buildunits"
-import { channelsRouter } from "%/infrastructure/trpc/routers/channels"
-import { propertiesRouter } from "%/infrastructure/trpc/routers/properties"
-import { tasksRouter } from "%/infrastructure/trpc/routers/tasks"
-import { usersRouter } from "%/infrastructure/trpc/routers/users"
-import { resourcesRouter } from "%/infrastructure/trpc/routers/resources"
-import { messagesRouter } from "%/infrastructure/trpc/routers/messages"
-import { teamsRouter } from "%/infrastructure/trpc/routers/teams"
-import { readsRouter } from "%/infrastructure/trpc/routers/reads"
-import { seenRouter } from "%/infrastructure/trpc/routers/seen"
+import { appRouter } from "%/infrastructure/trpc/routers/index"
 import { db } from "%/infrastructure/database/connection"
 import { auth } from "%/infrastructure/auth/server"
 
-export const appRouter = router({
-  projects: projectsRouter,
-  buildUnits: buildUnitsRouter,
-  channels: channelsRouter,
-  properties: propertiesRouter,
-  tasks: tasksRouter,
-  users: usersRouter,
-  resources: resourcesRouter,
-  messages: messagesRouter,
-  teams: teamsRouter,
-  reads: readsRouter,
-  seen: seenRouter,
-})
-
-export type AppRouter = typeof appRouter
+// Router composition lives in infrastructure/trpc/routers/index.ts so tests can
+// import it without this file's createFileRoute/auth/db baggage.
+export { appRouter } from "%/infrastructure/trpc/routers/index"
+export type { AppRouter } from "%/infrastructure/trpc/routers/index"
 
 const serve = ({ request }: { request: Request }) => {
   return fetchRequestHandler({
