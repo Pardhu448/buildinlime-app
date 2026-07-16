@@ -30,8 +30,7 @@ function _makeProjectsCollection(
     gcTime: NEVER_GC,
     persistence,
     handlers: {
-      // onInsert omitted — routed through @tanstack/offline-transactions
-      // (see application/actions/projects.ts → createProjectAction).
+      // onInsert omitted — projects are created on web only.
       onUpdate: async ({ transaction }: { transaction: { mutations: { modified: { id: string; name: string; description?: string | null } }[] } }) => {
         const { modified: p } = transaction.mutations[0]
         const result = await trpc.projects.update.mutate({
@@ -61,8 +60,7 @@ function _makeBuildUnitsCollection(
     getKey: (item: { id: string }) => item.id,
     gcTime: NEVER_GC,
     persistence,
-    // No handlers — writes routed through @tanstack/offline-transactions
-    // (see application/actions/buildunits.ts).
+    // No handlers — read-only on mobile; build units are managed on web.
   })
 }
 
@@ -78,8 +76,7 @@ function _makeChannelsCollection(
     getKey: (item: { id: string }) => item.id,
     gcTime: NEVER_GC,
     persistence,
-    // No handlers — writes routed through @tanstack/offline-transactions
-    // (see application/actions/channels.ts).
+    // No handlers — read-only on mobile; channels are managed on web.
   })
 }
 

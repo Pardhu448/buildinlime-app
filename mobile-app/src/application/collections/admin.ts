@@ -63,8 +63,7 @@ function _makeTeamsCollection(
     gcTime: NEVER_GC,
     persistence,
     handlers: {
-      // onInsert/onUpdate omitted — routed through
-      // @tanstack/offline-transactions (see application/actions/teams.ts).
+      // onInsert/onUpdate omitted — teams are created and edited on web only.
       onDelete: async ({ transaction }: { transaction: { mutations: { original: { id: string } }[] } }) => {
         const { original: t } = transaction.mutations[0]
         const result = await trpc.teams.delete.mutate({ id: t.id })
