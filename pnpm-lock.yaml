@@ -23,6 +23,9 @@ importers:
       '@buildinlime/domain-types':
         specifier: workspace:*
         version: link:../packages/domain-types
+      '@buildinlime/sync-core':
+        specifier: workspace:*
+        version: link:../packages/sync-core
       '@electric-sql/client':
         specifier: 1.5.15
         version: 1.5.15
@@ -201,6 +204,18 @@ importers:
 
   packages/domain-types: {}
 
+  packages/sync-core:
+    dependencies:
+      '@buildinlime/domain-types':
+        specifier: workspace:*
+        version: link:../domain-types
+      '@tanstack/db':
+        specifier: ^0.6.5
+        version: 0.6.5(typescript@5.9.3)
+      '@tanstack/offline-transactions':
+        specifier: 1.0.30
+        version: 1.0.30(@react-native-community/netinfo@11.5.2(react-native@0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0))(react@19.1.0))(react-native@0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0))(typescript@5.9.3)
+
   web-app/code:
     dependencies:
       '@buildinlime/contracts':
@@ -209,6 +224,9 @@ importers:
       '@buildinlime/domain-types':
         specifier: workspace:*
         version: link:../../packages/domain-types
+      '@buildinlime/sync-core':
+        specifier: workspace:*
+        version: link:../../packages/sync-core
       '@electric-sql/client':
         specifier: 1.5.15
         version: 1.5.15
