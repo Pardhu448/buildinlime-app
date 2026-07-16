@@ -38,7 +38,7 @@ export default function DrawerLayout() {
     if (!session?.user?.id || bootstrapStarted.current) return
     bootstrapStarted.current = true
     if (__DEV__) console.log("[layout] Starting bootstrap collections")
-    initBootstrapCollections()
+    initBootstrapCollections(session.user.id)
       .then(() => {
         if (__DEV__) console.log("[layout] Bootstrap ready")
         setBootstrapReady(true)

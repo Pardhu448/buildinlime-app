@@ -33,6 +33,7 @@ import {
   myTasksCollection,
 } from "./communication"
 import { membershipsShapeErrored, clearMembershipsShapeError } from "./_shared"
+import { ensureCleanPersistenceForUser } from "../../infrastructure/persistence/expo-persistence"
 
 // Memberships is the ONE collection both bootstrap phases derive their scope
 // from, so it gets its own load gate. The obvious one — wait until isReady() —
@@ -155,8 +156,14 @@ export function membershipSetsChanged(projectId: string | null): boolean {
 // Phase 1 — Bootstrap: memberships + projects + users.
 // Called immediately after login. Enough for the project picker screen.
 // ---------------------------------------------------------------------------
-export async function initBootstrapCollections(): Promise<void> {
+export async function initBootstrapCollections(userId: string): Promise<void> {
   const t0 = __DEV__ ? Date.now() : 0
+
+  // Wipe the local DB if it belongs to a different user BEFORE any collection
+  // opens it — otherwise the new user can inherit stale rows and, worse, stale
+  // Electric sync offsets that suppress their own rows. See
+  // ensureCleanPersistenceForUser.
+  await ensureCleanPersistenceForUser(userId)
 
   initializeMembershipsCollection()
   await loadMembershipsCollection()
