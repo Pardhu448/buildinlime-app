@@ -117,6 +117,19 @@ export function getPersistence(): PersistenceTrio {
 // a fresh login rebuilds everything. Fully eliminating it means aborting
 // every collection's sync stream before this runs (deliberately not done).
 export async function disposePersistence(): Promise<void> {
+  // Clear the owner marker FIRST, unconditionally (even if _trio is already null
+  // or the delete below fails/races). A null marker means "wipe for whoever signs
+  // in next": ensureCleanPersistenceForUser then wipes on the NEXT sign-in — same
+  // user or different — and retries the delete, so a raced/failed delete here can
+  // no longer leave the next session resuming from a stale Electric offset (which
+  // manifested as missing build units). App restart WITHOUT sign-out keeps the
+  // marker, so session-restore still preserves the offline cache.
+  try {
+    await SecureStore.deleteItemAsync(PERSISTENCE_OWNER_KEY)
+  } catch {
+    // best-effort
+  }
+
   if (!_trio) return
   if (__DEV__) console.log(`[SQLite] Disposing persistence…`)
   const trio = _trio
@@ -126,6 +139,6 @@ export async function disposePersistence(): Promise<void> {
     await deleteDatabaseAsync(DATABASE_NAME)
     if (__DEV__) console.log(`[SQLite] Persistence disposed, database file removed`)
   } catch {
-    if (__DEV__) console.warn(`[SQLite] Dispose failed (best-effort)`)
+    if (__DEV__) console.warn(`[SQLite] Dispose failed (best-effort) — next sign-in will re-wipe`)
   }
 }
