@@ -1,10 +1,8 @@
 import {
   userRowSchema,
-  teamRowSchema,
   membershipRowSchema,
   seenStateRowSchema,
 } from "@buildinlime/contracts"
-import { trpc } from "../../infrastructure/trpc/client"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
 import { defineCollection, retryOnMembershipsError, NEVER_GC, safeCleanup } from "./_shared"
 
@@ -52,27 +50,6 @@ function _makeSeenStateCollection(
   })
 }
 
-function _makeTeamsCollection(
-  persistence: ReturnType<typeof getPersistence>["persistence"],
-) {
-  return defineCollection({
-    id: `teams`,
-    path: `/api/teams`,
-    schema: teamRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
-    persistence,
-    handlers: {
-      // onInsert/onUpdate omitted — teams are created and edited on web only.
-      onDelete: async ({ transaction }: { transaction: { mutations: { original: { id: string } }[] } }) => {
-        const { original: t } = transaction.mutations[0]
-        const result = await trpc.teams.delete.mutate({ id: t.id })
-        return { txid: result.txid }
-      },
-    },
-  })
-}
-
 function _makeMembershipsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
 ) {
@@ -95,7 +72,6 @@ function _makeMembershipsCollection(
 // ES-module live bindings ensure importers always read the current value.
 // ---------------------------------------------------------------------------
 export let usersCollection: ReturnType<typeof _makeUsersCollection> = null!
-export let teamsCollection: ReturnType<typeof _makeTeamsCollection> = null!
 export let membershipsCollection: ReturnType<typeof _makeMembershipsCollection> = null!
 export let seenStateCollection: ReturnType<typeof _makeSeenStateCollection> = null!
 
@@ -111,12 +87,6 @@ export function initializeSeenStateCollection() {
   seenStateCollection = _makeSeenStateCollection(persistence)
 }
 
-export function initializeTeamsCollection() {
-  const { persistence } = getPersistence()
-  safeCleanup(teamsCollection)
-  teamsCollection = _makeTeamsCollection(persistence)
-}
-
 export function initializeMembershipsCollection() {
   const { persistence } = getPersistence()
   safeCleanup(membershipsCollection)
@@ -126,11 +96,9 @@ export function initializeMembershipsCollection() {
 export function resetAdminCollections() {
   // Stop sync before dropping the references (GC won't do it — it's disabled).
   safeCleanup(usersCollection)
-  safeCleanup(teamsCollection)
   safeCleanup(membershipsCollection)
   safeCleanup(seenStateCollection)
   usersCollection = null!
-  teamsCollection = null!
   membershipsCollection = null!
   seenStateCollection = null!
 }

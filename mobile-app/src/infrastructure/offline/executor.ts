@@ -30,8 +30,9 @@ export async function initOfflineExecutor(): Promise<OfflineExecutor> {
   }
   const executor = startOfflineExecutor({
     // Only the collections mobile actually writes through the outbox. Projects,
-    // build units, channels and teams are web-only creations — mobile reads them
-    // but drives no mutations against them.
+    // build units and channels are web-only creations — mobile reads them but
+    // drives no mutations against them. Teams are web-only outright: mobile
+    // neither reads nor writes them, so it syncs no teams collection at all.
     collections: {
       tasks: tasksCollection,
       messages: messagesCollection,

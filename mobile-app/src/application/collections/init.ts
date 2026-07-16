@@ -1,12 +1,10 @@
 import {
   initializeMembershipsCollection,
   initializeUsersCollection,
-  initializeTeamsCollection,
   initializeSeenStateCollection,
   resetAdminCollections,
   membershipsCollection,
   usersCollection,
-  teamsCollection,
   seenStateCollection,
 } from "./admin"
 import {
@@ -201,7 +199,7 @@ export async function initBootstrapCollections(userId: string): Promise<void> {
 
 // ---------------------------------------------------------------------------
 // Phase 2 — Scoped: build units, channels, tasks, messages, resources,
-// properties, teams — all filtered to a single project.
+// properties — all filtered to a single project.
 // Must be called AFTER initBootstrapCollections() has completed.
 // ---------------------------------------------------------------------------
 export async function initProjectCollections(projectId: string): Promise<void> {
@@ -226,14 +224,12 @@ export async function initProjectCollections(projectId: string): Promise<void> {
   initializeOrganizationCollections(membershipParams)
   initializeCommunicationCollections({ memberChannelIds })
   initializePropertiesCollection(membershipParams)
-  initializeTeamsCollection()
 
   // Properties are scoped by entity_id + channel_id (no task-id dependency), so
   // they start in the same parallel batch — no need to wait for tasks to land.
   buildUnitsCollection.startSyncImmediate()
   channelsCollection.startSyncImmediate()
   channelMembersCollection.startSyncImmediate()
-  teamsCollection.startSyncImmediate()
   tasksCollection.startSyncImmediate()
   messagesCollection.startSyncImmediate()
   resourcesCollection.startSyncImmediate()
