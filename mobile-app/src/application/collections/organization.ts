@@ -4,7 +4,6 @@ import {
   channelRowSchema,
   membershipRowSchema,
 } from "@buildinlime/contracts"
-import { trpc } from "../../infrastructure/trpc/client"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
 import { defineCollection, NEVER_GC, safeCleanup } from "./_shared"
 
@@ -29,22 +28,7 @@ function _makeProjectsCollection(
     getKey: (item: { id: string }) => item.id,
     gcTime: NEVER_GC,
     persistence,
-    handlers: {
-      // onInsert omitted — projects are created on web only.
-      onUpdate: async ({ transaction }: { transaction: { mutations: { modified: { id: string; name: string; description?: string | null } }[] } }) => {
-        const { modified: p } = transaction.mutations[0]
-        const result = await trpc.projects.update.mutate({
-          id: p.id,
-          data: { name: p.name, description: p.description },
-        })
-        return { txid: result.txid }
-      },
-      onDelete: async ({ transaction }: { transaction: { mutations: { original: { id: string } }[] } }) => {
-        const { original: p } = transaction.mutations[0]
-        const result = await trpc.projects.delete.mutate({ id: p.id })
-        return { txid: result.txid }
-      },
-    },
+    // No handlers — read-only on mobile; projects are managed on web.
   })
 }
 
