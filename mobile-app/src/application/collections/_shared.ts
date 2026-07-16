@@ -1,10 +1,15 @@
 // Shared helpers used across Electric collection files. The framework-free common
-// parts (shape retry, memberships error tracking, GC tiers, coerceBool) live once
-// in @buildinlime/sync-core; this file re-exports them and adds the mobile-only bits.
-import { makeShapeRetry } from "@buildinlime/sync-core"
+// parts (shape retry, memberships error tracking, GC tiers, the wire coercions) and
+// the collection factory itself live once in @buildinlime/sync-core; this file
+// injects the mobile platform primitives and re-exports the result.
+import { createCollection } from "@tanstack/react-db"
+import { electricCollectionOptions } from "@tanstack/electric-db-collection"
+import { persistedCollectionOptions } from "@tanstack/expo-db-sqlite-persistence"
+import { makeShapeRetry, makeCollectionOptionsBuilder } from "@buildinlime/sync-core"
+import type { CollectionSpec } from "@buildinlime/sync-core"
 import { createCookieFetch } from "../../infrastructure/auth/cookie-fetch"
 
-export { NEVER_GC, IDLE_GC_MS, coerceBool } from "@buildinlime/sync-core"
+export { NEVER_GC, IDLE_GC_MS, coerceBool, unwrapJsonb } from "@buildinlime/sync-core"
 
 export const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://10.0.2.2:3000"
 export const cookieFetch = createCookieFetch()
@@ -35,9 +40,6 @@ export function safeCleanup(
   }
 }
 
-export const unwrapJsonb = (v: unknown) =>
-  typeof v === "string" && v.startsWith('"') ? JSON.parse(v) : v
-
 // Hermes (React Native) cannot parse PostgreSQL's timestamp format
 // "2024-01-15 10:30:00.123456+00" — it needs strict ISO 8601 with 'T' separator.
 const normalizeTs = (d: string) =>
@@ -55,3 +57,29 @@ export const parser = {
   // runs on client mutations, not on rows arriving from sync.
   int8: (v: string) => Number(v),
 }
+
+const buildCollectionOptions = makeCollectionOptionsBuilder({
+  electricCollectionOptions,
+  persistedCollectionOptions,
+  baseUrl: apiUrl,
+  parser,
+  fetchClient: cookieFetch,
+  retryOnError,
+})
+
+/**
+ * Builds a persisted Electric collection with mobile's primitives baked in: the
+ * expo-sqlite persistence builder, the LAN/emulator API host, the Hermes-safe
+ * parser, and the cookie-jar fetch RN's own fetch does not provide.
+ *
+ * Each collection file passes only what genuinely differs per table — see
+ * CollectionSpec in sync-core. schemaVersion is deliberately NOT a parameter: every
+ * collection must share one, or the persistence adapter cache forks.
+ *
+ * The `as any` is the same one that used to sit at every collection site: the
+ * builders' options types don't compose, and createCollection is what recovers a
+ * properly typed Collection from it.
+ */
+export const defineCollection = (spec: CollectionSpec) =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createCollection(buildCollectionOptions(spec) as any)

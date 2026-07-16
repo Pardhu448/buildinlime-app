@@ -1,51 +1,31 @@
-import { createCollection } from "@tanstack/react-db"
-import { electricCollectionOptions } from "@tanstack/electric-db-collection"
-import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence"
-import { z } from "zod"
 import {
-  selectProjectSchema,
-  selectBuildUnitSchema,
-  selectChannelSchema,
-  selectMembershipSchema,
-  MEMBERSHIP_ROLES,
-} from "%/infrastructure/database/schema/admin-schema"
+  projectRowSchema,
+  buildUnitRowSchema,
+  channelRowSchema,
+  membershipRowSchema,
+} from "@buildinlime/contracts"
 import { trpc } from "%/infrastructure/trpc/lib/trpc-client"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
-import { retryOnError, retryOnMembershipsError, coerceBool, origin, NEVER_GC } from "./_shared"
+import { defineCollection, retryOnMembershipsError, NEVER_GC } from "./_shared"
 
-const electricMembershipSchema = selectMembershipSchema.extend({
-  member_flag: z.preprocess(coerceBool, z.boolean()),
-  role: z.enum(MEMBERSHIP_ROLES).default(`viewer`),
-})
-
-const MEMBERSHIPS_SCHEMA_VERSION = 3
+// Row schemas come from @buildinlime/contracts — one copy, shared with mobile and
+// asserted against the drizzle tables server-side. See ARCHITECTURE.md §10.
 
 function _makeMembershipsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
 ) {
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `memberships`,
-        shapeOptions: {
-          url: new URL(`/api/memberships`, origin).toString(),
-          // Reports the error before retrying, so the bootstrap can tell a clean
-          // empty sync apart from a shape that failed and was marked ready anyway
-          // — see retryOnMembershipsError.
-          onError: retryOnMembershipsError,
-          parser: {
-            timestamptz: (date: string) => new Date(date),
-          },
-        },
-        schema: electricMembershipSchema,
-        getKey: (item) => item.id,
-        gcTime: NEVER_GC,
-      }),
-      persistence,
-      schemaVersion: MEMBERSHIPS_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+  return defineCollection({
+    id: `memberships`,
+    path: `/api/memberships`,
+    schema: membershipRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    gcTime: NEVER_GC,
+    persistence,
+    // Reports the error before retrying, so the bootstrap can tell a clean empty
+    // sync apart from a shape that failed and was marked ready anyway — see
+    // retryOnMembershipsError.
+    onError: retryOnMembershipsError,
+  })
 }
 
 // Deferred export — initialized by initializeMembershipsCollection()
@@ -70,34 +50,21 @@ export async function initializeMembershipsCollection() {
 // membership-change trigger when the visible channel set changes (Phase 4).
 // ---------------------------------------------------------------------------
 
-const CHANNEL_MEMBERS_SCHEMA_VERSION = 3
-
 function _makeChannelMembersCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   channelIds: string[],
 ) {
-  const url = new URL(`/api/channel-members`, origin)
-  if (channelIds.length > 0) url.searchParams.set(`channel_ids`, channelIds.join(`,`))
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `channel-members`,
-        shapeOptions: {
-          url: url.toString(),
-          onError: retryOnError,
-          parser: {
-            timestamptz: (date: string) => new Date(date),
-          },
-        },
-        schema: electricMembershipSchema,
-        getKey: (item) => item.id,
-        gcTime: NEVER_GC,
-      }),
-      persistence,
-      schemaVersion: CHANNEL_MEMBERS_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+  return defineCollection({
+    id: `channel-members`,
+    path: `/api/channel-members`,
+    // Note the param name: this route takes `channel_ids`, not the `member_ids` the
+    // projects/buildunits/channels routes take.
+    params: { channel_ids: channelIds },
+    schema: membershipRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    gcTime: NEVER_GC,
+    persistence,
+  })
 }
 
 // Deferred export — initialized by initializeChannelMembersCollection().
@@ -117,67 +84,52 @@ export async function initializeChannelMembersCollection(params: { channelIds: s
 // the per-poll membership table scan on the server side.
 // ---------------------------------------------------------------------------
 
-const PROJECTS_SCHEMA_VERSION = 3
-
 function _makeProjectsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberProjectIds: string[],
 ) {
-  const url = new URL(`/api/projects`, origin)
-  if (memberProjectIds.length > 0) url.searchParams.set(`member_ids`, memberProjectIds.join(`,`))
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `projects`,
-        shapeOptions: {
-          url: url.toString(),
-          onError: retryOnError,
-          parser: {
-            timestamptz: (date: string) => {
-              return new Date(date)
-            },
+  return defineCollection({
+    id: `projects`,
+    path: `/api/projects`,
+    params: { member_ids: memberProjectIds },
+    schema: projectRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    gcTime: NEVER_GC,
+    persistence,
+    handlers: {
+      onInsert: async ({ transaction }: { transaction: { mutations: { modified: { id: string; name: string; description?: string | null; owner_id: string } }[] } }) => {
+        const { modified: newProject } = transaction.mutations[0]
+        const result = await trpc.projects.create.mutate({
+          id: newProject.id,
+          name: newProject.name,
+          description: newProject.description,
+          owner_id: newProject.owner_id,
+        })
+
+        return { txid: result.txid }
+      },
+      onUpdate: async ({ transaction }: { transaction: { mutations: { modified: { id: string; name: string; description?: string | null } }[] } }) => {
+        const { modified: updatedProject } = transaction.mutations[0]
+        const result = await trpc.projects.update.mutate({
+          id: updatedProject.id,
+          data: {
+            name: updatedProject.name,
+            description: updatedProject.description,
           },
-        },
-        schema: selectProjectSchema,
-        getKey: (item) => item.id,
-        gcTime: NEVER_GC,
-        onInsert: async ({ transaction }) => {
-          const { modified: newProject } = transaction.mutations[0]
-          const result = await trpc.projects.create.mutate({
-            id: newProject.id,
-            name: newProject.name,
-            description: newProject.description,
-            owner_id: newProject.owner_id,
-          })
+        })
 
-          return { txid: result.txid }
-        },
-        onUpdate: async ({ transaction }) => {
-          const { modified: updatedProject } = transaction.mutations[0]
-          const result = await trpc.projects.update.mutate({
-            id: updatedProject.id,
-            data: {
-              name: updatedProject.name,
-              description: updatedProject.description,
-            },
-          })
+        return { txid: result.txid }
+      },
+      onDelete: async ({ transaction }: { transaction: { mutations: { original: { id: string } }[] } }) => {
+        const { original: deletedProject } = transaction.mutations[0]
+        const result = await trpc.projects.delete.mutate({
+          id: deletedProject.id,
+        })
 
-          return { txid: result.txid }
-        },
-        onDelete: async ({ transaction }) => {
-          const { original: deletedProject } = transaction.mutations[0]
-          const result = await trpc.projects.delete.mutate({
-            id: deletedProject.id,
-          })
-
-          return { txid: result.txid }
-        },
-      }),
-      persistence,
-      schemaVersion: PROJECTS_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+        return { txid: result.txid }
+      },
+    },
+  })
 }
 
 // Registry allowing UI components to be notified when a build unit insert
@@ -193,75 +145,60 @@ export function registerBuildUnitInsertCallback(
   _buildUnitInsertCallbacks.set(id, { resolve, reject })
 }
 
-const BUILD_UNITS_SCHEMA_VERSION = 3
-
 function _makeBuildUnitsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberBuildunitIds: string[],
 ) {
-  const url = new URL(`/api/buildunits`, origin)
-  if (memberBuildunitIds.length > 0) url.searchParams.set(`member_ids`, memberBuildunitIds.join(`,`))
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `build-units`,
-        shapeOptions: {
-          url: url.toString(),
-          onError: retryOnError,
-          parser: {
-            timestamptz: (date: string) => {
-              return new Date(date)
-            },
+  return defineCollection({
+    id: `build-units`,
+    path: `/api/buildunits`,
+    params: { member_ids: memberBuildunitIds },
+    schema: buildUnitRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    gcTime: NEVER_GC,
+    persistence,
+    handlers: {
+      onInsert: async ({ transaction }: { transaction: { mutations: { modified: { id: string; name: string; description?: string | null; project_id: string; owner_id: string } }[] } }) => {
+        const { modified: newBuildUnit } = transaction.mutations[0]
+        try {
+          const result = await trpc.buildUnits.create.mutate({
+            id: newBuildUnit.id,
+            name: newBuildUnit.name,
+            description: newBuildUnit.description,
+            project_id: newBuildUnit.project_id,
+            owner_id: newBuildUnit.owner_id,
+          })
+          _buildUnitInsertCallbacks.get(newBuildUnit.id)?.resolve()
+          _buildUnitInsertCallbacks.delete(newBuildUnit.id)
+          return { txid: result.txid }
+        } catch (err) {
+          _buildUnitInsertCallbacks.get(newBuildUnit.id)?.reject(err instanceof Error ? err : new Error(String(err)))
+          _buildUnitInsertCallbacks.delete(newBuildUnit.id)
+          throw err
+        }
+      },
+      onUpdate: async ({ transaction }: { transaction: { mutations: { modified: { id: string; name: string; description?: string | null } }[] } }) => {
+        const { modified: updatedBuildUnit } = transaction.mutations[0]
+        const result = await trpc.buildUnits.update.mutate({
+          id: updatedBuildUnit.id,
+          data: {
+            name: updatedBuildUnit.name,
+            description: updatedBuildUnit.description,
           },
-        },
-        schema: selectBuildUnitSchema,
-        getKey: (item) => item.id,
-        gcTime: NEVER_GC,
-        onInsert: async ({ transaction }) => {
-          const { modified: newBuildUnit } = transaction.mutations[0]
-          try {
-            const result = await trpc.buildUnits.create.mutate({
-              id: newBuildUnit.id,
-              name: newBuildUnit.name,
-              description: newBuildUnit.description,
-              project_id: newBuildUnit.project_id,
-              owner_id: newBuildUnit.owner_id,
-            })
-            _buildUnitInsertCallbacks.get(newBuildUnit.id)?.resolve()
-            _buildUnitInsertCallbacks.delete(newBuildUnit.id)
-            return { txid: result.txid }
-          } catch (err) {
-            _buildUnitInsertCallbacks.get(newBuildUnit.id)?.reject(err instanceof Error ? err : new Error(String(err)))
-            _buildUnitInsertCallbacks.delete(newBuildUnit.id)
-            throw err
-          }
-        },
-        onUpdate: async ({ transaction }) => {
-          const { modified: updatedBuildUnit } = transaction.mutations[0]
-          const result = await trpc.buildUnits.update.mutate({
-            id: updatedBuildUnit.id,
-            data: {
-              name: updatedBuildUnit.name,
-              description: updatedBuildUnit.description,
-            },
-          })
+        })
 
-          return { txid: result.txid }
-        },
-        onDelete: async ({ transaction }) => {
-          const { original: deletedBuildUnit } = transaction.mutations[0]
-          const result = await trpc.buildUnits.delete.mutate({
-            id: deletedBuildUnit.id,
-          })
+        return { txid: result.txid }
+      },
+      onDelete: async ({ transaction }: { transaction: { mutations: { original: { id: string } }[] } }) => {
+        const { original: deletedBuildUnit } = transaction.mutations[0]
+        const result = await trpc.buildUnits.delete.mutate({
+          id: deletedBuildUnit.id,
+        })
 
-          return { txid: result.txid }
-        },
-      }),
-      persistence,
-      schemaVersion: BUILD_UNITS_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+        return { txid: result.txid }
+      },
+    },
+  })
 }
 
 // Registry allowing UI components to be notified when a channel insert
@@ -277,75 +214,60 @@ export function registerChannelInsertCallback(
   _channelInsertCallbacks.set(id, { resolve, reject })
 }
 
-const CHANNELS_SCHEMA_VERSION = 3
-
 function _makeChannelsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  const url = new URL(`/api/channels`, origin)
-  if (memberChannelIds.length > 0) url.searchParams.set(`member_ids`, memberChannelIds.join(`,`))
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `channels`,
-        shapeOptions: {
-          url: url.toString(),
-          onError: retryOnError,
-          parser: {
-            timestamptz: (date: string) => {
-              return new Date(date)
-            },
+  return defineCollection({
+    id: `channels`,
+    path: `/api/channels`,
+    params: { member_ids: memberChannelIds },
+    schema: channelRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    gcTime: NEVER_GC,
+    persistence,
+    handlers: {
+      onInsert: async ({ transaction }: { transaction: { mutations: { modified: { id: string; name: never; description?: string | null; buildunit_id: string; owner_id: string } }[] } }) => {
+        const { modified: newChannel } = transaction.mutations[0]
+        try {
+          const result = await trpc.channels.create.mutate({
+            id: newChannel.id,
+            name: newChannel.name,
+            description: newChannel.description,
+            buildunit_id: newChannel.buildunit_id,
+            owner_id: newChannel.owner_id,
+          })
+          _channelInsertCallbacks.get(newChannel.id)?.resolve()
+          _channelInsertCallbacks.delete(newChannel.id)
+          return { txid: result.txid }
+        } catch (err) {
+          _channelInsertCallbacks.get(newChannel.id)?.reject(err instanceof Error ? err : new Error(String(err)))
+          _channelInsertCallbacks.delete(newChannel.id)
+          throw err
+        }
+      },
+      onUpdate: async ({ transaction }: { transaction: { mutations: { modified: { id: string; name: never; description?: string | null } }[] } }) => {
+        const { modified: updatedChannel } = transaction.mutations[0]
+        const result = await trpc.channels.update.mutate({
+          id: updatedChannel.id,
+          data: {
+            name: updatedChannel.name,
+            description: updatedChannel.description,
           },
-        },
-        schema: selectChannelSchema,
-        getKey: (item) => item.id,
-        gcTime: NEVER_GC,
-        onInsert: async ({ transaction }) => {
-          const { modified: newChannel } = transaction.mutations[0]
-          try {
-            const result = await trpc.channels.create.mutate({
-              id: newChannel.id,
-              name: newChannel.name,
-              description: newChannel.description,
-              buildunit_id: newChannel.buildunit_id,
-              owner_id: newChannel.owner_id,
-            })
-            _channelInsertCallbacks.get(newChannel.id)?.resolve()
-            _channelInsertCallbacks.delete(newChannel.id)
-            return { txid: result.txid }
-          } catch (err) {
-            _channelInsertCallbacks.get(newChannel.id)?.reject(err instanceof Error ? err : new Error(String(err)))
-            _channelInsertCallbacks.delete(newChannel.id)
-            throw err
-          }
-        },
-        onUpdate: async ({ transaction }) => {
-          const { modified: updatedChannel } = transaction.mutations[0]
-          const result = await trpc.channels.update.mutate({
-            id: updatedChannel.id,
-            data: {
-              name: updatedChannel.name,
-              description: updatedChannel.description,
-            },
-          })
+        })
 
-          return { txid: result.txid }
-        },
-        onDelete: async ({ transaction }) => {
-          const { original: deletedChannel } = transaction.mutations[0]
-          const result = await trpc.channels.delete.mutate({
-            id: deletedChannel.id,
-          })
+        return { txid: result.txid }
+      },
+      onDelete: async ({ transaction }: { transaction: { mutations: { original: { id: string } }[] } }) => {
+        const { original: deletedChannel } = transaction.mutations[0]
+        const result = await trpc.channels.delete.mutate({
+          id: deletedChannel.id,
+        })
 
-          return { txid: result.txid }
-        },
-      }),
-      persistence,
-      schemaVersion: CHANNELS_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+        return { txid: result.txid }
+      },
+    },
+  })
 }
 
 // ---------------------------------------------------------------------------
