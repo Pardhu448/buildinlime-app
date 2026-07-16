@@ -10,6 +10,7 @@ import {
   type SeenScope,
 } from "@buildinlime/domain-types"
 import type { AppRouter } from "@buildinlime/contracts"
+import { coerceBool } from "./collections"
 
 // NOTE: we intentionally do NOT call `collection.utils.awaitTxId(result.txid)`
 // after the tRPC mutation. Doing so jams the offline-transactions executor
@@ -37,9 +38,6 @@ export function wrapTrpcError(err: unknown): never {
   }
   throw err instanceof Error ? err : new Error(String(err))
 }
-
-// Electric returns boolean columns as the string "true"/"false".
-const coerceBool = (v: unknown) => v === `true` || v === true
 
 // The subset of the tRPC client the shared mutation-fns call. Typed with the
 // contract input types — both apps' routers `.input()` from the same contracts, so
