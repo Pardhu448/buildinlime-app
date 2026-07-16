@@ -306,7 +306,7 @@ Everything works at first, then after a while the app stops receiving updates:
 
 Mobile is exposed because its drawer/leaf-screen navigation routinely leaves collections with **0 subscribers** (e.g. on a channel screen, the build-units/channels/projects/tasks collections have no mounted query). The **web app dodges this by accident** — a persistent `<Sidebar>` holds always-on `useLiveQuery` subscriptions to `projects`/`buildUnits`/`channels`/`users`/`teams`, so their subscriber count never hits 0 and GC never starts. Mobile has no such persistent subscriber.
 
-> This compounds with a second, separate design choice: `mutation-fns.ts` deliberately **skips `awaitTxId`**, so a confirmed write's optimistic row is discarded on commit and relies on the Electric stream to redeliver it. When the stream is GC-killed, that redelivery never happens — turning "harmless brief window" into "permanent disappearance."
+> This compounds with a second, separate design choice: `mutation-fns.ts` deliberately **skips `awaitTxId`**, so a confirmed write's optimistic row is discarded on commit and relies on the Electric stream to redeliver it. If the stream is dead, that redelivery never happens — turning "harmless brief window" into "permanent disappearance." That reasoning is sound, but note it inherits the "dead for the session" premise questioned below, and `awaitTxId` would not have rescued it either: against a dead shape the txid never arrives, so the await times out and the optimistic row is dropped regardless. The cure for this symptom is keeping the shape alive, not the handshake. For why the handshake is skipped — and why the reason recorded for it was wrong — see ARCHITECTURE.md §12.6.
 
 ### Diagnosis
 
@@ -330,6 +330,21 @@ docker exec <postgres> psql -U postgres -d electric -c "SELECT count(*) FROM mes
 If Postgres has newer rows than the device (and the Electric shape returns them on a manual resume from the device's stored offset), the shape is stalled client-side.
 
 ### Solution
+
+> **⚠️ Partly superseded — read this first.** This section reflects the code as of 2026-07-09. The lazy-load work (2026-07-15) deliberately put `tasks`, `messages`, `resources` and `properties` back onto a finite `gcTime` (`IDLE_GC_MS`, 60s) precisely so their idle shapes DO close, and relies on a GC'd collection resurrecting when a live query subscribes again. Only the always-mounted spine and the badge slices are still `NEVER_GC`. So "`gcTime: Infinity` on **every** factory" below is no longer what the code does.
+>
+> The two rest on opposite premises about the same library version (`@tanstack/db` 0.6.5, unchanged since before either was written), and step 5 of the root cause above is the disputed one. `changes.ts → addSubscriber()` reads:
+>
+> ```js
+> // Start sync if collection was cleaned up
+> if (this.lifecycle.status === `cleaned-up` || this.lifecycle.status === `idle`) {
+>   this.sync.startSync()
+> }
+> ```
+>
+> — i.e. the library *does* restart sync on resubscribe, which is the assumption the idle-GC design is built on. But this section documents a **reproduced** field failure with a clear diagnostic signature, and a source reading does not outrank that. The gap is most likely a collection that gets GC'd and is then read WITHOUT anything subscribing (resurrection is driven by `addSubscriber`, not by `startSyncImmediate` or a bare `.get()`).
+>
+> **Unresolved.** Re-run the verification below against the current two-tier GC before trusting either account. Until then, treat the steps here as the fallback if idle-GC'd collections are seen to stop syncing.
 
 Disable GC on these session-scoped collections and tear them down explicitly instead:
 
