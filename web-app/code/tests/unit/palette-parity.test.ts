@@ -93,10 +93,14 @@ const SHARED: Record<string, string> = {
   iconChip: "icon-chip",
 }
 
-// Mobile tokens with no web counterpart. Empty for now — every mobile token has
-// one. Kept because the asymmetry is likely to return: mobile has no hover
-// states, so web's --primary-hover has no mobile twin and is not listed here.
-const MOBILE_ONLY: readonly string[] = []
+// Mobile tokens with no web counterpart, and why. The reverse asymmetry is not
+// listed: web's --primary-hover and --primary-disabled have no mobile twin
+// because a touch screen has no hover and the buttons do not grey out.
+const MOBILE_ONLY: readonly string[] = [
+  // Web's dialogs dim with Tailwind's bg-black/50 rather than a theme colour,
+  // so there is no --scrim to compare against.
+  "scrim",
+]
 
 // Colours that are deliberately outside the brand palette. Each is a decision
 // someone already made; listing them here is what makes a NEW one fail loudly.
@@ -122,12 +126,6 @@ const KNOWN_EXCEPTIONS: Record<string, string> = {
   "#9ca3af": "mobile: neutral gray-400",
   "#6b7280": "mobile: neutral gray-500",
   "#4b5563": "mobile: neutral gray-600",
-
-  // Mobile — scrims behind modals and sheets, written as rgba(0,0,0,α) and
-  // rgba(255,255,255,α). Only visible to this guard since it learned to read
-  // rgb()/rgba(). Black is not a brand colour and should not become a token;
-  // white already is one (--background), so only black needs listing.
-  "#000000": "mobile: modal/sheet scrim, rgba(0,0,0,0.4) and 0.6",
 
   // Web — colours that cannot be tokens, because CSS custom properties do not
   // reach them. Neither will ever graduate.
@@ -231,8 +229,10 @@ describe("brand palette", () => {
     // Sanity: a scan that finds no files would pass silently.
     expect(files.length).toBeGreaterThanOrEqual(100)
 
+    // Token values go through coloursIn too: mobile's scrim is rgba(0,0,0,0.4),
+    // so a hex-only read of the token file would not know black was declared.
     const allowed = new Set<string>([
-      ...Object.values(mobileTokens).map((v) => v.toLowerCase()),
+      ...Object.values(mobileTokens).flatMap((v) => coloursIn(v)),
       ...Object.values(webRootVars()),
       ...Object.keys(KNOWN_EXCEPTIONS),
     ])

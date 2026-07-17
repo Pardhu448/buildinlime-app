@@ -30,4 +30,11 @@ module.exports = {
   cardBorder: "#e5d4c1",
   iconChip: "#f0e5d8",
   destructive: "#d4183d",
+  /**
+   * The dim behind a modal or bottom sheet. rgba rather than hex because the
+   * alpha is the whole point — it was written out at all five backdrops before
+   * it had a name. Web has no twin: its dialogs use bg-black/50 from Tailwind's
+   * own palette.
+   */
+  scrim: "rgba(0,0,0,0.4)",
 }

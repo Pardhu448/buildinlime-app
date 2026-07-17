@@ -26,6 +26,7 @@ import "react-native-reanimated"
 import { useSession, signOutAndDispose, clearAuthCookies } from "@/src/infrastructure/auth/client"
 import { ProjectProvider, useProjectContext } from "@/src/application/context/ProjectContext"
 import { waitForLiveQueryRelease } from "@/src/application/collections/live-query-release"
+import { colors } from "@/src/presentation/shared/colors"
 
 export { ErrorBoundary } from "expo-router"
 
@@ -125,7 +126,7 @@ function AuthGuard() {
   if (isPending || isSigningOut) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator size="large" color="#976623" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     )
   }
