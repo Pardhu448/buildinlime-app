@@ -198,7 +198,7 @@ export function LoginForm() {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Your full name"
                     required
-                    className="w-full bg-[#f3f3f5] border border-[#ac7f5e] rounded-[10px] pl-12 pr-4 py-3 font-['Instrument_Sans',sans-serif] text-[16px] text-[#1e1e1e] placeholder:text-[#717182] focus:outline-none focus:ring-2 focus:ring-[#976623]"
+                    className="w-full bg-input-background border border-[#ac7f5e] rounded-[10px] pl-12 pr-4 py-3 font-['Instrument_Sans',sans-serif] text-[16px] text-[#1e1e1e] placeholder:text-[#717182] focus:outline-none focus:ring-2 focus:ring-[#976623]"
                     style={{ fontVariationSettings: "'wdth' 100" }}
                   />
                 </div>
@@ -221,7 +221,7 @@ export function LoginForm() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full bg-[#f3f3f5] border border-[#ac7f5e] rounded-[10px] pl-12 pr-4 py-3 font-['Instrument_Sans',sans-serif] text-[16px] text-[#1e1e1e] placeholder:text-[#717182] focus:outline-none focus:ring-2 focus:ring-[#976623]"
+                  className="w-full bg-input-background border border-[#ac7f5e] rounded-[10px] pl-12 pr-4 py-3 font-['Instrument_Sans',sans-serif] text-[16px] text-[#1e1e1e] placeholder:text-[#717182] focus:outline-none focus:ring-2 focus:ring-[#976623]"
                   style={{ fontVariationSettings: "'wdth' 100" }}
                 />
               </div>
@@ -264,7 +264,7 @@ export function LoginForm() {
                 }}
                 placeholder="Enter 6-digit code"
                 required
-                className="w-full bg-[#f3f3f5] border border-[#ac7f5e] rounded-[10px] px-4 py-3 font-['Instrument_Sans',sans-serif] text-[16px] text-[#1e1e1e] placeholder:text-[#717182] focus:outline-none focus:ring-2 focus:ring-[#976623] tracking-[8px] text-center"
+                className="w-full bg-input-background border border-[#ac7f5e] rounded-[10px] px-4 py-3 font-['Instrument_Sans',sans-serif] text-[16px] text-[#1e1e1e] placeholder:text-[#717182] focus:outline-none focus:ring-2 focus:ring-[#976623] tracking-[8px] text-center"
                 style={{ fontVariationSettings: "'wdth' 100" }}
                 maxLength={6}
               />
