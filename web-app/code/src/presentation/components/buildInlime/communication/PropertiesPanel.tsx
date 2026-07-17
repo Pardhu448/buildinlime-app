@@ -1,12 +1,30 @@
-import { useState } from "react";
-import type { FormEvent } from "react";
-import { Plus, Trash2, Circle, Flag, Target, CalendarDays, AlertCircle, Percent, Tag, CheckCircle2 } from "lucide-react";
-import type { Property } from "%/domain/communication/types";
-import { Modal } from "../shared/Modal";
-import { Input, Select, Label } from "../shared/FormField";
-import { PROPERTY_TYPES, STATUS_VALUES, PRIORITY_VALUES, TASK_STATUS_VALUES } from "%/domain/shared/types";
-import { createPropertyAction, updatePropertyAction, deletePropertyAction } from "%/application/actions/properties";
-import { useSession } from "%/infrastructure/auth/client";
+import { useState } from "react"
+import type { FormEvent } from "react"
+import { Plus, Trash2, Circle, Flag, Target, CalendarDays, AlertCircle, Percent, Tag, CheckCircle2 } from "lucide-react"
+import type { Property } from "%/domain/communication/types"
+import { Modal } from "../shared/Modal"
+import { Select, Label } from "../shared/FormField"
+import { PROPERTY_TYPES } from "%/domain/shared/types"
+import { createPropertyAction, updatePropertyAction, deletePropertyAction } from "%/application/actions/properties"
+import { useSession } from "%/infrastructure/auth/client"
+import {
+  STATUS_VALUE_LABELS,
+  PRIORITY_LABELS,
+  TASK_STATUS_LABELS,
+  STATUS_PILL_STYLES,
+  PRIORITY_PILL_STYLES,
+  TASK_STATUS_PILL_STYLES,
+  DEFAULT_PILL,
+  type PillStyle,
+} from "./PropertyPill"
+import {
+  PROPERTY_TYPE_LABELS,
+  DEFAULT_VALUE_STATE,
+  valueStateFrom,
+  buildPropertyValues,
+  PropertyValueInput,
+  type ValueState,
+} from "./property-form"
 
 export interface PropertiesPanelProps {
   properties: Property[];
@@ -16,85 +34,10 @@ export interface PropertiesPanelProps {
   label?: string;
 }
 
-// ── Shared label maps ─────────────────────────────────────────────────────────
-
-const PROPERTY_TYPE_LABELS: Record<string, string> = {
-  status:           "Status",
-  priority:         "Priority",
-  targetDate:       "Target Date",
-  startDate:        "Start Date",
-  pendingTask:      "Pending Task",
-  percent_complete: "Percent Complete",
-  label:            "Label",
-  taskStatus:       "Task Status",
-}
-
-const PILL_LABELS: Record<typeof PROPERTY_TYPES[number], string> = {
-  status:           "Status",
-  priority:         "Priority",
-  targetDate:       "Target",
-  startDate:        "Start",
-  pendingTask:      "Pending",
-  percent_complete: "% Done",
-  label:            "Label",
-  taskStatus:       "Task Status",
-}
-
-const TASK_STATUS_LABELS: Record<typeof TASK_STATUS_VALUES[number], string> = {
-  open:      "Open",
-  completed: "Completed",
-}
-
-const STATUS_VALUE_LABELS: Record<typeof STATUS_VALUES[number], string> = {
-  critical: "Critical",
-  high:     "High",
-  medium:   "Medium",
-  low:      "Low",
-}
-
-const PRIORITY_LABELS: Record<string, string> = {
-  notStarted:  "Not Started",
-  inProgress:  "In Progress",
-  onTrack:     "On Track",
-  atRisk:      "At Risk",
-  backLog:     "Backlog",
-  overBudget:  "Over Budget",
-  onHold:      "On Hold",
-  completed:   "Completed",
-  cancelled:   "Cancelled",
-}
-
-// ── Pill styling (same palette as PropertiesInline) ───────────────────────────
-
-type PillStyle = { bg: string; border: string; text: string }
-
-const DEFAULT_PILL: PillStyle = { bg: "bg-icon-chip", border: "border-card-border", text: "text-foreground" }
-
-const STATUS_PILL_STYLES: Record<string, PillStyle> = {
-  critical: { bg: "bg-red-100",    border: "border-red-200",    text: "text-red-700"    },
-  high:     { bg: "bg-orange-100", border: "border-orange-200", text: "text-orange-700" },
-  medium:   { bg: "bg-yellow-100", border: "border-yellow-200", text: "text-yellow-700" },
-  low:      { bg: "bg-green-100",  border: "border-green-200",  text: "text-green-700"  },
-}
-
-const PRIORITY_PILL_STYLES: Record<string, PillStyle> = {
-  notStarted:  { bg: "bg-gray-100",   border: "border-gray-200",   text: "text-gray-600"   },
-  inProgress:  { bg: "bg-blue-100",   border: "border-blue-200",   text: "text-blue-700"   },
-  onTrack:     { bg: "bg-green-100",  border: "border-green-200",  text: "text-green-700"  },
-  atRisk:      { bg: "bg-orange-100", border: "border-orange-200", text: "text-orange-700" },
-  backLog:     { bg: "bg-gray-100",   border: "border-gray-200",   text: "text-gray-500"   },
-  overBudget:  { bg: "bg-red-100",    border: "border-red-200",    text: "text-red-700"    },
-  onHold:      { bg: "bg-yellow-100", border: "border-yellow-200", text: "text-yellow-700" },
-  completed:   { bg: "bg-green-100",  border: "border-green-300",  text: "text-green-800"  },
-  cancelled:   { bg: "bg-gray-100",   border: "border-gray-200",   text: "text-gray-400"   },
-}
-
-const TASK_STATUS_PILL_STYLES: Record<string, PillStyle> = {
-  open:      { bg: "bg-blue-100",  border: "border-blue-200",  text: "text-blue-700"  },
-  completed: { bg: "bg-green-100", border: "border-green-300", text: "text-green-800" },
-}
-
 // ── Value pill (right column) ─────────────────────────────────────────────────
+// A smaller, value-spelling variant of PropertyPill: it shows "—" for an unset
+// value (where PropertyPill falls back to the type name) and uses a tighter
+// h-6/2.5 sizing, so it stays its own component rather than a PropertyPill flag.
 
 function ValuePill({ property }: { property: Property }) {
   let icon: React.ReactNode
@@ -139,7 +82,7 @@ function ValuePill({ property }: { property: Property }) {
     case "taskStatus": {
       style = TASK_STATUS_PILL_STYLES[property.task_status_value ?? ""] ?? DEFAULT_PILL
       icon = <CheckCircle2 className={`w-2.5 h-2.5 shrink-0 ${style.text}`} />
-      label = TASK_STATUS_LABELS[property.task_status_value ?? ""] ?? "—"
+      label = TASK_STATUS_LABELS[property.task_status_value ?? "open"] ?? "—"
       break
     }
     default:
@@ -152,39 +95,6 @@ function ValuePill({ property }: { property: Property }) {
       <span className={`text-xs font-medium ${style.text} whitespace-nowrap`}>{label}</span>
     </div>
   )
-}
-
-// ── Add-property form (same logic as PropertiesInline) ────────────────────────
-
-type ValueState = {
-  statusValue:     typeof STATUS_VALUES[number];
-  priorityValue:   typeof PRIORITY_VALUES[number];
-  taskStatusValue: typeof TASK_STATUS_VALUES[number];
-  dateValue:       string;
-  textValue:       string;
-  labelValue:      string;
-}
-
-const DEFAULT_VALUE_STATE: ValueState = {
-  statusValue:     "critical",
-  priorityValue:   "notStarted",
-  taskStatusValue: "open",
-  dateValue:       "",
-  textValue:       "",
-  labelValue:      "",
-}
-
-function valueStateFrom(property: Property | undefined): ValueState {
-  if (!property) return DEFAULT_VALUE_STATE;
-  return {
-    ...DEFAULT_VALUE_STATE,
-    statusValue:     property.status_value ?? DEFAULT_VALUE_STATE.statusValue,
-    priorityValue:   property.priority_value ?? DEFAULT_VALUE_STATE.priorityValue,
-    taskStatusValue: property.task_status_value ?? DEFAULT_VALUE_STATE.taskStatusValue,
-    dateValue:       property.target_date ?? property.start_date ?? "",
-    textValue:       property.percent_complete ?? property.pending_task ?? "",
-    labelValue:      property.label_value ?? "",
-  };
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -222,27 +132,7 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
 
     setIsSubmitting(true);
     try {
-      const values = {
-        status_value:      null as typeof STATUS_VALUES[number]   | null,
-        priority_value:    null as typeof PRIORITY_VALUES[number] | null,
-        task_status_value: null as typeof TASK_STATUS_VALUES[number] | null,
-        target_date:       null as string | null,
-        start_date:        null as string | null,
-        pending_task:      null as string | null,
-        percent_complete:  null as string | null,
-        label_value:       null as string | null,
-      };
-
-      switch (selectedType) {
-        case "status":           values.status_value      = valueState.statusValue;     break;
-        case "priority":         values.priority_value    = valueState.priorityValue;   break;
-        case "taskStatus":       values.task_status_value = valueState.taskStatusValue; break;
-        case "targetDate":       values.target_date       = valueState.dateValue;       break;
-        case "startDate":        values.start_date        = valueState.dateValue;       break;
-        case "pendingTask":      values.pending_task      = valueState.textValue;       break;
-        case "percent_complete": values.percent_complete  = valueState.textValue;       break;
-        case "label":            values.label_value       = valueState.labelValue;      break;
-      }
+      const values = buildPropertyValues(selectedType, valueState);
 
       const existing = byType.get(selectedType);
       if (existing) {
@@ -260,86 +150,6 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
       setIsPopupOpen(false);
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const renderValueInput = () => {
-    switch (selectedType) {
-      case "status":
-        return (
-          <Select
-            value={valueState.statusValue}
-            onChange={(e) => setValueState((v) => ({ ...v, statusValue: e.target.value as typeof STATUS_VALUES[number] }))}
-          >
-            {STATUS_VALUES.map((v) => (
-              <option key={v} value={v}>{STATUS_VALUE_LABELS[v]}</option>
-            ))}
-          </Select>
-        );
-      case "priority":
-        return (
-          <Select
-            value={valueState.priorityValue}
-            onChange={(e) => setValueState((v) => ({ ...v, priorityValue: e.target.value as typeof PRIORITY_VALUES[number] }))}
-          >
-            {PRIORITY_VALUES.map((v) => (
-              <option key={v} value={v}>{PRIORITY_LABELS[v]}</option>
-            ))}
-          </Select>
-        );
-      case "targetDate":
-      case "startDate":
-        return (
-          <Input
-            type="date"
-            value={valueState.dateValue}
-            onChange={(e) => setValueState((v) => ({ ...v, dateValue: e.target.value }))}
-            required
-          />
-        );
-      case "pendingTask":
-        return (
-          <Input
-            type="text"
-            value={valueState.textValue}
-            onChange={(e) => setValueState((v) => ({ ...v, textValue: e.target.value }))}
-            placeholder="Describe the pending task"
-            required
-          />
-        );
-      case "percent_complete":
-        return (
-          <Input
-            type="number"
-            min="0"
-            max="100"
-            value={valueState.textValue}
-            onChange={(e) => setValueState((v) => ({ ...v, textValue: e.target.value }))}
-            placeholder="0–100"
-            required
-          />
-        );
-      case "taskStatus":
-        return (
-          <Select
-            value={valueState.taskStatusValue}
-            onChange={(e) => setValueState((v) => ({ ...v, taskStatusValue: e.target.value as typeof TASK_STATUS_VALUES[number] }))}
-          >
-            {TASK_STATUS_VALUES.map((v) => (
-              <option key={v} value={v}>{TASK_STATUS_LABELS[v]}</option>
-            ))}
-          </Select>
-        );
-      case "label":
-        return (
-          <Input
-            type="text"
-            value={valueState.labelValue}
-            onChange={(e) => setValueState((v) => ({ ...v, labelValue: e.target.value }))}
-            placeholder="Enter label text"
-            required
-          />
-        );
     }
   };
 
@@ -413,7 +223,11 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
           </div>
           <div>
             <Label>Property Value</Label>
-            {renderValueInput()}
+            <PropertyValueInput
+              selectedType={selectedType}
+              valueState={valueState}
+              setValueState={setValueState}
+            />
           </div>
           <button
             type="submit"

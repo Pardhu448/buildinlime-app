@@ -1,13 +1,21 @@
-import { useState, useRef, useEffect } from "react";
-import type { FormEvent } from "react";
-import { Plus, MoreHorizontal } from "lucide-react";
-import { Modal } from "../shared/Modal";
-import { Input, Select, Label } from "../shared/FormField";
-import type { Property } from "%/domain/communication/types";
-import { PROPERTY_TYPES, STATUS_VALUES, PRIORITY_VALUES, TASK_STATUS_VALUES, ENTITY_TYPES } from "%/domain/shared/types";
-import { createPropertyAction, updatePropertyAction } from "%/application/actions/properties";
-import { useSession } from "%/infrastructure/auth/client";
-import { PropertyPill, TASK_STATUS_LABELS, STATUS_VALUE_LABELS, PRIORITY_LABELS } from "./PropertyPill";
+import { useState, useRef, useEffect } from "react"
+import type { FormEvent } from "react"
+import { Plus, MoreHorizontal } from "lucide-react"
+import { Modal } from "../shared/Modal"
+import { Select, Label } from "../shared/FormField"
+import type { Property } from "%/domain/communication/types"
+import { PROPERTY_TYPES, ENTITY_TYPES } from "%/domain/shared/types"
+import { createPropertyAction, updatePropertyAction } from "%/application/actions/properties"
+import { useSession } from "%/infrastructure/auth/client"
+import { PropertyPill } from "./PropertyPill"
+import {
+  PROPERTY_TYPE_LABELS,
+  DEFAULT_VALUE_STATE,
+  valueStateFrom,
+  buildPropertyValues,
+  PropertyValueInput,
+  type ValueState,
+} from "./property-form"
 
 export interface PropertiesInlineProps {
   properties: Property[];
@@ -20,51 +28,6 @@ export interface PropertiesInlineProps {
   // denormalized channel_id must be the task's channel (channel-entity
   // properties derive it from entity_id; build-unit/project have none).
   channelId?: string;
-}
-
-// Full labels used in the add-property form selects
-const PROPERTY_TYPE_LABELS: Record<typeof PROPERTY_TYPES[number], string> = {
-  status:           "Status",
-  priority:         "Priority",
-  targetDate:       "Target Date",
-  startDate:        "Start Date",
-  pendingTask:      "Pending Task",
-  percent_complete: "Percent Complete",
-  label:            "Label",
-  taskStatus:       "Task Status",
-}
-
-type ValueState = {
-  statusValue: typeof STATUS_VALUES[number];
-  priorityValue: typeof PRIORITY_VALUES[number];
-  taskStatusValue: typeof TASK_STATUS_VALUES[number];
-  dateValue: string;
-  textValue: string;
-  labelValue: string;
-};
-
-const DEFAULT_VALUE_STATE: ValueState = {
-  statusValue: "critical",
-  priorityValue: "notStarted",
-  taskStatusValue: "open",
-  dateValue: "",
-  textValue: "",
-  labelValue: "",
-};
-
-/** Prefill the form with a property's current value, so re-setting a type edits
- *  it rather than starting from a blank default the user has to re-enter. */
-function valueStateFrom(property: Property | undefined): ValueState {
-  if (!property) return DEFAULT_VALUE_STATE;
-  return {
-    ...DEFAULT_VALUE_STATE,
-    statusValue: property.status_value ?? DEFAULT_VALUE_STATE.statusValue,
-    priorityValue: property.priority_value ?? DEFAULT_VALUE_STATE.priorityValue,
-    taskStatusValue: property.task_status_value ?? DEFAULT_VALUE_STATE.taskStatusValue,
-    dateValue: property.target_date ?? property.start_date ?? "",
-    textValue: property.percent_complete ?? property.pending_task ?? "",
-    labelValue: property.label_value ?? "",
-  };
 }
 
 const VISIBLE_LIMIT = 4;
@@ -114,139 +77,13 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
     onAddProperty?.();
   };
 
-  const renderValueInput = () => {
-    switch (selectedType) {
-      case "status":
-        return (
-          <Select
-            value={valueState.statusValue}
-            onChange={(e) =>
-              setValueState((v) => ({ ...v, statusValue: e.target.value as typeof STATUS_VALUES[number] }))
-            }
-          >
-            {STATUS_VALUES.map((v) => (
-              <option key={v} value={v}>{STATUS_VALUE_LABELS[v]}</option>
-            ))}
-          </Select>
-        );
-      case "priority":
-        return (
-          <Select
-            value={valueState.priorityValue}
-            onChange={(e) =>
-              setValueState((v) => ({ ...v, priorityValue: e.target.value as typeof PRIORITY_VALUES[number] }))
-            }
-          >
-            {PRIORITY_VALUES.map((v) => (
-              <option key={v} value={v}>{PRIORITY_LABELS[v]}</option>
-            ))}
-          </Select>
-        );
-      case "targetDate":
-      case "startDate":
-        return (
-          <Input
-            type="date"
-            value={valueState.dateValue}
-            onChange={(e) => setValueState((v) => ({ ...v, dateValue: e.target.value }))}
-            required
-          />
-        );
-      case "pendingTask":
-        return (
-          <Input
-            type="text"
-            value={valueState.textValue}
-            onChange={(e) => setValueState((v) => ({ ...v, textValue: e.target.value }))}
-            placeholder="Describe the pending task"
-            required
-          />
-        );
-      case "label":
-        return (
-          <Input
-            type="text"
-            value={valueState.labelValue}
-            onChange={(e) => setValueState((v) => ({ ...v, labelValue: e.target.value }))}
-            placeholder="Enter label text"
-            required
-          />
-        );
-      case "percent_complete":
-        return (
-          <Input
-            type="number"
-            min="0"
-            max="100"
-            value={valueState.textValue}
-            onChange={(e) => setValueState((v) => ({ ...v, textValue: e.target.value }))}
-            placeholder="0–100"
-            required
-          />
-        );
-      case "taskStatus":
-        return (
-          <Select
-            value={valueState.taskStatusValue}
-            onChange={(e) =>
-              setValueState((v) => ({ ...v, taskStatusValue: e.target.value as typeof TASK_STATUS_VALUES[number] }))
-            }
-          >
-            {TASK_STATUS_VALUES.map((v) => (
-              <option key={v} value={v}>{TASK_STATUS_LABELS[v]}</option>
-            ))}
-          </Select>
-        );
-    }
-  };
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!session?.user || !entityId) return;
 
     setIsSubmitting(true);
     try {
-      // Only the column this type owns is populated; the rest are nulled, so
-      // re-setting a type never leaves a stale value behind in a sibling column.
-      // NOTE percent_complete has its own column as of migration 0003 — it used
-      // to share `pending_task` with the pendingTask type.
-      const values = {
-        status_value: null as typeof STATUS_VALUES[number] | null,
-        priority_value: null as typeof PRIORITY_VALUES[number] | null,
-        task_status_value: null as typeof TASK_STATUS_VALUES[number] | null,
-        target_date: null as string | null,
-        start_date: null as string | null,
-        pending_task: null as string | null,
-        percent_complete: null as string | null,
-        label_value: null as string | null,
-      };
-
-      switch (selectedType) {
-        case "status":
-          values.status_value = valueState.statusValue;
-          break;
-        case "priority":
-          values.priority_value = valueState.priorityValue;
-          break;
-        case "taskStatus":
-          values.task_status_value = valueState.taskStatusValue;
-          break;
-        case "targetDate":
-          values.target_date = valueState.dateValue;
-          break;
-        case "startDate":
-          values.start_date = valueState.dateValue;
-          break;
-        case "pendingTask":
-          values.pending_task = valueState.textValue;
-          break;
-        case "percent_complete":
-          values.percent_complete = valueState.textValue;
-          break;
-        case "label":
-          values.label_value = valueState.labelValue;
-          break;
-      }
+      const values = buildPropertyValues(selectedType, valueState);
 
       const existing = byType.get(selectedType);
       if (existing) {
@@ -321,46 +158,44 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
         onClose={() => setIsPopupOpen(false)}
         title={byType.has(selectedType) ? "Set Property" : "Add Property"}
       >
-            {(
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label>
-                    Property Type
-                  </Label>
-                  <Select
-                    value={selectedType}
-                    onChange={(e) => {
-                      const next = e.target.value as typeof PROPERTY_TYPES[number];
-                      setSelectedType(next);
-                      // Prefill from the existing property so re-setting a type
-                      // starts from its current value, not a blank default.
-                      setValueState(valueStateFrom(byType.get(next)));
-                    }}
-                  >
-                    {availableTypes.map((t) => (
-                      <option key={t} value={t}>
-                        {PROPERTY_TYPE_LABELS[t]}{byType.has(t) ? " (set)" : ""}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div>
-                  <Label>
-                    Property Value
-                  </Label>
-                  {renderValueInput()}
-                </div>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-primary hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                >
-                  {isSubmitting
-                    ? "Saving…"
-                    : byType.has(selectedType) ? "Update Property" : "Add Property"}
-                </button>
-              </form>
-            )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label>Property Type</Label>
+            <Select
+              value={selectedType}
+              onChange={(e) => {
+                const next = e.target.value as typeof PROPERTY_TYPES[number];
+                setSelectedType(next);
+                // Prefill from the existing property so re-setting a type
+                // starts from its current value, not a blank default.
+                setValueState(valueStateFrom(byType.get(next)));
+              }}
+            >
+              {availableTypes.map((t) => (
+                <option key={t} value={t}>
+                  {PROPERTY_TYPE_LABELS[t]}{byType.has(t) ? " (set)" : ""}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label>Property Value</Label>
+            <PropertyValueInput
+              selectedType={selectedType}
+              valueState={valueState}
+              setValueState={setValueState}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-primary hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            {isSubmitting
+              ? "Saving…"
+              : byType.has(selectedType) ? "Update Property" : "Add Property"}
+          </button>
+        </form>
       </Modal>
     </>
   );
