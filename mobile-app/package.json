@@ -11,11 +11,15 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "lint": "eslint ."
   },
   "dependencies": {
     "@babel/traverse--for-generate-function-map": "npm:@babel/traverse@^7.29.0",
+    "@buildinlime/contracts": "workspace:*",
     "@buildinlime/domain-types": "workspace:*",
+    "@buildinlime/sync-core": "workspace:*",
     "@electric-sql/client": "1.5.15",
     "@expo-google-fonts/instrument-sans": "^0.4.2",
     "@expo/metro-runtime": "^55.0.9",
@@ -67,9 +71,11 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.14",
+    "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.39.4",
     "eslint-config-expo": "^55.0.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^3.2.4"
   },
   "private": true,
   "packageManager": "pnpm@10.30.3"

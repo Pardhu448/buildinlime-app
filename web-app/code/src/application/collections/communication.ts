@@ -1,173 +1,70 @@
-import { createCollection } from "@tanstack/react-db"
-import { electricCollectionOptions } from "@tanstack/electric-db-collection"
-import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence"
-import { z } from "zod"
 import {
-  selectTaskSchema,
-  selectMessageSchema,
-  selectResourceSchema,
-  selectPropertySchema,
-  selectSeenStateSchema,
-  PROPERTY_TYPES,
-  ENTITY_TYPES,
-  STATUS_VALUES,
-  PRIORITY_VALUES,
-  TASK_STATUS_VALUES,
-  SEEN_SCOPES,
-} from "%/infrastructure/database/schema/admin-schema"
+  taskRowSchema,
+  messageRowSchema,
+  resourceRowSchema,
+  propertyRowSchema,
+  seenStateRowSchema,
+} from "@buildinlime/contracts"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
-import { retryOnError, coerceBool, origin, NEVER_GC, IDLE_GC_MS } from "./_shared"
+import { defineCollection, NEVER_GC, IDLE_GC_MS } from "./_shared"
 
-// Electric SQL returns jsonb columns as JSON-encoded strings (e.g. '"critical"').
-// z.preprocess unwraps them before Zod enum validation runs.
-const unwrapJsonb = (v: unknown) =>
-  typeof v === "string" && v.startsWith('"') ? JSON.parse(v) : v
-
-const electricPropertySchema = selectPropertySchema.extend({
-  type: z.preprocess(unwrapJsonb, z.enum(PROPERTY_TYPES)),
-  entity: z.preprocess(unwrapJsonb, z.enum(ENTITY_TYPES)),
-  status_value: z.preprocess(unwrapJsonb, z.enum(STATUS_VALUES).nullish()),
-  priority_value: z.preprocess(unwrapJsonb, z.enum(PRIORITY_VALUES).nullish()),
-  task_status_value: z.preprocess(unwrapJsonb, z.enum(TASK_STATUS_VALUES).nullish()),
-})
-
-const electricTaskSchema = selectTaskSchema.extend({
-  completed: z.preprocess(coerceBool, z.boolean()),
-})
-
-const electricSeenStateSchema = selectSeenStateSchema.extend({
-  scope: z.preprocess(unwrapJsonb, z.enum(SEEN_SCOPES)),
-})
+// Row schemas come from @buildinlime/contracts — one copy, shared with mobile and
+// asserted against the drizzle tables server-side. See ARCHITECTURE.md §10.
 
 // ---------------------------------------------------------------------------
 // Factory functions — collections are created AFTER memberships load so that
 // membership-derived IDs can be baked into the shape URLs.
 // ---------------------------------------------------------------------------
 
-const TASKS_SCHEMA_VERSION = 3
-
 function _makeTasksCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  const url = new URL(`/api/tasks`, origin)
-  if (memberChannelIds.length > 0) url.searchParams.set(`member_channel_ids`, memberChannelIds.join(`,`))
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `tasks`,
-        shapeOptions: {
-          url: url.toString(),
-          onError: retryOnError,
-          parser: {
-            timestamptz: (date: string) => {
-              return new Date(date)
-            },
-          },
-        },
-        schema: electricTaskSchema,
-        getKey: (item) => item.id,
-        // Idle-GC: the always-mounted Sidebar "My Tasks" badge reads the
-        // user-scoped myTasksCollection slice, and useSeen reads only seen_state
-        // — so nothing always-mounted holds this full collection. Its only
-        // subscribers are the channel/task views, so it idles (and closes its
-        // shape stream) on the project list, Inbox and My-Tasks screens,
-        // resurrecting + resuming from OPFS on the next visit.
-        gcTime: IDLE_GC_MS,
-        // Task writes go through @tanstack/offline-transactions — see
-        // application/actions/tasks.ts. Direct collection.insert/update/delete
-        // calls outside an offline transaction will fail with "no handler",
-        // which is the intended loud failure mode.
-      }),
-      persistence,
-      schemaVersion: TASKS_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+  return defineCollection({
+    id: `tasks`,
+    path: `/api/tasks`,
+    params: { member_channel_ids: memberChannelIds },
+    schema: taskRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    // Idle-GC: the always-mounted Sidebar "My Tasks" badge reads the
+    // user-scoped myTasksCollection slice, and useSeen reads only seen_state
+    // — so nothing always-mounted holds this full collection. Its only
+    // subscribers are the channel/task views, so it idles (and closes its
+    // shape stream) on the project list, Inbox and My-Tasks screens,
+    // resurrecting + resuming from OPFS on the next visit.
+    gcTime: IDLE_GC_MS,
+    persistence,
+    // No handlers — task writes go through @tanstack/offline-transactions (see
+    // application/actions/tasks.ts). Direct collection.insert/update/delete calls
+    // outside an offline transaction fail with "no handler", which is the intended
+    // loud failure mode.
+  })
 }
-
-// Joins the persisted set at the SHARED schemaVersion 3 — NOT a new value.
-// The documented adapter-collision failure is a version that DIFFERS from the
-// others; matching it registers resources under the existing shared adapter in
-// its own per-collection namespace, leaving every other collection's cached
-// data untouched. Only the resource METADATA is persisted here; the heavy
-// resources_raw table is server-only and never reaches the client.
-const RESOURCES_SCHEMA_VERSION = 3
 
 function _makeResourcesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  const url = new URL(`/api/resources`, origin)
-  if (memberChannelIds.length > 0) url.searchParams.set(`member_channel_ids`, memberChannelIds.join(`,`))
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `resources`,
-        shapeOptions: {
-          url: url.toString(),
-          onError: retryOnError,
-          parser: {
-            timestamptz: (date: string) => {
-              return new Date(date)
-            },
-            // int8 (file_size_bytes) arrives as a string, and Electric's DEFAULT parser
-            // turns it into a BigInt. A BigInt cannot be JSON.stringify'd, and the
-            // offline outbox persists each mutation's row as JSON — so deleting a file
-            // died with "Do not know how to serialize a BigInt" before it reached the
-            // server. A plain number is exact to 2^53, i.e. ~9 petabytes. This also
-            // keeps the persisted OPFS rows JSON-serialisable.
-            //
-            // The zod preprocess below does NOT cover this — schema validation runs on
-            // client mutations, not on rows arriving from sync.
-            int8: (v: string) => Number(v),
-          },
-        },
-        schema: selectResourceSchema.extend({
-          file_size_bytes: z.preprocess(
-            (v) => (typeof v === "string" || typeof v === "bigint" ? Number(v) : v),
-            z.number()
-          ),
-        }),
-        getKey: (item) => item.id,
-        // Idle-GC (not NEVER_GC): resources is subscribed ONLY by the channel
-        // Resources view and the message/task attachment sections — nothing
-        // always-mounted holds it (the Sidebar and badges never touch it). The
-        // shape carries metadata only; file bytes/thumbnails load from the
-        // separate /api/resources/:id/file route, so GC'ing this collection
-        // never affects a rendered thumbnail. Persisted at the shared v3, so the
-        // next Resources visit resurrects it and resumes from the OPFS offset
-        // rather than refetching. See IDLE_GC_MS.
-        gcTime: IDLE_GC_MS,
-        // Resource deletes go through @tanstack/offline-transactions —
-        // see application/actions/resources.ts.
-      }),
-      persistence,
-      schemaVersion: RESOURCES_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+  return defineCollection({
+    id: `resources`,
+    path: `/api/resources`,
+    params: { member_channel_ids: memberChannelIds },
+    schema: resourceRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    // Idle-GC (not NEVER_GC): resources is subscribed ONLY by the channel
+    // Resources view and the message/task attachment sections — nothing
+    // always-mounted holds it (the Sidebar and badges never touch it). The
+    // shape carries metadata only; file bytes/thumbnails load from the
+    // separate /api/resources/:id/file route, so GC'ing this collection
+    // never affects a rendered thumbnail. Persisted, so the next Resources
+    // visit resurrects it and resumes from the OPFS offset rather than
+    // refetching. See IDLE_GC_MS.
+    gcTime: IDLE_GC_MS,
+    persistence,
+    // No handlers — resource deletes go through @tanstack/offline-transactions
+    // (see application/actions/resources.ts).
+  })
 }
-
-// MUST stay equal to every other collection's schema version. The persistence
-// coordinator holds ONE adapter shared across all collections, and adapters are
-// cached/keyed by schemaVersion — a different value here spawns a second adapter
-// that overwrites the coordinator's, which then drives the other collections'
-// offset/data through the wrong namespace and strands them on reload (Electric
-// reports "up-to-date" but OPFS has no rows). The nullable channel_id addition
-// is re-synced from Electric, so no cache-invalidation bump is needed.
-//
-// v2: task_status_value + percent_complete columns. Persisted rows predating them
-// would validate against the new schema as undefined, and percent_complete rows
-// cached before the backfill still carry their value in pending_task — so the
-// local store must be discarded and re-synced rather than reused.
-//
-// THIS BUMP WENT IN ALONE AND BROKE THE INVARIANT ABOVE, which is exactly the
-// failure the paragraph predicts: properties sat at 2 while all ten other
-// collections stayed at 1, so two adapters existed, the second overwrote the
-// coordinator's, and after login Electric reported up-to-date while nothing
-// rendered. Every collection is now at 2. If you bump one, BUMP THEM ALL.
-const PROPERTIES_SCHEMA_VERSION = 3
 
 function _makePropertiesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
@@ -177,86 +74,52 @@ function _makePropertiesCollection(
     memberChannelIds: string[]
   },
 ) {
-  const url = new URL(`/api/properties`, origin)
-  if (params.memberProjectIds.length > 0) url.searchParams.set(`member_project_ids`, params.memberProjectIds.join(`,`))
-  if (params.memberBuildunitIds.length > 0) url.searchParams.set(`member_buildunit_ids`, params.memberBuildunitIds.join(`,`))
-  if (params.memberChannelIds.length > 0) url.searchParams.set(`member_channel_ids`, params.memberChannelIds.join(`,`))
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `properties`,
-        shapeOptions: {
-          url: url.toString(),
-          onError: retryOnError,
-          parser: {
-            timestamptz: (date: string) => {
-              return new Date(date)
-            },
-          },
-        },
-        schema: electricPropertySchema,
-        getKey: (item) => item.id,
-        // Idle-GC (not NEVER_GC): properties is subscribed ONLY by the channel /
-        // build-unit / task routes — nothing always-mounted holds it (verified:
-        // the Sidebar and unread badges never touch it). So it idles on the
-        // project list, Inbox and My-Tasks screens, and GC closes its shape
-        // stream there. Persisted, so the next channel/task visit resurrects it
-        // and resumes from the OPFS offset rather than refetching. See IDLE_GC_MS.
-        gcTime: IDLE_GC_MS,
-        // Property writes go through @tanstack/offline-transactions —
-        // see application/actions/properties.ts (create / update / delete).
-      }),
-      persistence,
-      schemaVersion: PROPERTIES_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+  return defineCollection({
+    id: `properties`,
+    path: `/api/properties`,
+    params: {
+      member_project_ids: params.memberProjectIds,
+      member_buildunit_ids: params.memberBuildunitIds,
+      member_channel_ids: params.memberChannelIds,
+    },
+    schema: propertyRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    // Idle-GC (not NEVER_GC): properties is subscribed ONLY by the channel /
+    // build-unit / task routes — nothing always-mounted holds it (verified:
+    // the Sidebar and unread badges never touch it). So it idles on the
+    // project list, Inbox and My-Tasks screens, and GC closes its shape
+    // stream there. Persisted, so the next channel/task visit resurrects it
+    // and resumes from the OPFS offset rather than refetching. See IDLE_GC_MS.
+    gcTime: IDLE_GC_MS,
+    persistence,
+    // No handlers — property writes go through @tanstack/offline-transactions
+    // (see application/actions/properties.ts: create / update / delete).
+  })
 }
-
-// v2: the task_id column (status-change notes), and to hold the one-version-for-
-// every-collection invariant documented above the properties version.
-const MESSAGES_SCHEMA_VERSION = 3
 
 function _makeMessagesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  const url = new URL(`/api/messages`, origin)
-  if (memberChannelIds.length > 0) url.searchParams.set(`member_channel_ids`, memberChannelIds.join(`,`))
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `messages`,
-        shapeOptions: {
-          url: url.toString(),
-          onError: retryOnError,
-          parser: {
-            timestamptz: (date: string) => {
-              return new Date(date)
-            },
-          },
-        },
-        schema: selectMessageSchema,
-        getKey: (item) => item.id,
-        // Idle-GC: with the Sidebar's per-channel unread pills removed, the
-        // always-mounted inbox badge reading the inbox-mentions slice, and
-        // useSeen reading only seen_state, nothing always-mounted holds this full
-        // collection. It idles (and closes its shape stream) on the project list
-        // / My-Tasks / Inbox screens, and resurrects + resumes from OPFS when a
-        // channel or the Inbox view opens.
-        gcTime: IDLE_GC_MS,
-        // Message writes go through @tanstack/offline-transactions —
-        // see application/actions/messages.ts. Delete is not currently
-        // used by UI; add a mutationFn + action when needed.
-      }),
-      persistence,
-      schemaVersion: MESSAGES_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+  return defineCollection({
+    id: `messages`,
+    path: `/api/messages`,
+    params: { member_channel_ids: memberChannelIds },
+    schema: messageRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    // Idle-GC: with the Sidebar's per-channel unread pills removed, the
+    // always-mounted inbox badge reading the inbox-mentions slice, and
+    // useSeen reading only seen_state, nothing always-mounted holds this full
+    // collection. It idles (and closes its shape stream) on the project list
+    // / My-Tasks / Inbox screens, and resurrects + resumes from OPFS when a
+    // channel or the Inbox view opens.
+    gcTime: IDLE_GC_MS,
+    persistence,
+    // No handlers — message writes go through @tanstack/offline-transactions
+    // (see application/actions/messages.ts). Delete is not currently used by UI;
+    // add a mutationFn + action when needed.
+  })
 }
-
-const SEEN_STATE_SCHEMA_VERSION = 3
 
 /**
  * The seen_state collection's key. Exported because the optimistic upsert in
@@ -278,31 +141,17 @@ export const seenKey = (userId: string, scope: string, scopeId: string) =>
 function _makeSeenStateCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
 ) {
-  const url = new URL(`/api/seen-state`, origin)
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `seen-state`,
-        shapeOptions: {
-          url: url.toString(),
-          onError: retryOnError,
-          parser: {
-            timestamptz: (date: string) => {
-              return new Date(date)
-            },
-          },
-        },
-        schema: electricSeenStateSchema,
-        getKey: (item) => seenKey(item.user_id, item.scope, item.scope_id),
-        gcTime: NEVER_GC,
-        // Seen markers are written through @tanstack/offline-transactions —
-        // see application/actions/seen.ts.
-      }),
-      persistence,
-      schemaVersion: SEEN_STATE_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+  return defineCollection({
+    id: `seen-state`,
+    path: `/api/seen-state`,
+    schema: seenStateRowSchema,
+    getKey: (item: { user_id: string; scope: string; scope_id: string }) =>
+      seenKey(item.user_id, item.scope, item.scope_id),
+    gcTime: NEVER_GC,
+    persistence,
+    // No handlers — seen markers are written through @tanstack/offline-transactions
+    // (see application/actions/seen.ts).
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -314,78 +163,41 @@ function _makeSeenStateCollection(
 // these tiny shapes, and the full collections are freed to garbage-collect.
 //
 // gcTime: NEVER_GC — these ARE the always-mounted subscription, so they never
-// idle; a finite gcTime would be moot. Persisted at the shared v3 like the rest,
-// so the badge count paints from OPFS on reload before Electric reconnects.
-// Channel-scoped, so they rebuild with the other channel-scoped collections on a
-// membership resync (see initializeCommunicationCollections callers).
+// idle; a finite gcTime would be moot. Persisted like the rest, so the badge count
+// paints from OPFS on reload before Electric reconnects. Channel-scoped, so they
+// rebuild with the other channel-scoped collections on a membership resync (see
+// initializeCommunicationCollections callers). Read-only: no mutation handlers —
+// messages/tasks are written via their full collections.
 // ---------------------------------------------------------------------------
-
-const INBOX_MENTIONS_SCHEMA_VERSION = 3
 
 function _makeInboxMentionsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  const url = new URL(`/api/inbox-mentions`, origin)
-  if (memberChannelIds.length > 0) url.searchParams.set(`member_channel_ids`, memberChannelIds.join(`,`))
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `inbox-mentions`,
-        shapeOptions: {
-          url: url.toString(),
-          onError: retryOnError,
-          parser: {
-            timestamptz: (date: string) => {
-              return new Date(date)
-            },
-          },
-        },
-        schema: selectMessageSchema,
-        getKey: (item) => item.id,
-        gcTime: NEVER_GC,
-        // Read-only: no mutation handlers. Messages are written via the full
-        // messagesCollection / offline-transactions path; this slice only reads.
-      }),
-      persistence,
-      schemaVersion: INBOX_MENTIONS_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+  return defineCollection({
+    id: `inbox-mentions`,
+    path: `/api/inbox-mentions`,
+    params: { member_channel_ids: memberChannelIds },
+    schema: messageRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    gcTime: NEVER_GC,
+    persistence,
+  })
 }
-
-const MY_TASKS_SCHEMA_VERSION = 3
 
 function _makeMyTasksCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  const url = new URL(`/api/my-tasks`, origin)
-  if (memberChannelIds.length > 0) url.searchParams.set(`member_channel_ids`, memberChannelIds.join(`,`))
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `my-tasks`,
-        shapeOptions: {
-          url: url.toString(),
-          onError: retryOnError,
-          parser: {
-            timestamptz: (date: string) => {
-              return new Date(date)
-            },
-          },
-        },
-        schema: electricTaskSchema,
-        getKey: (item) => item.id,
-        gcTime: NEVER_GC,
-        // Read-only: no mutation handlers. Task writes go through the full
-        // tasksCollection / offline-transactions path; this slice only reads.
-      }),
-      persistence,
-      schemaVersion: MY_TASKS_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+  return defineCollection({
+    id: `my-tasks`,
+    path: `/api/my-tasks`,
+    params: { member_channel_ids: memberChannelIds },
+    schema: taskRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    gcTime: NEVER_GC,
+    persistence,
+  })
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,8 @@
+{
+  "_comment": "Ratchet baselines: max tolerated typecheck/lint ERROR counts per workspace. CI fails if a count EXCEEDS its baseline (a regression). When you fix errors and a count drops, lower the matching number here so the ratchet keeps the gain. The packages/* entries are 0 — born clean, so for them this is a hard gate. See agentGuides/testingAndCiSetup.md and .github/scripts/ratchet.sh.",
+  "buildinlime": { "typecheck": 224, "lint": 188 },
+  "buildinlimemobile": { "typecheck": 34, "lint": 4 },
+  "@buildinlime/contracts": { "typecheck": 0 },
+  "@buildinlime/sync-core": { "typecheck": 0 },
+  "@buildinlime/domain-types": { "typecheck": 0 }
+}

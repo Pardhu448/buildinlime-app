@@ -10,7 +10,7 @@ import { disposeOnlineDetector } from "../offline/online-detector"
 import { resetAllOfflineActions } from "../../application/actions"
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://10.0.2.2:3000"
-console.log(">>> AUTH API URL:", apiUrl)
+if (__DEV__) console.log(`[auth] API URL: ${apiUrl}`)
 /**
  * Better Auth client for React Native.
  *

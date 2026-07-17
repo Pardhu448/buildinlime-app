@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import { ChannelCard } from "./ChannelCard";
 import { NewChannelButton } from "./NewChannelButton";
 import type { PendingItem } from "%/presentation/hooks/use-pending-items";
+import type { Property } from "%/domain/communication/types";
 
 export interface Channel {
   id: string;
@@ -11,6 +12,7 @@ export interface Channel {
   isPending?: boolean;
   to?: string;
   onClick?: () => void;
+  properties?: Property[];
 }
 
 interface ChannelsSectionProps {
@@ -48,6 +50,7 @@ export function ChannelsSection({ channels, buildUnitId, pendingIds, addPending,
             to={channel.to}
             onClick={channel.onClick}
             isPending={pendingIds.has(channel.id)}
+            properties={channel.properties}
           />
         ))}
       </div>

@@ -16,6 +16,9 @@
     "build": "vite build && node scripts/generate-sw.mjs",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint",
     "format": "prettier --check .",
     "check": "prettier --write . && eslint --fix",
@@ -28,7 +31,9 @@
     "purge:resources": "dotenvx run -- tsx scripts/purge-resources.ts"
   },
   "dependencies": {
+    "@buildinlime/contracts": "workspace:*",
     "@buildinlime/domain-types": "workspace:*",
+    "@buildinlime/sync-core": "workspace:*",
     "@electric-sql/client": "1.5.15",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",

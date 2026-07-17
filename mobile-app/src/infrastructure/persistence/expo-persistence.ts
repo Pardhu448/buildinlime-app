@@ -1,5 +1,6 @@
 import { openDatabaseSync, deleteDatabaseAsync } from "expo-sqlite"
 import type { SQLiteDatabase } from "expo-sqlite"
+import * as SecureStore from "expo-secure-store"
 import {
   createExpoSQLitePersistence,
   persistedCollectionOptions,
@@ -10,12 +11,69 @@ export { persistedCollectionOptions }
 
 const DATABASE_NAME = "buildinlime.sqlite"
 
+// Records which user the local database currently holds data for. Lets a new
+// sign-in detect that the DB belongs to someone else and wipe it — see
+// ensureCleanPersistenceForUser.
+const PERSISTENCE_OWNER_KEY = "buildinlime.persistence_owner"
+
 type PersistenceTrio = {
   database: SQLiteDatabase
   persistence: ReturnType<typeof createExpoSQLitePersistence>
 }
 
 let _trio: PersistenceTrio | null = null
+
+// Guarantee the local database belongs to `userId` BEFORE any collection opens
+// it (call at the very start of bootstrap). If the recorded owner differs, wipe
+// the database first.
+//
+// This is the self-healing counterpart to disposePersistence(): sign-out tries to
+// delete the DB, but that delete can race in-flight Electric sync writes and its
+// failure is swallowed. If it doesn't fully clear, the NEXT user's collections
+// restore the previous user's rows AND resume from the previous user's Electric
+// sync offsets — and a stale offset makes Electric report "up-to-date" and never
+// re-deliver the new user's rows. That surfaced as missing build units (and other
+// membership-scoped data) at random after signing in as a different user: empty
+// membership ids → the owner-escape shapes return nothing for a non-owner.
+//
+// Wiping on the way IN cannot be skipped by a crash or a raced sign-out. Same user
+// (app restart / session restore) is a no-op, so the offline cache is preserved.
+export async function ensureCleanPersistenceForUser(userId: string): Promise<void> {
+  let owner: string | null = null
+  try {
+    owner = await SecureStore.getItemAsync(PERSISTENCE_OWNER_KEY)
+  } catch {
+    // Unreadable marker → treat as unknown owner and wipe to be safe.
+  }
+  if (owner === userId) return
+
+  if (__DEV__) {
+    console.log(
+      `[SQLite] Persistence owner (${owner ?? `none`}) != current user — wiping for a clean slate`,
+    )
+  }
+
+  // Close any handle this process still holds so the file can be deleted.
+  if (_trio) {
+    try {
+      _trio.database.closeSync()
+    } catch {
+      // best-effort
+    }
+    _trio = null
+  }
+  try {
+    await deleteDatabaseAsync(DATABASE_NAME)
+  } catch {
+    // No existing file (e.g. already deleted on sign-out) — fine.
+  }
+  try {
+    await SecureStore.setItemAsync(PERSISTENCE_OWNER_KEY, userId)
+  } catch {
+    // If we can't record the owner the worst case is a redundant wipe next login.
+    if (__DEV__) console.warn(`[SQLite] Failed to record persistence owner`)
+  }
+}
 
 export function getPersistence(): PersistenceTrio {
   if (_trio) return _trio
@@ -59,6 +117,19 @@ export function getPersistence(): PersistenceTrio {
 // a fresh login rebuilds everything. Fully eliminating it means aborting
 // every collection's sync stream before this runs (deliberately not done).
 export async function disposePersistence(): Promise<void> {
+  // Clear the owner marker FIRST, unconditionally (even if _trio is already null
+  // or the delete below fails/races). A null marker means "wipe for whoever signs
+  // in next": ensureCleanPersistenceForUser then wipes on the NEXT sign-in — same
+  // user or different — and retries the delete, so a raced/failed delete here can
+  // no longer leave the next session resuming from a stale Electric offset (which
+  // manifested as missing build units). App restart WITHOUT sign-out keeps the
+  // marker, so session-restore still preserves the offline cache.
+  try {
+    await SecureStore.deleteItemAsync(PERSISTENCE_OWNER_KEY)
+  } catch {
+    // best-effort
+  }
+
   if (!_trio) return
   if (__DEV__) console.log(`[SQLite] Disposing persistence…`)
   const trio = _trio
@@ -68,6 +139,6 @@ export async function disposePersistence(): Promise<void> {
     await deleteDatabaseAsync(DATABASE_NAME)
     if (__DEV__) console.log(`[SQLite] Persistence disposed, database file removed`)
   } catch {
-    if (__DEV__) console.warn(`[SQLite] Dispose failed (best-effort)`)
+    if (__DEV__) console.warn(`[SQLite] Dispose failed (best-effort) — next sign-in will re-wipe`)
   }
 }

@@ -1,13 +1,12 @@
 import { router, authedProcedure, generateTxId } from "../lib/trpc"
-import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { eq } from "drizzle-orm"
+import { propertiesTable, tasksTable } from "../../database/schema/admin-schema"
 import {
-  propertiesTable,
-  tasksTable,
-  createPropertySchema,
-  updatePropertySchema,
-} from "../../database/schema/admin-schema"
+  createPropertyInput,
+  updatePropertyInput,
+  deletePropertyInput,
+} from "@buildinlime/contracts"
 
 /**
  * The taskStatus property is the source of truth for task completion, so it
@@ -35,7 +34,7 @@ async function syncTaskCompletion(tx: any, property: {
 
 export const propertiesRouter = router({
   create: authedProcedure
-    .input(createPropertySchema)
+    .input(createPropertyInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
@@ -63,12 +62,7 @@ export const propertiesRouter = router({
     }),
 
   update: authedProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        data: updatePropertySchema,
-      })
-    )
+    .input(updatePropertyInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
@@ -94,7 +88,7 @@ export const propertiesRouter = router({
     }),
 
   delete: authedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(deletePropertyInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)

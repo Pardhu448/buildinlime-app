@@ -1,17 +1,16 @@
 import { router, authedProcedure, generateTxId } from "../lib/trpc"
-import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { eq } from "drizzle-orm"
+import { teamsTable, projectsTable } from "../../database/schema/admin-schema"
 import {
-  teamsTable,
-  projectsTable,
-  createTeamSchema,
-  updateTeamSchema,
-} from "../../database/schema/admin-schema"
+  createTeamInput,
+  updateTeamInput,
+  deleteTeamInput,
+} from "@buildinlime/contracts"
 
 export const teamsRouter = router({
   create: authedProcedure
-    .input(createTeamSchema)
+    .input(createTeamInput)
     .mutation(async ({ ctx, input }) => {
       // Only project owners can create teams
       const [project] = await ctx.db
@@ -44,7 +43,7 @@ export const teamsRouter = router({
     }),
 
   update: authedProcedure
-    .input(z.object({ id: z.string(), data: updateTeamSchema }))
+    .input(updateTeamInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
@@ -63,7 +62,7 @@ export const teamsRouter = router({
     }),
 
   delete: authedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(deleteTeamInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)

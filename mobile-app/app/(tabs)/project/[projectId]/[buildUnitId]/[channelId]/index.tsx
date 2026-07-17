@@ -5,10 +5,10 @@ import {
   KeyboardAvoidingView,
   StyleSheet,
   ActivityIndicator,
-  StatusBar,
 } from "react-native"
 import { useCallback, useState } from "react"
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useMessages } from "@/src/presentation/messages/hooks/useMessages"
 import { MessageList } from "@/src/presentation/messages/components/MessageList"
 import { MessageInput } from "@/src/presentation/messages/components/MessageInput"
@@ -32,6 +32,7 @@ export default function ChannelScreen() {
   }>()
   const router = useRouter()
   const { data: session } = useSession()
+  const insets = useSafeAreaInsets()
 
   // Look up channel name from channelsCollection
   const { data: channelsData } = useLiveQuery(
@@ -82,7 +83,7 @@ export default function ChannelScreen() {
       keyboardVerticalOffset={0}
     >
       {/* Inline header with back button */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: (StatusBar.currentHeight ?? 44) + 8,
+    // paddingTop applied inline from useSafeAreaInsets().top (real device inset).
     paddingBottom: 16,
     paddingHorizontal: 16,
     backgroundColor: colors.background,

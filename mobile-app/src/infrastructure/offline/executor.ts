@@ -6,12 +6,7 @@ import {
   resourcesCollection,
   propertiesCollection,
 } from "../../application/collections/communication"
-import {
-  projectsCollection,
-  buildUnitsCollection,
-  channelsCollection,
-} from "../../application/collections/organization"
-import { teamsCollection, seenStateCollection } from "../../application/collections/admin"
+import { seenStateCollection } from "../../application/collections/admin"
 import { mutationFns } from "./mutation-fns"
 import { sqliteStorageAdapter } from "./storage"
 import { getOnlineDetector } from "./online-detector"
@@ -34,15 +29,15 @@ export async function initOfflineExecutor(): Promise<OfflineExecutor> {
     _executor = null
   }
   const executor = startOfflineExecutor({
+    // Only the collections mobile actually writes through the outbox. Projects,
+    // build units and channels are web-only creations — mobile reads them but
+    // drives no mutations against them. Teams are web-only outright: mobile
+    // neither reads nor writes them, so it syncs no teams collection at all.
     collections: {
       tasks: tasksCollection,
-      projects: projectsCollection,
       messages: messagesCollection,
       resources: resourcesCollection,
       properties: propertiesCollection,
-      teams: teamsCollection,
-      buildUnits: buildUnitsCollection,
-      channels: channelsCollection,
       seenState: seenStateCollection,
     },
     mutationFns,

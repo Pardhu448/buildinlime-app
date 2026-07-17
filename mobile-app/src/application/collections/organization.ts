@@ -1,50 +1,14 @@
-import { createCollection } from "@tanstack/react-db"
-import { electricCollectionOptions } from "@tanstack/electric-db-collection"
-import { persistedCollectionOptions } from "@tanstack/expo-db-sqlite-persistence"
-import { z } from "zod"
-import { CHANNEL_NAMES } from "@buildinlime/domain-types"
-import { electricMembershipSchema } from "./admin"
-import { trpc } from "../../infrastructure/trpc/client"
+import {
+  projectRowSchema,
+  buildUnitRowSchema,
+  channelRowSchema,
+  membershipRowSchema,
+} from "@buildinlime/contracts"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
-import { apiUrl, cookieFetch, retryOnError, unwrapJsonb, parser, NEVER_GC, safeCleanup } from "./_shared"
+import { defineCollection, NEVER_GC, safeCleanup } from "./_shared"
 
-// --- Schemas ---
-
-const selectProjectSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string().nullable().optional(),
-  owner_id: z.string(),
-  priority: z.preprocess(unwrapJsonb, z.enum(["High", "Mid", "Low"]).nullish()),
-  target_date: z.string().nullable().optional(),
-  status_percent: z.string().nullable().optional(),
-  created_at: z.union([z.string(), z.date()]).optional(),
-})
-
-const selectBuildUnitSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string().nullable().optional(),
-  project_id: z.string(),
-  owner_id: z.string(),
-  health: z.preprocess(unwrapJsonb, z.enum(["On track", "At risk", "Off track"]).nullish()),
-  priority: z.preprocess(unwrapJsonb, z.enum(["High", "Mid", "Low"]).nullish()),
-  task_name: z.string().nullable().optional(),
-  task_assignee: z.string().nullable().optional(),
-  task_since: z.string().nullable().optional(),
-  target_date: z.string().nullable().optional(),
-  status_percent: z.string().nullable().optional(),
-  created_at: z.union([z.string(), z.date()]).optional(),
-})
-
-const selectChannelSchema = z.object({
-  id: z.string(),
-  name: z.preprocess(unwrapJsonb, z.enum(CHANNEL_NAMES)),
-  description: z.string().nullable().optional(),
-  buildunit_id: z.string(),
-  owner_id: z.string(),
-  created_at: z.union([z.string(), z.date()]).optional(),
-})
+// Row schemas come from @buildinlime/contracts — one copy, shared with web and
+// asserted against the drizzle tables server-side. See ARCHITECTURE.md §10.
 
 // ---------------------------------------------------------------------------
 // Factory functions — collections are created AFTER memberships load so that
@@ -52,119 +16,53 @@ const selectChannelSchema = z.object({
 // the per-poll membership table scan on the server side.
 // ---------------------------------------------------------------------------
 
-const PROJECTS_SCHEMA_VERSION = 3
-
 function _makeProjectsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberProjectIds: string[],
 ) {
-  const url = new URL(`/api/projects`, apiUrl)
-  if (memberProjectIds.length > 0) {
-    url.searchParams.set(`member_ids`, memberProjectIds.join(`,`))
-  }
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `projects`,
-        shapeOptions: {
-          url: url.toString(),
-          fetchClient: cookieFetch,
-          onError: retryOnError,
-          parser,
-        },
-        schema: selectProjectSchema,
-        getKey: (item) => item.id,
-        gcTime: NEVER_GC,
-        // onInsert removed — routed through @tanstack/offline-transactions
-        // (see application/actions/projects.ts → createProjectAction).
-        onUpdate: async ({ transaction }) => {
-          const { modified: p } = transaction.mutations[0]
-          const result = await trpc.projects.update.mutate({
-            id: p.id,
-            data: { name: p.name, description: p.description },
-          })
-          return { txid: result.txid }
-        },
-        onDelete: async ({ transaction }) => {
-          const { original: p } = transaction.mutations[0]
-          const result = await trpc.projects.delete.mutate({ id: p.id })
-          return { txid: result.txid }
-        },
-      }),
-      persistence,
-      schemaVersion: PROJECTS_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+  return defineCollection({
+    id: `projects`,
+    path: `/api/projects`,
+    params: { member_ids: memberProjectIds },
+    schema: projectRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    gcTime: NEVER_GC,
+    persistence,
+    // No handlers — read-only on mobile; projects are managed on web.
+  })
 }
-
-const BUILD_UNITS_SCHEMA_VERSION = 3
 
 function _makeBuildUnitsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberBuildunitIds: string[],
 ) {
-  const url = new URL(`/api/buildunits`, apiUrl)
-  if (memberBuildunitIds.length > 0) {
-    url.searchParams.set(`member_ids`, memberBuildunitIds.join(`,`))
-  }
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `build-units`,
-        shapeOptions: {
-          url: url.toString(),
-          fetchClient: cookieFetch,
-          onError: retryOnError,
-          parser,
-        },
-        schema: selectBuildUnitSchema,
-        getKey: (item) => item.id,
-        gcTime: NEVER_GC,
-        // onInsert/onUpdate/onDelete removed — routed through
-        // @tanstack/offline-transactions (see application/actions/buildunits.ts).
-      }),
-      persistence,
-      schemaVersion: BUILD_UNITS_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+  return defineCollection({
+    id: `build-units`,
+    path: `/api/buildunits`,
+    params: { member_ids: memberBuildunitIds },
+    schema: buildUnitRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    gcTime: NEVER_GC,
+    persistence,
+    // No handlers — read-only on mobile; build units are managed on web.
+  })
 }
-
-const CHANNELS_SCHEMA_VERSION = 3
 
 function _makeChannelsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberChannelIds: string[],
 ) {
-  const url = new URL(`/api/channels`, apiUrl)
-  if (memberChannelIds.length > 0) {
-    url.searchParams.set(`member_ids`, memberChannelIds.join(`,`))
-  }
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `channels`,
-        shapeOptions: {
-          url: url.toString(),
-          fetchClient: cookieFetch,
-          onError: retryOnError,
-          parser,
-        },
-        schema: selectChannelSchema,
-        getKey: (item) => item.id,
-        gcTime: NEVER_GC,
-        // onInsert/onUpdate/onDelete removed — routed through
-        // @tanstack/offline-transactions (see application/actions/channels.ts).
-      }),
-      persistence,
-      schemaVersion: CHANNELS_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+  return defineCollection({
+    id: `channels`,
+    path: `/api/channels`,
+    params: { member_ids: memberChannelIds },
+    schema: channelRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    gcTime: NEVER_GC,
+    persistence,
+    // No handlers — read-only on mobile; channels are managed on web.
+  })
 }
-
-const CHANNEL_MEMBERS_SCHEMA_VERSION = 3
 
 /**
  * The ROSTER stream: every member of every channel this user can see.
@@ -174,7 +72,7 @@ const CHANNEL_MEMBERS_SCHEMA_VERSION = 3
  * who else is in a channel. Anything that renders other people (the assignee
  * picker, member lists) needs this collection instead. Mirrors web's
  * channelMembersCollection; both hit the same `memberships` table with a wider
- * where clause.
+ * where clause, and both validate against the one shared membershipRowSchema.
  *
  * The channel ids are baked into the shape URL, so this must be rebuilt whenever
  * the visible channel set changes — same lifecycle as channelsCollection, which is
@@ -184,31 +82,17 @@ function _makeChannelMembersCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberChannelIds: string[],
 ) {
-  const url = new URL(`/api/channel-members`, apiUrl)
-  // Note the param name: this route takes `channel_ids`, not the `member_ids` the
-  // projects/buildunits/channels routes take.
-  if (memberChannelIds.length > 0) {
-    url.searchParams.set(`channel_ids`, memberChannelIds.join(`,`))
-  }
-  return createCollection(
-    persistedCollectionOptions({
-      ...electricCollectionOptions({
-        id: `channel-members`,
-        shapeOptions: {
-          url: url.toString(),
-          fetchClient: cookieFetch,
-          onError: retryOnError,
-          parser,
-        },
-        schema: electricMembershipSchema,
-        getKey: (item) => item.id,
-        gcTime: NEVER_GC,
-      }),
-      persistence,
-      schemaVersion: CHANNEL_MEMBERS_SCHEMA_VERSION,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any,
-  )
+  return defineCollection({
+    id: `channel-members`,
+    path: `/api/channel-members`,
+    // Note the param name: this route takes `channel_ids`, not the `member_ids` the
+    // projects/buildunits/channels routes take.
+    params: { channel_ids: memberChannelIds },
+    schema: membershipRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    gcTime: NEVER_GC,
+    persistence,
+  })
 }
 
 // ---------------------------------------------------------------------------

@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { auth } from "../../../infrastructure/auth/server"
 import { prepareElectricUrl, proxyElectricRequest } from "../../../infrastructure/database/electric-proxy"
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { idListWhere, parseIdList } from "../../../infrastructure/database/shape-where"
 
 const serve = async ({ request }: { request: Request }) => {
   const session = await auth.api.getSession({ headers: request.headers })
@@ -14,7 +13,7 @@ const serve = async ({ request }: { request: Request }) => {
   }
 
   const url = new URL(request.url)
-  const channelIds = (url.searchParams.get(`member_channel_ids`) ?? ``).split(`,`).filter(id => UUID_REGEX.test(id))
+  const channelIds = parseIdList(url.searchParams.get(`member_channel_ids`))
 
   const originUrl = prepareElectricUrl(request.url)
   originUrl.searchParams.set(`table`, `messages`)
@@ -30,12 +29,7 @@ const serve = async ({ request }: { request: Request }) => {
   // mention_ids and resource_ids are cleared server-side), so what syncs is an empty
   // tombstone, not the words. Adding the filter here would look like a tightening and
   // would in fact destroy threads.
-  originUrl.searchParams.set(
-    `where`,
-    channelIds.length === 0
-      ? `1 = 0`
-      : `channel_id = ANY(ARRAY[${channelIds.map(id => `'${id}'`).join(`,`)}]::text[])`
-  )
+  originUrl.searchParams.set(`where`, idListWhere(`channel_id`, channelIds))
 
   return proxyElectricRequest(originUrl)
 }

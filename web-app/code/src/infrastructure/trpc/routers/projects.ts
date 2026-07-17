@@ -1,17 +1,17 @@
 import { router, authedProcedure, generateTxId } from "../lib/trpc"
-import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { eq, and } from "drizzle-orm"
+import { projectsTable } from "../../database/schema/admin-schema"
 import {
-  projectsTable,
-  createProjectSchema,
-  updateProjectSchema,
-} from "../../database/schema/admin-schema"
+  createProjectInput,
+  updateProjectInput,
+  deleteProjectInput,
+} from "@buildinlime/contracts"
 
 export const projectsRouter = router({
   create: authedProcedure
-    .input(createProjectSchema)
-    .mutation(async ({ ctx, input }) => 
+    .input(createProjectInput)
+    .mutation(async ({ ctx, input }) =>
       {
       //if (input.owner_id !== ctx.session.user.id) {
       //  throw new TRPCError({
@@ -33,12 +33,7 @@ export const projectsRouter = router({
     }),
 
   update: authedProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        data: updateProjectSchema,
-      })
-    )
+    .input(updateProjectInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
@@ -67,7 +62,7 @@ export const projectsRouter = router({
     }),
 
   delete: authedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(deleteProjectInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)

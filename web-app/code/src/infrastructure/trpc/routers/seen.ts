@@ -1,7 +1,7 @@
 import { router, authedProcedure, generateTxId } from "../lib/trpc"
-import { z } from "zod"
 import { sql } from "drizzle-orm"
-import { seenStateTable, SEEN_SCOPES } from "../../database/schema/admin-schema"
+import { seenStateTable } from "../../database/schema/admin-schema"
+import { markSeenInput } from "@buildinlime/contracts"
 
 /**
  * Per-user "last seen" markers (the timestamp successor to reads). `user_id` is
@@ -15,15 +15,7 @@ import { seenStateTable, SEEN_SCOPES } from "../../database/schema/admin-schema"
  */
 export const seenRouter = router({
   markSeen: authedProcedure
-    .input(
-      z.object({
-        scope: z.enum(SEEN_SCOPES),
-        scope_id: z.string().default(``),
-        // Optional client timestamp; the server defaults to now(). Sent through
-        // the offline outbox as an ISO string, coerced back here.
-        seen_at: z.coerce.date().optional(),
-      })
-    )
+    .input(markSeenInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)

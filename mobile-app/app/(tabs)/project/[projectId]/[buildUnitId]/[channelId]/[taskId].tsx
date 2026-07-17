@@ -9,7 +9,6 @@ import {
   Pressable,
   ActivityIndicator,
   StyleSheet,
-  StatusBar,
   Keyboard,
   KeyboardAvoidingView,
   Alert,
@@ -239,7 +238,7 @@ export default function TaskScreen() {
       behavior="padding"
       keyboardVerticalOffset={0}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
@@ -557,7 +556,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: (StatusBar.currentHeight ?? 44) + 8,
+    // paddingTop applied inline from useSafeAreaInsets().top (real device inset).
     paddingBottom: 16,
     paddingHorizontal: 16,
     backgroundColor: colors.background,

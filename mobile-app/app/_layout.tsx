@@ -26,6 +26,7 @@ import "react-native-reanimated"
 import { useColorScheme } from "@/components/useColorScheme"
 import { useSession, signOutAndDispose, clearAuthCookies } from "@/src/infrastructure/auth/client"
 import { ProjectProvider, useProjectContext } from "@/src/application/context/ProjectContext"
+import { waitForLiveQueryRelease } from "@/src/application/collections/live-query-release"
 
 export { ErrorBoundary } from "expo-router"
 
@@ -76,49 +77,6 @@ function RootLayoutNav() {
   )
 }
 
-/**
- * Wait until the live queries of the just-unmounted screens have actually been
- * released, before their source collections are torn down.
- *
- * Unmounting a screen does NOT release its live queries synchronously. A
- * useLiveQuery collection is garbage-collected on a timer (TanStack sets
- * gcTime = 1ms for them) and then an idle callback — and until that runs it is
- * still registered as a DEPENDENT of every collection it reads. cleanup() on a
- * source with a live dependent puts that dependent into an error state:
- *
- *   "Source collection 'reads' was manually cleaned up while live query '…'
- *    depends on it. Live queries prevent automatic GC, so this was likely a
- *    manual cleanup() call."
- *
- * The sign-out effect below runs in the tick right after the unmount commit —
- * squarely inside that window. So unmounting first is necessary but not
- * sufficient; we also have to yield past the GC timer and the idle callback that
- * follows it. Worst case this over-waits by a few frames on a screen the user is
- * already leaving.
- */
-function waitForLiveQueryRelease(): Promise<void> {
-  return new Promise((resolve) => {
-    // Past CleanupQueue's microtask + its (1ms) GC timer…
-    setTimeout(() => {
-      const requestIdle = (
-        globalThis as {
-          requestIdleCallback?: (
-            cb: () => void,
-            opts?: { timeout: number },
-          ) => void
-        }
-      ).requestIdleCallback
-      // …then past the idle callback that performs the cleanup itself. Ours is
-      // queued after theirs, so theirs runs first.
-      if (typeof requestIdle === `function`) {
-        requestIdle(() => resolve(), { timeout: 200 })
-      } else {
-        setTimeout(resolve, 0)
-      }
-    }, 50)
-  })
-}
-
 function AuthGuard() {
   const { data: session, isPending, error } = useSession()
   const { clearProject } = useProjectContext()
@@ -148,7 +106,6 @@ function AuthGuard() {
     if (!isSigningOut) return
     let cancelled = false
     void (async () => {
-      console.log(">>> signOut: start")
       await clearProject()
       if (cancelled) return
       await waitForLiveQueryRelease()
@@ -157,7 +114,6 @@ function AuthGuard() {
       await signOutAndDispose()
       if (cancelled) return
       await clearAuthCookies()
-      console.log(">>> signOut: complete")
       // AuthGuard's session effect detects !session and navigates to login.
     })()
     return () => {

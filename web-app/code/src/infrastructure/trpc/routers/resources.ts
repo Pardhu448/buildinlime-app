@@ -1,11 +1,8 @@
 import { router, authedProcedure, generateTxId } from "../lib/trpc"
-import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { eq } from "drizzle-orm"
-import {
-  resourcesTable,
-  tasksTable,
-} from "../../database/schema/admin-schema"
+import { resourcesTable, tasksTable } from "../../database/schema/admin-schema"
+import { deleteResourceInput } from "@buildinlime/contracts"
 
 export const resourcesRouter = router({
   /**
@@ -21,7 +18,7 @@ export const resourcesRouter = router({
    * quietly turn a soft delete back into a hard one.
    */
   delete: authedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(deleteResourceInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)

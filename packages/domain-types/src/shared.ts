@@ -50,6 +50,27 @@ export type SeenScope = typeof SEEN_SCOPES[number]
 export const ENTITY_TYPES = ["project", "buildUnit", "channel", "task"] as const
 export type EntityType = typeof ENTITY_TYPES[number]
 
+// Canonical set of tRPC error codes the offline outbox must treat as
+// NON-retriable. The outbox drains strictly in order and retries retriable
+// errors forever, so an error the server will never accept must fail fast or it
+// wedges the queue and stalls every write behind it (see ARCHITECTURE.md §5).
+//
+// Both clients derive their lookup Set directly from this list
+// (`new Set(NON_RETRIABLE_TRPC_CODES)` in each offline/mutation-fns.ts), so the
+// two can no longer drift. They once did — CONFLICT was in mobile but missing
+// from web — back when each kept its own hand-maintained literal.
+export const NON_RETRIABLE_TRPC_CODES = [
+  "BAD_REQUEST",
+  "UNAUTHORIZED",
+  "FORBIDDEN",
+  "NOT_FOUND",
+  "CONFLICT",
+  "PRECONDITION_FAILED",
+  "PAYLOAD_TOO_LARGE",
+  "UNPROCESSABLE_CONTENT",
+] as const
+export type NonRetriableTrpcCode = typeof NON_RETRIABLE_TRPC_CODES[number]
+
 export const STATUS_VALUES = ["critical", "high", "medium", "low"] as const
 export type StatusValue = typeof STATUS_VALUES[number]
 

@@ -1,10 +1,10 @@
 import { useEffect, useCallback, useRef } from 'react'
-import { useLiveQuery, eq } from "@tanstack/react-db"
+import { useLiveQuery, eq, inArray } from "@tanstack/react-db"
 import { ClipboardCheck } from 'lucide-react'
 import { channelsCollection, propertiesCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
 import { CHANNEL_NAMES } from '%/domain/shared/types'
 import { CHANNEL_ICONS } from '%/presentation/lib/channelIcons'
-import { unwrapJsonb } from '%/presentation/lib/utils'
+import { unwrapJsonb, mapPropertyRow } from '%/presentation/lib/utils'
 import { usePendingItems } from './use-pending-items'
 import type { Channel } from '../components/buildInlime'
 import type { Property } from '%/domain/communication/types'
@@ -44,7 +44,23 @@ export function useBuildUnitChannels(buildUnitId: string, projectId: string, bui
     [buildUnitId]
   )
 
+  // Live properties for every channel in this build unit, so each channel card
+  // can show its own property indicators (parity with the build unit above).
+  const channelIds = (dbChannels ?? []).map((c) => c.id)
+  const { data: dbChannelProperties } = useLiveQuery(
+    (q) => q.from({ propertiesCollection }).where(({ propertiesCollection: p }) => inArray(p.entity_id, channelIds)),
+    [channelIds.join(`,`)]
+  )
+
   if (dbChannels === undefined) return { status: 'loading' as const }
+
+  const channelPropsByEntity = new Map<string, Property[]>()
+  for (const p of dbChannelProperties ?? []) {
+    const property = mapPropertyRow(p)
+    const list = channelPropsByEntity.get(property.entity_id) ?? []
+    list.push(property)
+    channelPropsByEntity.set(property.entity_id, list)
+  }
 
   const dbChannelList: Channel[] = (dbChannels ?? []).map((channel) => {
     const name = unwrapJsonb(channel.name as unknown as string) as typeof CHANNEL_NAMES[number]
@@ -54,6 +70,7 @@ export function useBuildUnitChannels(buildUnitId: string, projectId: string, bui
       description: channel.description ?? '',
       icon: CHANNEL_ICONS[name] ?? ClipboardCheck,
       to: `/projects/${projectId}/${buildUnitName}/${name}`,
+      properties: channelPropsByEntity.get(channel.id as string) ?? [],
     }
   })
 
@@ -67,17 +84,12 @@ export function useBuildUnitChannels(buildUnitId: string, projectId: string, bui
       description: p.description ?? '',
       icon: CHANNEL_ICONS[p.name as typeof CHANNEL_NAMES[number]] ?? ClipboardCheck,
       to: undefined,
+      properties: [],
     }))
 
   const channels = [...dbChannelList, ...ghostChannels]
 
-  const properties: Property[] = (dbProperties ?? []).map((p) => ({
-    ...p,
-    type: unwrapJsonb(p.type) as Property['type'],
-    entity: unwrapJsonb(p.entity) as Property['entity'],
-    status_value: unwrapJsonb(p.status_value) as Property['status_value'],
-    priority_value: unwrapJsonb(p.priority_value) as Property['priority_value'],
-  }))
+  const properties: Property[] = (dbProperties ?? []).map(mapPropertyRow)
 
   return {
     status: 'ready' as const,

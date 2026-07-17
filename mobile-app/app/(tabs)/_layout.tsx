@@ -10,6 +10,7 @@ import {
   resyncProjectCollections,
 } from "@/src/application/collections/init"
 import { membershipsCollection } from "@/src/application/collections/admin"
+import { waitForLiveQueryRelease } from "@/src/application/collections/live-query-release"
 import { initOfflineExecutor } from "@/src/infrastructure/offline/executor"
 import { initUploadManager } from "@/src/infrastructure/offline/upload-manager"
 import { resetAllOfflineActions } from "@/src/application/actions"
@@ -37,7 +38,7 @@ export default function DrawerLayout() {
     if (!session?.user?.id || bootstrapStarted.current) return
     bootstrapStarted.current = true
     if (__DEV__) console.log("[layout] Starting bootstrap collections")
-    initBootstrapCollections()
+    initBootstrapCollections(session.user.id)
       .then(() => {
         if (__DEV__) console.log("[layout] Bootstrap ready")
         setBootstrapReady(true)
@@ -128,6 +129,13 @@ export default function DrawerLayout() {
     let cancelled = false
     void (async () => {
       try {
+        // Unmounting the Drawer above is necessary but not sufficient: the
+        // just-unmounted live queries stay registered as collection dependents
+        // until they GC. Yield past that release window before cleanup(), or
+        // resyncProjectCollections tears a source out from under a live dependent
+        // ("… cleaned up while live query depends on it"). Same guard sign-out uses.
+        await waitForLiveQueryRelease()
+        if (cancelled) return
         const changed = await resyncProjectCollections(projectId)
         if (cancelled) return
         if (changed) {
