@@ -123,26 +123,52 @@ const KNOWN_EXCEPTIONS: Record<string, string> = {
   "#6b7280": "mobile: neutral gray-500",
   "#4b5563": "mobile: neutral gray-600",
 
-  // Web — one-offs with no token yet. Each is a brand shade that wants naming
-  // or a stray that wants deleting; pinned so the set cannot grow silently.
-  //
-  // Entries graduate out of this list rather than lingering: #7d5419, #c4a574
-  // and #9b6e4d became --primary-hover, --primary-disabled and
-  // --secondary-hover, so the membership check now allows them as theme vars.
-  "#f5ece0": "web: focus highlight + row hover (4 uses) — near --icon-chip, may fold in",
-  "#e5ddd5": "web: login-card border (2 uses) — near --card-border, may fold in",
-  "#c8c8d0": "web: disabled date text in the schedule popover (1 use)",
+  // Mobile — scrims behind modals and sheets, written as rgba(0,0,0,α) and
+  // rgba(255,255,255,α). Only visible to this guard since it learned to read
+  // rgb()/rgba(). Black is not a brand colour and should not become a token;
+  // white already is one (--background), so only black needs listing.
+  "#000000": "mobile: modal/sheet scrim, rgba(0,0,0,0.4) and 0.6",
 
-  // Not a design-system colour at all: an HTML email body, which cannot
-  // reference CSS custom properties. This one will never graduate.
-  "#f0f0f0": "web: OTP email template (infrastructure/lib/utils/sendEmailOtp.ts)",
+  // Web — colours that cannot be tokens, because CSS custom properties do not
+  // reach them. Neither will ever graduate.
+  "#f0f0f0": "web: OTP email body (infrastructure/lib/utils/sendEmailOtp.ts)",
 }
+
+// Everything else that once lived here has graduated into theme.css rather than
+// lingering as an exception: #7d5419 → --primary-hover, #c4a574 →
+// --primary-disabled, #9b6e4d → --secondary-hover, #f5ece0 →
+// --surface-highlight, #e5ddd5 → --card-border-subtle, #c8c8d0 →
+// --foreground-disabled, and rgba(151,102,35,0.1) → --shadow-card. The list is
+// meant to shrink.
 
 const SCAN_ROOTS = [
   path.join(repoRoot, "web-app/code/src"),
   path.join(repoRoot, "mobile-app/src"),
   path.join(repoRoot, "mobile-app/app"),
 ]
+
+/**
+ * Every colour literal in a source string, normalised to lowercase #rrggbb.
+ *
+ * rgb()/rgba() count. They are the same colour wearing a different notation,
+ * and the notation is exactly where one hid: the login card's shadow spelled
+ * the brand primary as rgba(151,102,35,0.1), so it survived every sweep that
+ * searched for "#976623" and this guard never saw it. Alpha is dropped — what
+ * is being pinned is the colour, not its opacity.
+ */
+function coloursIn(src: string): string[] {
+  const out: string[] = []
+  for (const m of src.matchAll(/#[0-9a-fA-F]{6}\b/g)) out.push(m[0].toLowerCase())
+  for (const m of src.matchAll(
+    /\brgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,[^)]*)?\)/g,
+  )) {
+    const hex = [m[1], m[2], m[3]]
+      .map((n) => Number(n).toString(16).padStart(2, "0"))
+      .join("")
+    out.push(`#${hex}`)
+  }
+  return out
+}
 
 /** Every .ts/.tsx under the scan roots, minus the token file itself. */
 function sourceFiles(): string[] {
@@ -192,15 +218,15 @@ describe("brand palette", () => {
     // #654212) outlived the files that used them and sat here describing
     // colours the repo no longer contained. An exception is a claim about the
     // code — if the claim expires, it should say so rather than accumulate.
-    const blob = sourceFiles()
-      .map((f) => readFileSync(f, "utf8"))
-      .join("\n")
-      .toLowerCase()
-    const stale = Object.keys(KNOWN_EXCEPTIONS).filter((hex) => !blob.includes(hex))
+    // Goes through coloursIn so an rgba()-only colour counts as in use.
+    const found = new Set(
+      sourceFiles().flatMap((f) => coloursIn(readFileSync(f, "utf8"))),
+    )
+    const stale = Object.keys(KNOWN_EXCEPTIONS).filter((hex) => !found.has(hex))
     expect(stale, "KNOWN_EXCEPTIONS entries whose colour is gone — delete them").toEqual([])
   })
 
-  it("every hex in either app is a known colour", () => {
+  it("every colour literal in either app is a known colour", () => {
     const files = sourceFiles()
     // Sanity: a scan that finds no files would pass silently.
     expect(files.length).toBeGreaterThanOrEqual(100)
@@ -213,8 +239,7 @@ describe("brand palette", () => {
 
     const offenders = new Map<string, string[]>()
     for (const file of files) {
-      for (const m of readFileSync(file, "utf8").matchAll(/#[0-9a-fA-F]{6}\b/g)) {
-        const hex = m[0].toLowerCase()
+      for (const hex of coloursIn(readFileSync(file, "utf8"))) {
         if (allowed.has(hex)) continue
         const where = offenders.get(hex) ?? []
         where.push(path.relative(repoRoot, file))
@@ -224,8 +249,8 @@ describe("brand palette", () => {
 
     // Sanity: the scan must actually be seeing colours, or `allowed` could be
     // wrong in a way that never surfaces.
-    const sawKnown = files.some((f) => /#976623/i.test(readFileSync(f, "utf8")))
-    expect(sawKnown, "scan found no brand hex at all — regex or roots broken").toBe(true)
+    const sawKnown = files.some((f) => coloursIn(readFileSync(f, "utf8")).includes("#976623"))
+    expect(sawKnown, "scan found no brand colour at all — regex or roots broken").toBe(true)
 
     expect(
       [...offenders].map(([hex, files]) => `${hex} in ${files[0]}${files.length > 1 ? ` (+${files.length - 1} more)` : ""}`),

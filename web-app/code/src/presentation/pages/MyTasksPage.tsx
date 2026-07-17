@@ -70,7 +70,7 @@ export function MyTasksPage() {
                     className={`w-full flex items-start gap-3 px-4 py-3 rounded-lg border transition-colors text-left ${
                       task.completed
                         ? "bg-white border-card-border opacity-60 hover:opacity-80"
-                        : "bg-card-surface border-card-border hover:border-border hover:bg-[#f5ece0]"
+                        : "bg-card-surface border-card-border hover:border-border hover:bg-surface-highlight"
                     }`}
                   >
                     <div className="flex-1 min-w-0">

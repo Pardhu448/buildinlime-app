@@ -5,5 +5,5 @@ interface LoginCardProps {
 }
 
 export function LoginCard({ children }: LoginCardProps) {
-  return <div className="bg-white rounded-[16px] border border-[#e5ddd5] shadow-[0px_8px_40px_0px_rgba(151,102,35,0.1)]">{children}</div>;
+  return <div className="bg-white rounded-[16px] border border-card-border-subtle shadow-card">{children}</div>;
 }

@@ -71,9 +71,9 @@ export function InboxPage() {
                   <button
                     key={msg.id}
                     onClick={() => handleMessageClick(msg)}
-                    className={`w-full flex items-start gap-3 px-4 py-3 border rounded-lg hover:border-border hover:bg-[#f5ece0] transition-colors text-left ${
+                    className={`w-full flex items-start gap-3 px-4 py-3 border rounded-lg hover:border-border hover:bg-surface-highlight transition-colors text-left ${
                       unread
-                        ? "bg-[#f5ece0] border-border"
+                        ? "bg-surface-highlight border-border"
                         : "bg-card-surface border-card-border"
                     }`}
                   >

@@ -170,7 +170,7 @@ export function UploadSchedulePopover({
                     disabled={isPast}
                     className={[
                       "text-center text-xs py-1 rounded transition-colors",
-                      isPast ? "text-[#c8c8d0] cursor-not-allowed" : "hover:bg-icon-chip cursor-pointer",
+                      isPast ? "text-foreground-disabled cursor-not-allowed" : "hover:bg-icon-chip cursor-pointer",
                       isSelected ? "bg-primary text-white hover:bg-primary-hover" : "text-foreground",
                     ].join(" ")}
                   >

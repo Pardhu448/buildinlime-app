@@ -149,7 +149,7 @@ function MessageItem({
       // Anchor for the Inbox deep-link (?messageId=). Also the highlight target.
       id={`message-${message.id}`}
       className={`${depth > 0 ? "ml-7 border-l-2 border-card-border pl-3 mt-1" : ""} ${
-        isFocused ? "bg-[#f5ece0] rounded transition-colors duration-1000" : ""
+        isFocused ? "bg-surface-highlight rounded transition-colors duration-1000" : ""
       }`}
     >
       <div className="flex gap-2 py-2">

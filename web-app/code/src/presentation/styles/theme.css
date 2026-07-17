@@ -33,6 +33,15 @@
   --card-surface: #fdf8f2;
   --card-border: #e5d4c1;
   --icon-chip: #f0e5d8;
+  /* --card-surface when a row is hovered, selected, or flashed on focus. */
+  --surface-highlight: #f5ece0;
+  /* The login card's border — lighter than --card-border, which the in-app
+     cards use. Distinct on purpose; fold the two together if that is a bug. */
+  --card-border-subtle: #e5ddd5;
+  /* Text that is present but unusable, e.g. a past date in the schedule
+     picker. Lighter than --muted-foreground, which is merely secondary. */
+  --foreground-disabled: #c8c8d0;
+
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --ring: #976623;
@@ -52,6 +61,10 @@
   --color-card-surface: var(--card-surface);
   --color-card-border: var(--card-border);
   --color-icon-chip: var(--icon-chip);
+  --color-surface-highlight: var(--surface-highlight);
+  --color-card-border-subtle: var(--card-border-subtle);
+  --color-foreground-disabled: var(--foreground-disabled);
+
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -65,6 +78,16 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* The login card's drop shadow. Derived from --primary rather than respelling
+     it as rgba(151,102,35,0.1) — the brand colour in a notation neither the
+     palette guard nor a search for "#976623" could see, and one that would not
+     have followed --primary if it moved.
+     Lightning CSS emits a full-opacity fallback plus an @supports block with the
+     real color-mix, exactly as it does for Tailwind's own opacity modifiers
+     (bg-primary/90 and friends), so this needs no wider browser support than the
+     rest of the CSS already does. */
+  --shadow-card: 0px 8px 40px 0px color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 @layer base {
