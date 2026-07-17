@@ -1,5 +1,14 @@
 # BuildInLime Design System
 
+> **OUTDATED — see [`styling.md`](./styling.md) instead.**
+>
+> This document describes a `components/design-system/` component library
+> (`import { Button, Card, Input } from "./components/design-system"`) that has
+> been **deleted** — it had no consumers and could not build. The colour notes
+> are also stale (e.g. `--accent` was collapsed into `--secondary`). Kept only
+> for history; do not follow its import examples. Current styling, tokens, and
+> the palette guard are documented in `styling.md`.
+
 A comprehensive design system for construction documentation and project management applications.
 
 ## Overview
