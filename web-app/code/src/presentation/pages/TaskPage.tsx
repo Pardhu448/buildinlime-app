@@ -1,15 +1,6 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
-import {
-  ChevronRight,
-  ChevronDown,
-  Link as LinkIcon,
-  Check,
-  PanelRight,
-  Hammer,
-  Trash2,
-} from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { Hammer } from "lucide-react";
 import { deleteTaskAction } from "%/application/actions/tasks";
 import {
   Sidebar,
@@ -18,8 +9,10 @@ import {
   ResourcesSection,
   AssignedToSection,
   TaskStatusSection,
-  PropertiesPanel,
 } from "../components/buildInlime";
+import { TaskPageHeader } from "../components/buildInlime/task/TaskPageHeader";
+import { TaskPropertiesSection } from "../components/buildInlime/task/TaskPropertiesSection";
+import { TaskDetailsSection } from "../components/buildInlime/task/TaskDetailsSection";
 import { formatDateTime } from "%/presentation/lib/datetime";
 import type { Property } from "%/domain/communication/types";
 
@@ -65,6 +58,10 @@ export function TaskPage({
 }: TaskPageProps) {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
+  // Right-panel collapse state lives here (not in TaskPropertiesSection) so it
+  // survives hiding/showing the panel, which unmounts the aside.
+  const [propertiesOpen, setPropertiesOpen] = useState(true);
+  const [taskPropsOpen, setTaskPropsOpen] = useState(true);
   const navigate = useNavigate();
 
   // Creator only. The server enforces it (tasks.delete returns FORBIDDEN otherwise)
@@ -94,8 +91,6 @@ export function TaskPage({
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 1500);
   };
-  const [propertiesOpen, setPropertiesOpen] = useState(true);
-  const [taskPropsOpen, setTaskPropsOpen] = useState(true);
 
   return (
     <div className="flex h-screen bg-white font-['Instrument_Sans',sans-serif]">
@@ -104,81 +99,18 @@ export function TaskPage({
 
       {/* Main content */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Top navigation bar */}
-        <header className="border-b border-gray-200 bg-white px-6 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <Link
-                to="/projects/$projectId"
-                params={{ projectId }}
-                className="hover:text-foreground transition-colors"
-              >
-                {projectName}
-              </Link>
-              <ChevronRight className="w-4 h-4" />
-              <Link
-                href={`/projects/${projectId}/${buildUnitName}`}
-                className="hover:text-foreground transition-colors"
-              >
-                {buildUnitName}
-              </Link>
-              <ChevronRight className="w-4 h-4" />
-              <Link
-                href={`/projects/${projectId}/${buildUnitName}/${channelName}`}
-                className="hover:text-foreground transition-colors"
-              >
-                {channelName}
-              </Link>
-              <ChevronRight className="w-4 h-4" />
-              <span className="text-foreground">{taskName}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleCopyLink}
-                title="Copy link"
-                className={`p-1.5 rounded transition-colors ${linkCopied ? "text-green-600 bg-green-50" : "text-muted-foreground hover:bg-gray-100"}`}
-              >
-                {linkCopied ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
-              </button>
-              {/*
-                FUTURE WORK: the notifications bell is a non-functional
-                placeholder, hidden until built. Intended behaviour (deferred —
-                see two open questions below before building):
-                  1) Toggling the bell subscribes the current user to the build
-                     unit; while enabled, its activities are relayed to their
-                     "Updates" page (new page + sidebar entry below "My Tasks",
-                     styled like Inbox / My Tasks).
-                  2) Tracked activities: new channel created, new property added.
-                  3) Each Update is tagged with the build unit's icon and name.
-                Open questions: (a) does enabling show past activity or only new
-                activity going forward? (b) does "new property added" include
-                properties on the build unit's channels/tasks, or build-unit-level
-                only? Likely stack: activities + build_unit_subscriptions synced
-                tables, activity rows emitted in the channels.create /
-                properties.create tRPC mutations.
-
-                <button className="p-1.5 text-muted-foreground hover:bg-gray-100 rounded transition-colors">
-                  <Bell className="w-4 h-4" />
-                </button>
-              */}
-              {canAssign && (
-                <button
-                  onClick={confirmDelete}
-                  title="Delete this task"
-                  className="p-1.5 text-muted-foreground hover:text-red-700 hover:bg-gray-100 rounded transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-              <button
-                onClick={() => setRightPanelOpen(!rightPanelOpen)}
-                className="p-1.5 text-muted-foreground hover:bg-gray-100 rounded transition-colors"
-              >
-                <PanelRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </header>
+        <TaskPageHeader
+          projectId={projectId}
+          projectName={projectName}
+          buildUnitName={buildUnitName}
+          channelName={channelName}
+          taskName={taskName}
+          canDelete={canAssign}
+          onDelete={confirmDelete}
+          linkCopied={linkCopied}
+          onCopyLink={handleCopyLink}
+          onToggleRightPanel={() => setRightPanelOpen(!rightPanelOpen)}
+        />
 
         <div className="flex flex-1 overflow-hidden">
           {/* Content area */}
@@ -235,52 +167,15 @@ export function TaskPage({
           {/* Right panel */}
           {rightPanelOpen && (
             <aside className="w-72 bg-card-surface border-l border-card-border overflow-y-auto p-6 space-y-8">
-              {/* Properties */}
-              <div>
-                <button
-                  onClick={() => setPropertiesOpen(!propertiesOpen)}
-                  className="flex items-center justify-between w-full mb-4"
-                >
-                  <h3 className="text-sm font-medium text-muted-foreground">Properties</h3>
-                  {propertiesOpen
-                    ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    : <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  }
-                </button>
-                {propertiesOpen && (
-                  <div>
-                    {/* Task sub-section */}
-                    <button
-                      onClick={() => setTaskPropsOpen(!taskPropsOpen)}
-                      className="flex items-center justify-between w-full mb-3"
-                    >
-                      <p className="text-xs text-secondary">Task</p>
-                      {taskPropsOpen
-                        ? <ChevronDown className="w-3 h-3 text-secondary" />
-                        : <ChevronRight className="w-3 h-3 text-secondary" />
-                      }
-                    </button>
-                    {taskPropsOpen && (
-                      <PropertiesPanel properties={properties} entityId={taskId} hideLabel hideAddButton />
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Details */}
-              <div>
-                <p className="text-xs font-semibold text-secondary uppercase tracking-wider mb-3">Details</p>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Channel</span>
-                    <span className="text-sm text-foreground">{channelName}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Build Unit</span>
-                    <span className="text-sm text-foreground">{buildUnitName}</span>
-                  </div>
-                </div>
-              </div>
+              <TaskPropertiesSection
+                properties={properties}
+                taskId={taskId}
+                propertiesOpen={propertiesOpen}
+                setPropertiesOpen={setPropertiesOpen}
+                taskPropsOpen={taskPropsOpen}
+                setTaskPropsOpen={setTaskPropsOpen}
+              />
+              <TaskDetailsSection channelName={channelName} buildUnitName={buildUnitName} />
             </aside>
           )}
         </div>
