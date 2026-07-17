@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Plus, Hash, FolderOpen } from "lucide-react";
-import { Modal } from "../shared/Modal";
 import { Link } from "@tanstack/react-router";
 import { useLiveQuery, eq } from "@tanstack/react-db";
 import { useSession } from "%/infrastructure/auth/client";
@@ -12,11 +10,13 @@ import {
   projectsCollection,
 } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 import { createTeamAction, updateTeamAction } from "%/application/actions/teams";
-import { unwrapJsonb } from "%/presentation/lib/utils";
 import { UserInfo } from "./UserInfo";
 import { InboxNav } from "./InboxNav";
 import { MyTasksNav } from "./MyTasksNav";
-import { TeamSection } from "./TeamSection";
+import { WorkspaceNav } from "./WorkspaceNav";
+import { BuildUnitsNav } from "./BuildUnitsNav";
+import { TeamsNav } from "./TeamsNav";
+import { CreateTeamModal } from "./CreateTeamModal";
 import { BottomSection } from "../BottomSection";
 
 export interface SidebarProps {
@@ -152,268 +152,55 @@ export function Sidebar({ projectId }: SidebarProps) {
           )}
 
           {/* Workspace section — always visible */}
-          <div className="mb-4">
-            <button
-              onClick={() => setExpandedWorkspace(!expandedWorkspace)}
-              className="w-full flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors mb-1"
-            >
-              {expandedWorkspace ? (
-                <ChevronDown className="w-3 h-3" />
-              ) : (
-                <ChevronRight className="w-3 h-3" />
-              )}
-              <span>Workspace</span>
-            </button>
-
-            {expandedWorkspace && (
-              <div className="space-y-0.5">
-                {/* All Projects link */}
-                <Link
-                  to="/projects"
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-icon-chip rounded transition-colors"
-                >
-                  <FolderOpen className="w-4 h-4 text-primary flex-shrink-0" />
-                  <span className="font-medium">All Projects</span>
-                </Link>
-
-                {/* Individual project links */}
-                {userProjects.map((p) => (
-                  <Link
-                    key={p.id}
-                    to="/projects/$projectId"
-                    params={{ projectId: p.id }}
-                    className="w-full flex items-center gap-2 pl-7 pr-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-icon-chip rounded transition-colors"
-                  >
-                    <div className="w-4 h-4 rounded bg-card-border flex items-center justify-center flex-shrink-0">
-                      <span className="text-primary text-[9px] font-bold leading-none">
-                        {p.name[0]?.toUpperCase()}
-                      </span>
-                    </div>
-                    <span className="truncate">{p.name}</span>
-                  </Link>
-                ))}
-
-                {userProjects.length === 0 && (
-                  <p className="px-3 py-1 text-xs text-muted-foreground">No projects yet</p>
-                )}
-              </div>
-            )}
-          </div>
+          <WorkspaceNav
+            expanded={expandedWorkspace}
+            onToggle={() => setExpandedWorkspace(!expandedWorkspace)}
+            projects={userProjects}
+          />
 
           {/* Build Units — only when inside a project */}
           {projectId && (
-            <div className="mb-4">
-              <button
-                onClick={() => setExpandedBuildUnits(!expandedBuildUnits)}
-                className="w-full flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors mb-1"
-              >
-                {expandedBuildUnits ? (
-                  <ChevronDown className="w-3 h-3" />
-                ) : (
-                  <ChevronRight className="w-3 h-3" />
-                )}
-                <span>Build Units</span>
-              </button>
-
-              {expandedBuildUnits && (
-                <div className="space-y-0.5">
-                  {(projectBuildUnits ?? []).length === 0 ? (
-                    <p className="px-4 py-1 text-xs text-muted-foreground">No build units</p>
-                  ) : (
-                    (projectBuildUnits ?? []).map((bu) => {
-                      const buExpanded = expandedBuIds[bu.id] ?? false;
-                      const channels = getChannelsForBuildUnit(bu.id);
-                      return (
-                        <div key={bu.id}>
-                          {/* Build Unit row */}
-                          <div className="group flex items-center gap-1 rounded hover:bg-icon-chip transition-colors">
-                            <button
-                              onClick={() => toggleBu(bu.id)}
-                              className="p-1 flex-shrink-0 text-muted-foreground"
-                            >
-                              {buExpanded ? (
-                                <ChevronDown className="w-3 h-3" />
-                              ) : (
-                                <ChevronRight className="w-3 h-3" />
-                              )}
-                            </button>
-                            <Link
-                              to="/projects/$projectId/$buildUnitName"
-                              params={{ projectId: projectId!, buildUnitName: bu.name }}
-                              className="flex-1 py-1.5 pr-2 text-sm text-foreground truncate"
-                            >
-                              {bu.name}
-                            </Link>
-                          </div>
-
-                          {/* Channels nested under build unit */}
-                          {buExpanded && (
-                            <div className="ml-5 space-y-0.5 mt-0.5">
-                              {channels.length === 0 ? (
-                                <p className="px-3 py-1 text-xs text-muted-foreground">No channels</p>
-                              ) : (
-                                channels.map((ch) => {
-                                  const channelName = unwrapJsonb(ch.name);
-                                  return (
-                                    <Link
-                                      key={ch.id}
-                                      to="/projects/$projectId/$buildUnitName/$channelName/"
-                                      params={{ projectId: projectId!, buildUnitName: bu.name, channelName }}
-                                      className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-icon-chip rounded transition-colors"
-                                    >
-                                      <Hash className="w-3 h-3 flex-shrink-0" />
-                                      <span className="truncate flex-1">
-                                        {channelName}
-                                      </span>
-                                    </Link>
-                                  );
-                                })
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-            </div>
+            <BuildUnitsNav
+              projectId={projectId}
+              expanded={expandedBuildUnits}
+              onToggle={() => setExpandedBuildUnits(!expandedBuildUnits)}
+              buildUnits={projectBuildUnits ?? []}
+              channelsFor={getChannelsForBuildUnit}
+              expandedBuIds={expandedBuIds}
+              onToggleBu={toggleBu}
+            />
           )}
 
           {/* Teams — only when inside a project and user is the project owner */}
-          {projectId && isProjectOwner && <div className="mb-4">
-            <div className="flex items-center gap-1 px-2 py-1 mb-1">
-              <button
-                onClick={() => setExpandedTeams(!expandedTeams)}
-                className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex-1"
-              >
-                {expandedTeams ? (
-                  <ChevronDown className="w-3 h-3" />
-                ) : (
-                  <ChevronRight className="w-3 h-3" />
-                )}
-                <span>Teams</span>
-              </button>
-              <button
-                onClick={openCreate}
-                className="p-0.5 text-muted-foreground hover:text-primary hover:bg-icon-chip rounded transition-colors"
-                title="Create team"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {expandedTeams && (
-              <div className="space-y-1">
-                {(allTeams ?? []).length === 0 ? (
-                  <p className="px-3 py-1 text-xs text-muted-foreground">No teams yet</p>
-                ) : (
-                  (allTeams ?? []).map((team) => {
-                    const members = (allUsers ?? [])
-                      .filter((u) => team.member_ids.includes(u.id))
-                      .map((u) => ({ id: u.id, name: u.name ?? "", email: u.email }));
-                    return (
-                      <TeamSection
-                        key={team.id}
-                        teamId={team.id}
-                        name={team.name}
-                        description={team.description}
-                        members={members}
-                        currentMemberIds={team.member_ids}
-                        allUsers={allUsers ?? []}
-                        onAddMember={handleAddMember}
-                      />
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>}
+          {projectId && isProjectOwner && (
+            <TeamsNav
+              expanded={expandedTeams}
+              onToggle={() => setExpandedTeams(!expandedTeams)}
+              onCreate={openCreate}
+              teams={allTeams ?? []}
+              allUsers={allUsers ?? []}
+              onAddMember={handleAddMember}
+            />
+          )}
         </nav>
 
         <BottomSection />
       </aside>
 
-      {/* Create Team modal */}
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)}>
-        {/* Own heading rather than Modal's `title` — this dialog uses the
-            smaller text-lg/foreground style, not the standard text-xl/gray-800. */}
-        <h2 className="text-lg font-semibold text-foreground mb-5">Create Team</h2>
-
-        <form onSubmit={handleCreate} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Team Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              placeholder="e.g. Masonry Team"
-              required
-              autoFocus
-              className="w-full px-3 py-2 border border-card-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Description</label>
-            <textarea
-              value={teamDesc}
-              onChange={(e) => setTeamDesc(e.target.value)}
-              placeholder="What does this team work on?"
-              rows={2}
-              className="w-full px-3 py-2 border border-card-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Members</label>
-            <div className="max-h-48 overflow-y-auto border border-card-border rounded-md divide-y divide-icon-chip">
-              {(allUsers ?? []).map((user) => {
-                const isCreator = user.id === currentUserId;
-                const checked = selectedMemberIds.includes(user.id);
-                return (
-                  <label
-                    key={user.id}
-                    className={`flex items-center gap-3 px-3 py-2 hover:bg-card-surface transition-colors ${
-                      isCreator ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={isCreator}
-                      onChange={() => toggleMember(user.id)}
-                      className="accent-primary"
-                    />
-                    <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-primary text-xs font-medium flex-shrink-0">
-                      {((user.name || user.email || "?")[0] ?? "?").toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-foreground truncate">{user.name || user.email}</p>
-                      {user.name && (
-                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                      )}
-                    </div>
-                    {isCreator && (
-                      <span className="text-xs text-secondary">you</span>
-                    )}
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSubmitting || !teamName.trim()}
-            className="w-full bg-primary hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            {isSubmitting ? "Creating…" : "Create Team"}
-          </button>
-        </form>
-      </Modal>
+      <CreateTeamModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onSubmit={handleCreate}
+        teamName={teamName}
+        setTeamName={setTeamName}
+        teamDesc={teamDesc}
+        setTeamDesc={setTeamDesc}
+        users={allUsers ?? []}
+        currentUserId={currentUserId}
+        selectedMemberIds={selectedMemberIds}
+        toggleMember={toggleMember}
+        isSubmitting={isSubmitting}
+      />
     </>
   );
 }
