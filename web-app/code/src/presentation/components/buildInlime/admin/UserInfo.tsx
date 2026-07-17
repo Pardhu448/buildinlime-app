@@ -18,23 +18,23 @@ export function UserInfo({ initials, name }: UserInfoProps) {
   };
 
   return (
-    <div className="p-4 border-b border-[#e5d4c1] relative">
+    <div className="p-4 border-b border-card-border relative">
       <div className="flex items-center justify-between gap-2">
         <button
           onClick={() => setUserMenuOpen(!userMenuOpen)}
-          className="flex items-center gap-2 flex-1 hover:bg-[#f0e5d8] rounded p-1 transition-colors"
+          className="flex items-center gap-2 flex-1 hover:bg-icon-chip rounded p-1 transition-colors"
         >
-          <div className="w-8 h-8 rounded-full bg-[#976623] flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm">
             {initials}
           </div>
-          <span className="font-medium text-[#1e1e1e]">{name}</span>
-          <ChevronDown className="w-4 h-4 ml-auto text-[#717182]" />
+          <span className="font-medium text-foreground">{name}</span>
+          <ChevronDown className="w-4 h-4 ml-auto text-muted-foreground" />
         </button>
-        {/* <button className="p-2 hover:bg-[#f0e5d8] rounded transition-colors">
-          <Search className="w-4 h-4 text-[#717182]" />
+        {/* <button className="p-2 hover:bg-icon-chip rounded transition-colors">
+          <Search className="w-4 h-4 text-muted-foreground" />
         </button>
-        <button className="p-2 hover:bg-[#f0e5d8] rounded transition-colors">
-          <Plus className="w-4 h-4 text-[#717182]" />
+        <button className="p-2 hover:bg-icon-chip rounded transition-colors">
+          <Plus className="w-4 h-4 text-muted-foreground" />
         </button> */}
       </div>
 
@@ -42,8 +42,8 @@ export function UserInfo({ initials, name }: UserInfoProps) {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
           <div className="absolute left-4 right-4 top-14 bg-white border border-gray-200 shadow-lg rounded-lg z-50 overflow-hidden">
-            <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#1e1e1e] hover:bg-gray-50 transition-colors text-left">
-              <Settings className="w-4 h-4 text-[#717182]" />
+            <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-gray-50 transition-colors text-left">
+              <Settings className="w-4 h-4 text-muted-foreground" />
               <span>Settings</span>
             </button>
             <div className="border-t border-gray-200" />

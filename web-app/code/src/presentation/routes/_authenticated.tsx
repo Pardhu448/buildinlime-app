@@ -10,7 +10,7 @@ import { useEffect, useState, useRef } from 'react'
 
 function AuthLoadingComponent() {
   return (
-    <div className="flex h-screen items-center justify-center text-[#717182] font-['Instrument_Sans',sans-serif]">
+    <div className="flex h-screen items-center justify-center text-muted-foreground font-['Instrument_Sans',sans-serif]">
       Loading…
     </div>
   )

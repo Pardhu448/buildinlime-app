@@ -29,17 +29,17 @@ function BuildUnitLayout() {
   )
 
   if (dbBuildUnits === undefined) {
-    return <div className="flex h-screen items-center justify-center text-[#717182]">Loading…</div>
+    return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading…</div>
   }
 
   const buildUnit = dbBuildUnits.find((bu) => bu.name === buildUnitName)
 
   if (!buildUnit) {
     if (!syncTimedOut) {
-      return <div className="flex h-screen items-center justify-center text-[#717182]">Loading…</div>
+      return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading…</div>
     }
     return (
-      <div className="flex h-screen items-center justify-center text-[#717182]">
+      <div className="flex h-screen items-center justify-center text-muted-foreground">
         Build unit "{buildUnitName}" not found.
       </div>
     )

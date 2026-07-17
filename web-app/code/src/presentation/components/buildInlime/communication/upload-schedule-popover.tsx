@@ -70,15 +70,15 @@ export function UploadSchedulePopover({
 
   const triggerIcon = () => {
     if (status === "uploading" || status === "awaiting_network") {
-      return <Loader2 className="w-3.5 h-3.5 animate-spin text-[#976623]" />
+      return <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
     }
     if (status === "scheduled") {
-      return <Clock className="w-3.5 h-3.5 text-[#976623]" />
+      return <Clock className="w-3.5 h-3.5 text-primary" />
     }
     if (status === "error") {
       return <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
     }
-    return <Upload className="w-3.5 h-3.5 text-[#717182] hover:text-[#976623]" />
+    return <Upload className="w-3.5 h-3.5 text-muted-foreground hover:text-primary" />
   }
 
   const triggerTitle = () => {
@@ -96,7 +96,7 @@ export function UploadSchedulePopover({
         <button
           title={triggerTitle()}
           disabled={isBusy}
-          className="p-1 rounded transition-colors hover:bg-[#f0e5d8] disabled:cursor-not-allowed"
+          className="p-1 rounded transition-colors hover:bg-icon-chip disabled:cursor-not-allowed"
         >
           {triggerIcon()}
         </button>
@@ -107,25 +107,25 @@ export function UploadSchedulePopover({
           side="bottom"
           align="start"
           sideOffset={6}
-          className="z-50 w-72 bg-white border border-[#e5d4c1] rounded-lg shadow-lg p-4 font-['Instrument_Sans',sans-serif]"
+          className="z-50 w-72 bg-white border border-card-border rounded-lg shadow-lg p-4 font-['Instrument_Sans',sans-serif]"
         >
-          <p className="text-xs font-semibold text-[#717182] uppercase tracking-wider mb-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             When to upload?
           </p>
 
           {/* Upload now */}
           <button
             onClick={handleUploadNow}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-[#976623] text-white rounded hover:bg-[#7d5419] transition-colors mb-4"
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-primary text-white rounded hover:bg-primary-hover transition-colors mb-4"
           >
             <Upload className="w-4 h-4" />
             Upload Now
           </button>
 
           <div className="flex items-center gap-2 mb-3">
-            <div className="flex-1 h-px bg-[#e5d4c1]" />
-            <span className="text-xs text-[#717182]">or schedule</span>
-            <div className="flex-1 h-px bg-[#e5d4c1]" />
+            <div className="flex-1 h-px bg-card-border" />
+            <span className="text-xs text-muted-foreground">or schedule</span>
+            <div className="flex-1 h-px bg-card-border" />
           </div>
 
           {/* Mini calendar */}
@@ -133,25 +133,25 @@ export function UploadSchedulePopover({
             <div className="flex items-center justify-between mb-2">
               <button
                 onClick={() => setCalendarMonth((m) => subMonths(m, 1))}
-                className="p-1 hover:bg-[#f0e5d8] rounded transition-colors"
+                className="p-1 hover:bg-icon-chip rounded transition-colors"
               >
-                <ChevronLeft className="w-3.5 h-3.5 text-[#717182]" />
+                <ChevronLeft className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
-              <span className="text-xs font-medium text-[#1e1e1e]">
+              <span className="text-xs font-medium text-foreground">
                 {format(calendarMonth, "MMMM yyyy")}
               </span>
               <button
                 onClick={() => setCalendarMonth((m) => addMonths(m, 1))}
-                className="p-1 hover:bg-[#f0e5d8] rounded transition-colors"
+                className="p-1 hover:bg-icon-chip rounded transition-colors"
               >
-                <ChevronRight className="w-3.5 h-3.5 text-[#717182]" />
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
             </div>
 
             {/* Day headers */}
             <div className="grid grid-cols-7 mb-1">
               {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
-                <div key={d} className="text-center text-[10px] text-[#717182] py-0.5">
+                <div key={d} className="text-center text-[10px] text-muted-foreground py-0.5">
                   {d}
                 </div>
               ))}
@@ -170,8 +170,8 @@ export function UploadSchedulePopover({
                     disabled={isPast}
                     className={[
                       "text-center text-xs py-1 rounded transition-colors",
-                      isPast ? "text-[#c8c8d0] cursor-not-allowed" : "hover:bg-[#f0e5d8] cursor-pointer",
-                      isSelected ? "bg-[#976623] text-white hover:bg-[#7d5419]" : "text-[#1e1e1e]",
+                      isPast ? "text-foreground-disabled cursor-not-allowed" : "hover:bg-icon-chip cursor-pointer",
+                      isSelected ? "bg-primary text-white hover:bg-primary-hover" : "text-foreground",
                     ].join(" ")}
                   >
                     {format(day, "d")}
@@ -184,7 +184,7 @@ export function UploadSchedulePopover({
           {/* Time slot selector */}
           {selectedDate && (
             <div className="mb-3">
-              <p className="text-xs text-[#717182] mb-1.5">Time slot</p>
+              <p className="text-xs text-muted-foreground mb-1.5">Time slot</p>
               <div className="grid grid-cols-3 gap-1 max-h-28 overflow-y-auto pr-1">
                 {HOUR_SLOTS.map(({ label, hour }) => (
                   <button
@@ -193,8 +193,8 @@ export function UploadSchedulePopover({
                     className={[
                       "text-xs px-1.5 py-1 rounded border transition-colors",
                       selectedHour === hour
-                        ? "bg-[#976623] text-white border-[#976623]"
-                        : "border-[#e5d4c1] text-[#1e1e1e] hover:bg-[#f0e5d8]",
+                        ? "bg-primary text-white border-primary"
+                        : "border-card-border text-foreground hover:bg-icon-chip",
                     ].join(" ")}
                   >
                     {label}
@@ -208,18 +208,18 @@ export function UploadSchedulePopover({
           <button
             onClick={handleSchedule}
             disabled={!canSchedule}
-            className="w-full px-3 py-2 text-sm border border-[#976623] text-[#976623] rounded hover:bg-[#fdf8f2] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="w-full px-3 py-2 text-sm border border-primary text-primary rounded hover:bg-card-surface disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {canSchedule
               ? `Schedule for ${format(selectedDate, "MMM d")} at ${HOUR_SLOTS[selectedHour].label}`
               : "Schedule Upload"}
           </button>
 
-          <p className="text-[10px] text-[#717182] mt-2 text-center">
+          <p className="text-[10px] text-muted-foreground mt-2 text-center">
             Closing this tab will cancel scheduled uploads
           </p>
 
-          <Popover.Arrow className="fill-[#e5d4c1]" />
+          <Popover.Arrow className="fill-card-border" />
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

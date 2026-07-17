@@ -43,7 +43,7 @@ export function FeaturesCarousel() {
               {slides[currentSlide].heading}
             </h2>
             <p
-              className="font-['Instrument_Sans',sans-serif] text-[18px] leading-[28px] text-[#717182] max-w-[666px]"
+              className="font-['Instrument_Sans',sans-serif] text-[18px] leading-[28px] text-muted-foreground max-w-[666px]"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {slides[currentSlide].description}
@@ -58,8 +58,8 @@ export function FeaturesCarousel() {
                 onClick={() => setCurrentSlide(index)}
                 className={`h-[8px] rounded-full transition-all ${
                   index === currentSlide
-                    ? "bg-[#976623] w-[24px]"
-                    : "bg-[#ac7f5e] w-[8px]"
+                    ? "bg-primary w-[24px]"
+                    : "bg-secondary w-[8px]"
                 }`}
                 aria-label={`Go to slide ${index + 1}`}
               />
@@ -70,17 +70,17 @@ export function FeaturesCarousel() {
           <div className="absolute bottom-[32px] right-[32px] flex items-center gap-[8px]">
             <button
               onClick={handlePrevSlide}
-              className="bg-white border-[0.917px] border-[#ac7f5e] w-[40px] h-[40px] rounded-full flex items-center justify-center hover:bg-[#fdf8f2] transition-colors"
+              className="bg-white border-[0.917px] border-border w-[40px] h-[40px] rounded-full flex items-center justify-center hover:bg-card-surface transition-colors"
               aria-label="Previous slide"
             >
-              <ChevronLeft className="w-4 h-4 text-[#976623]" strokeWidth={2} />
+              <ChevronLeft className="w-4 h-4 text-primary" strokeWidth={2} />
             </button>
             <button
               onClick={handleNextSlide}
-              className="bg-white border-[0.917px] border-[#ac7f5e] w-[40px] h-[40px] rounded-full flex items-center justify-center hover:bg-[#fdf8f2] transition-colors"
+              className="bg-white border-[0.917px] border-border w-[40px] h-[40px] rounded-full flex items-center justify-center hover:bg-card-surface transition-colors"
               aria-label="Next slide"
             >
-              <ChevronRight className="w-4 h-4 text-[#976623]" strokeWidth={2} />
+              <ChevronRight className="w-4 h-4 text-primary" strokeWidth={2} />
             </button>
           </div>
         </div>

@@ -29,7 +29,7 @@ export function ChannelsSection({ channels, buildUnitId, pendingIds, addPending,
     <div className="border-t border-gray-200 pt-6 mb-8">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-[#717182]">Channels</span>
+          <span className="text-muted-foreground">Channels</span>
         </div>
         <NewChannelButton
           buildUnitId={buildUnitId}

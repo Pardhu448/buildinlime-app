@@ -78,17 +78,17 @@ export function CommentInput({
   }
 
   return (
-    <div className="bg-[#fdf8f2] border border-[#e5d4c1] rounded-lg p-4 relative">
+    <div className="bg-card-surface border border-card-border rounded-lg p-4 relative">
       {/* Mention dropdown */}
       {mentionQuery !== null && filteredUsers.length > 0 && (
-        <div className="absolute bottom-full left-0 mb-1 w-full bg-white border border-[#e5d4c1] rounded-lg shadow-lg max-h-40 overflow-y-auto z-10">
+        <div className="absolute bottom-full left-0 mb-1 w-full bg-white border border-card-border rounded-lg shadow-lg max-h-40 overflow-y-auto z-10">
           {filteredUsers.map((u) => (
             <button
               key={u.id}
               onMouseDown={(e) => { e.preventDefault(); handleSelectMention(u) }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1e1e1e] hover:bg-[#fdf8f2] transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-card-surface transition-colors"
             >
-              <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+              <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-primary text-xs font-medium flex-shrink-0">
                 {mentionDisplayName(u)[0].toUpperCase()}
               </div>
               <span className="truncate">{mentionDisplayName(u)}</span>
@@ -103,7 +103,7 @@ export function CommentInput({
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className="w-full bg-transparent text-[#1e1e1e] placeholder-[#ac7f5e] resize-none outline-none mb-3"
+        className="w-full bg-transparent text-foreground placeholder-secondary resize-none outline-none mb-3"
         rows={rows}
       />
 
@@ -121,9 +121,9 @@ export function CommentInput({
         <button
           onClick={handleSend}
           disabled={!canSend}
-          className="p-1.5 hover:bg-[#f0e5d8] rounded transition-colors disabled:opacity-40"
+          className="p-1.5 hover:bg-icon-chip rounded transition-colors disabled:opacity-40"
         >
-          <Send className="w-4 h-4 text-[#717182]" />
+          <Send className="w-4 h-4 text-muted-foreground" />
         </button>
       </div>
     </div>

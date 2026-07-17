@@ -1,6 +1,5 @@
 import { useState } from "react"
 import {
-  Modal,
   View,
   Text,
   TextInput,
@@ -12,6 +11,7 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker"
 import { splitExtension } from "@/src/presentation/resources/lib/attachment-format"
 import { colors } from "@/src/presentation/shared/colors"
+import { CenteredModal } from "@/src/presentation/shared/components/CenteredModal"
 
 // Name the file and choose when it uploads: immediately, or at a future
 // date/time. Mobile counterpart of web's upload-schedule-popover.
@@ -80,124 +80,106 @@ export function UploadScheduleModal({
   const canSchedule = selected !== null && selected.getTime() > Date.now()
 
   return (
-    <Modal
+    <CenteredModal
       visible={visible}
-      transparent
-      animationType="fade"
       onRequestClose={() => {
         reset()
         onCancel()
       }}
     >
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
-          <Text style={styles.title}>Upload file</Text>
+      <Text style={styles.title}>Upload file</Text>
 
-          {/* Rename before it goes out — this becomes the resource's name. */}
-          <Text style={styles.fieldLabel}>File name</Text>
-          <View style={styles.nameRow}>
-            <TextInput
-              style={styles.nameInput}
-              value={draftName}
-              onChangeText={setDraftName}
-              placeholder="File name"
-              placeholderTextColor={colors.mutedForeground}
-              autoCapitalize="none"
-              autoCorrect={false}
-              selectTextOnFocus
-              returnKeyType="done"
-            />
-            {extension ? (
-              <Text style={styles.extension}>{extension}</Text>
-            ) : null}
-          </View>
-          {!nameValid && (
-            <Text style={styles.nameError}>Name cannot be empty.</Text>
-          )}
-
-          <TouchableOpacity
-            style={[styles.primaryBtn, !nameValid && styles.disabledBtn]}
-            activeOpacity={0.8}
-            disabled={!nameValid}
-            onPress={() => {
-              const name = finalName
-              reset()
-              onUploadNow(name)
-            }}
-          >
-            <Text style={styles.primaryBtnText}>Upload now</Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            activeOpacity={0.7}
-            onPress={() => setStage("date")}
-          >
-            <Text style={styles.secondaryBtnText}>
-              {selected
-                ? `📅 ${selected.toLocaleString()}`
-                : "📅 Pick a date & time"}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.primaryBtn,
-              (!canSchedule || !nameValid) && styles.disabledBtn,
-            ]}
-            activeOpacity={0.8}
-            disabled={!canSchedule || !nameValid}
-            onPress={() => {
-              if (!selected) return
-              const when = selected
-              const name = finalName
-              reset()
-              onSchedule(when, name)
-            }}
-          >
-            <Text style={styles.primaryBtnText}>Schedule upload</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            activeOpacity={0.7}
-            onPress={() => {
-              reset()
-              onCancel()
-            }}
-          >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
-          </TouchableOpacity>
-
-          {stage && (
-            <DateTimePicker
-              value={stage === "time" ? draftDate : selected ?? draftDate}
-              mode={stage}
-              minimumDate={stage === "date" ? new Date() : undefined}
-              onChange={handlePickerChange}
-            />
-          )}
-        </View>
+      {/* Rename before it goes out — this becomes the resource's name. */}
+      <Text style={styles.fieldLabel}>File name</Text>
+      <View style={styles.nameRow}>
+        <TextInput
+          style={styles.nameInput}
+          value={draftName}
+          onChangeText={setDraftName}
+          placeholder="File name"
+          placeholderTextColor={colors.mutedForeground}
+          autoCapitalize="none"
+          autoCorrect={false}
+          selectTextOnFocus
+          returnKeyType="done"
+        />
+        {extension ? (
+          <Text style={styles.extension}>{extension}</Text>
+        ) : null}
       </View>
-    </Modal>
+      {!nameValid && (
+        <Text style={styles.nameError}>Name cannot be empty.</Text>
+      )}
+
+      <TouchableOpacity
+        style={[styles.primaryBtn, !nameValid && styles.disabledBtn]}
+        activeOpacity={0.8}
+        disabled={!nameValid}
+        onPress={() => {
+          const name = finalName
+          reset()
+          onUploadNow(name)
+        }}
+      >
+        <Text style={styles.primaryBtnText}>Upload now</Text>
+      </TouchableOpacity>
+
+      <View style={styles.divider} />
+
+      <TouchableOpacity
+        style={styles.secondaryBtn}
+        activeOpacity={0.7}
+        onPress={() => setStage("date")}
+      >
+        <Text style={styles.secondaryBtnText}>
+          {selected
+            ? `📅 ${selected.toLocaleString()}`
+            : "📅 Pick a date & time"}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.primaryBtn,
+          (!canSchedule || !nameValid) && styles.disabledBtn,
+        ]}
+        activeOpacity={0.8}
+        disabled={!canSchedule || !nameValid}
+        onPress={() => {
+          if (!selected) return
+          const when = selected
+          const name = finalName
+          reset()
+          onSchedule(when, name)
+        }}
+      >
+        <Text style={styles.primaryBtnText}>Schedule upload</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.cancelBtn}
+        activeOpacity={0.7}
+        onPress={() => {
+          reset()
+          onCancel()
+        }}
+      >
+        <Text style={styles.cancelBtnText}>Cancel</Text>
+      </TouchableOpacity>
+
+      {stage && (
+        <DateTimePicker
+          value={stage === "time" ? draftDate : selected ?? draftDate}
+          mode={stage}
+          minimumDate={stage === "date" ? new Date() : undefined}
+          onChange={handlePickerChange}
+        />
+      )}
+    </CenteredModal>
   )
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  sheet: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 20,
-    gap: 10,
-  },
   title: {
     fontSize: 15,
     fontFamily: "InstrumentSans_600SemiBold",

@@ -30,16 +30,16 @@ export function MyTasksPage() {
 
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Top nav */}
-        <header className="h-12 bg-white border-b border-[#e5d4c1] flex items-center gap-3 px-6">
+        <header className="h-12 bg-white border-b border-card-border flex items-center gap-3 px-6">
           <button
             onClick={() => window.history.back()}
-            className="p-1 text-[#717182] hover:text-[#1e1e1e] hover:bg-[#f0e5d8] rounded transition-colors"
+            className="p-1 text-muted-foreground hover:text-foreground hover:bg-icon-chip rounded transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h1 className="font-semibold text-[16px] text-[#1e1e1e]">My Tasks</h1>
+          <h1 className="font-semibold text-[16px] text-foreground">My Tasks</h1>
           {currentUserId && (
-            <span className="ml-auto text-xs text-[#717182]">
+            <span className="ml-auto text-xs text-muted-foreground">
               {openCount} open · {doneCount} done
             </span>
           )}
@@ -48,12 +48,12 @@ export function MyTasksPage() {
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-8 py-6">
           {!currentUserId ? (
-            <p className="text-sm text-[#717182]">Loading…</p>
+            <p className="text-sm text-muted-foreground">Loading…</p>
           ) : sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center">
-              <CheckSquare className="w-10 h-10 text-[#e5d4c1] mb-3" />
-              <p className="text-sm font-medium text-[#717182]">No tasks assigned to you</p>
-              <p className="text-xs text-[#717182] mt-1">Tasks assigned to you will appear here.</p>
+              <CheckSquare className="w-10 h-10 text-card-border mb-3" />
+              <p className="text-sm font-medium text-muted-foreground">No tasks assigned to you</p>
+              <p className="text-xs text-muted-foreground mt-1">Tasks assigned to you will appear here.</p>
             </div>
           ) : (
             <div className="space-y-1 max-w-2xl">
@@ -69,32 +69,32 @@ export function MyTasksPage() {
                     onClick={() => handleTaskClick(task)}
                     className={`w-full flex items-start gap-3 px-4 py-3 rounded-lg border transition-colors text-left ${
                       task.completed
-                        ? "bg-white border-[#e5d4c1] opacity-60 hover:opacity-80"
-                        : "bg-[#fdf8f2] border-[#e5d4c1] hover:border-[#ac7f5e] hover:bg-[#f5ece0]"
+                        ? "bg-white border-card-border opacity-60 hover:opacity-80"
+                        : "bg-card-surface border-card-border hover:border-border hover:bg-surface-highlight"
                     }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${task.completed ? "line-through text-[#717182]" : "text-[#1e1e1e]"}`}>
+                      <p className={`text-sm font-medium ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
                         {task.name}
                       </p>
                       {task.description && (
-                        <p className="text-xs text-[#717182] mt-0.5 truncate">{task.description}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{task.description}</p>
                       )}
                       <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                         {project && (
                           <>
-                            <span className="text-xs text-[#ac7f5e]">{project.name}</span>
-                            <ChevronRight className="w-3 h-3 text-[#ac7f5e]" />
+                            <span className="text-xs text-secondary">{project.name}</span>
+                            <ChevronRight className="w-3 h-3 text-secondary" />
                           </>
                         )}
                         {buildUnit && (
                           <>
-                            <span className="text-xs text-[#ac7f5e]">{buildUnit.name}</span>
-                            <ChevronRight className="w-3 h-3 text-[#ac7f5e]" />
+                            <span className="text-xs text-secondary">{buildUnit.name}</span>
+                            <ChevronRight className="w-3 h-3 text-secondary" />
                           </>
                         )}
                         {channelName && (
-                          <span className="text-xs text-[#ac7f5e]">#{channelName}</span>
+                          <span className="text-xs text-secondary">#{channelName}</span>
                         )}
                       </div>
                     </div>

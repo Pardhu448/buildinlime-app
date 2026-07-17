@@ -146,7 +146,7 @@ export function TaskStatusSection({
   return (
     <>
       <div className="flex items-center gap-0 py-2">
-        <span className="text-sm text-[#717182] w-32 shrink-0">Status</span>
+        <span className="text-sm text-muted-foreground w-32 shrink-0">Status</span>
 
         <button
           onClick={() => setNoteOpen(true)}
@@ -165,19 +165,19 @@ export function TaskStatusSection({
           {completed ? "Completed" : "Open"}
         </button>
 
-        <span className="text-sm text-[#717182] ml-2">
+        <span className="text-sm text-muted-foreground ml-2">
           {completed ? "Click to reopen" : "Click to complete"}
         </span>
       </div>
 
       {/* Status history */}
       <div className="flex gap-0 py-2">
-        <span className="text-sm text-[#717182] w-32 shrink-0 pt-0.5">
+        <span className="text-sm text-muted-foreground w-32 shrink-0 pt-0.5">
           Status History
         </span>
         <div className="flex-1 space-y-2">
           {history.length === 0 ? (
-            <span className="text-sm text-[#717182]">
+            <span className="text-sm text-muted-foreground">
               No status changes yet. Notes appear here when the status is changed.
             </span>
           ) : (
@@ -189,8 +189,8 @@ export function TaskStatusSection({
                 {/* Shown verbatim: it is the same message the channel shows, and
                     re-parsing our own wording back apart would be a data model
                     made of prose. */}
-                <p className="text-sm text-[#1e1e1e]">{m.text as string}</p>
-                <p className="text-xs text-[#717182] mt-0.5">
+                <p className="text-sm text-foreground">{m.text as string}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {authorName(m.createdby_id as string)} ·{" "}
                   {formatDateTime(m.created_at as string)}
                 </p>
@@ -210,16 +210,16 @@ export function TaskStatusSection({
             onClick={(e) => e.stopPropagation()}
           >
             <div>
-              <h3 className="text-sm font-semibold text-[#1e1e1e]">
+              <h3 className="text-sm font-semibold text-foreground">
                 {completed ? "Why are you reopening this?" : "What was done?"}
               </h3>
-              <p className="text-xs text-[#717182] mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Required. Posted to the channel so the team sees the reason.
               </p>
             </div>
 
             <textarea
-              className="w-full border border-gray-200 rounded px-3 py-2 text-sm text-[#1e1e1e] focus:outline-none focus:ring-2 focus:ring-[#ac7f5e]"
+              className="w-full border border-gray-200 rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               rows={3}
               maxLength={400}
               autoFocus
@@ -238,14 +238,14 @@ export function TaskStatusSection({
                   setNote("")
                   setNoteOpen(false)
                 }}
-                className="px-3 py-1.5 text-sm text-[#717182] hover:bg-gray-100 rounded transition-colors"
+                className="px-3 py-1.5 text-sm text-muted-foreground hover:bg-gray-100 rounded transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirm}
                 disabled={!note.trim() || isSubmitting}
-                className="px-3 py-1.5 text-sm font-medium bg-[#ac7f5e] text-white rounded hover:bg-[#9b6e4d] disabled:opacity-50 transition-colors"
+                className="px-3 py-1.5 text-sm font-medium bg-secondary text-white rounded hover:bg-secondary-hover disabled:opacity-50 transition-colors"
               >
                 {isSubmitting
                   ? "Saving…"

@@ -55,14 +55,14 @@ interface ResourceCardProps {
 
 function ResourceCard({ resource: r, subtitle, canDelete, onDelete, onDismiss }: ResourceCardProps) {
   return (
-    <div className="flex items-center gap-2 px-2 py-1.5 bg-[#fdf8f2] border border-[#e5d4c1] rounded">
+    <div className="flex items-center gap-2 px-2 py-1.5 bg-card-surface border border-card-border rounded">
       <ResourceThumbnail fileLocation={r.file_location} mimeType={r.mime_type} size={36} />
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#1e1e1e] truncate" title={r.name}>
+        <p className="text-sm text-foreground truncate" title={r.name}>
           {r.name}
         </p>
-        <p className="text-[10px] text-[#717182] truncate">
+        <p className="text-[10px] text-muted-foreground truncate">
           {formatDateTime(r.uploaded_at)}
           {subtitle ? ` · ${subtitle}` : ``}
         </p>
@@ -72,7 +72,7 @@ function ResourceCard({ resource: r, subtitle, canDelete, onDelete, onDismiss }:
         href={r.file_location}
         download
         title="Download"
-        className="p-0.5 text-[#717182] hover:text-[#1e1e1e] transition-colors flex-shrink-0"
+        className="p-0.5 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
       >
         <Download className="w-3.5 h-3.5" />
       </a>
@@ -83,7 +83,7 @@ function ResourceCard({ resource: r, subtitle, canDelete, onDelete, onDismiss }:
         <button
           onClick={() => onDelete(r.id, r.name)}
           title="Delete for everyone"
-          className="p-0.5 text-[#717182] hover:text-red-700 transition-colors flex-shrink-0"
+          className="p-0.5 text-muted-foreground hover:text-red-700 transition-colors flex-shrink-0"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -91,7 +91,7 @@ function ResourceCard({ resource: r, subtitle, canDelete, onDelete, onDismiss }:
       <button
         onClick={() => onDismiss(r.id)}
         title="Hide from my view (does not delete)"
-        className="p-0.5 text-[#717182] hover:text-[#976623] transition-colors flex-shrink-0"
+        className="p-0.5 text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
       >
         <X className="w-3.5 h-3.5" />
       </button>
@@ -111,15 +111,15 @@ function Column({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col min-w-0 border border-[#e5d4c1] rounded bg-white/40">
-      <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-[#e5d4c1]">
-        <h4 className="text-xs font-medium text-[#717182]">{title}</h4>
-        <span className="text-[10px] text-[#717182] tabular-nums">{count}</span>
+    <div className="flex flex-col min-w-0 border border-card-border rounded bg-white/40">
+      <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-card-border">
+        <h4 className="text-xs font-medium text-muted-foreground">{title}</h4>
+        <span className="text-[10px] text-muted-foreground tabular-nums">{count}</span>
       </div>
       {/* Each column scrolls on its OWN, so a channel with 50 message attachments
           cannot push the task column (or the comments below) off the page. */}
       <div className="max-h-64 overflow-y-auto p-2 space-y-1.5">
-        {count === 0 ? <p className="text-xs text-[#717182] py-1">{empty}</p> : children}
+        {count === 0 ? <p className="text-xs text-muted-foreground py-1">{empty}</p> : children}
       </div>
     </div>
   )
@@ -197,7 +197,7 @@ export function ResourceDisplay({ channelId, buildunitId }: ResourceDisplayProps
 
   if (visible.length === 0) {
     return (
-      <p className="text-xs text-[#717182]">
+      <p className="text-xs text-muted-foreground">
         No files in this channel yet. Attach one to a message or a task.
       </p>
     )

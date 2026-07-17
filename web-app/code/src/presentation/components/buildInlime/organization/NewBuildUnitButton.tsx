@@ -1,10 +1,12 @@
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useParams } from "@tanstack/react-router";
 import { useLiveQuery, eq } from "@tanstack/react-db";
 import { useSession } from "%/infrastructure/auth/client";
 import { projectsCollection, buildUnitsCollection, registerBuildUnitInsertCallback } from "%/infrastructure/database/tanstack-db-electric/admincollections";
+import { Modal } from "../shared/Modal";
+import { Input, Textarea, Label } from "../shared/FormField";
 
 interface NewBuildUnitFormData {
   name: string;
@@ -107,7 +109,7 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
           setOfflineError(false);
           setIsPopupOpen(true);
         }}
-        className="bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+        className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
       >
         <Plus className="w-4 h-4" />
         <span
@@ -118,95 +120,71 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
         </span>
       </button>
 
-      {isPopupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setIsPopupOpen(false)}
-          />
-
-          {/* Popup Content */}
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-            {/* Close Button */}
-            <button
-              onClick={() => setIsPopupOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+      <Modal
+        open={isPopupOpen}
+        onClose={() => setIsPopupOpen(false)}
+        title="Create New Build Unit"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Build Unit Name Input */}
+          <div>
+            <Label
+              htmlFor="name"
             >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Header */}
-            <h2 className="text-xl font-semibold text-gray-800 mb-6">
-              Create New Build Unit
-            </h2>
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Build Unit Name Input */}
-              <div>
-                <label
-                  htmlFor="name"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Build Unit Name
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Enter build unit name"
-                  required
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent ${duplicateError ? "border-red-500" : "border-gray-300"}`}
-                />
-                {duplicateError && (
-                  <p className="mt-1 text-sm text-red-600">
-                    A build unit with this name already exists in this project.
-                  </p>
-                )}
-              </div>
-
-              {/* Description Input */}
-              <div>
-                <label
-                  htmlFor="description"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Enter a short description of the build unit"
-                  rows={3}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
-                />
-              </div>
-
-              {/* Offline notice */}
-              {offlineError && (
-                <p className="text-sm text-red-600">
-                  Build units can&apos;t be created while offline. Reconnect to the
-                  internet and try again.
-                </p>
-              )}
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className="w-full bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Create Build Unit
-              </button>
-            </form>
+              Build Unit Name
+            </Label>
+            <Input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              placeholder="Enter build unit name"
+              required
+              className={duplicateError ? "border-red-500" : undefined}
+            />
+            {duplicateError && (
+              <p className="mt-1 text-sm text-red-600">
+                A build unit with this name already exists in this project.
+              </p>
+            )}
           </div>
-        </div>
-      )}
+
+          {/* Description Input */}
+          <div>
+            <Label
+              htmlFor="description"
+            >
+              Description
+            </Label>
+            <Textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              placeholder="Enter a short description of the build unit"
+              rows={3}
+              required
+            />
+          </div>
+
+          {/* Offline notice */}
+          {offlineError && (
+            <p className="text-sm text-red-600">
+              Build units can&apos;t be created while offline. Reconnect to the
+              internet and try again.
+            </p>
+          )}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            className="w-full bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            Create Build Unit
+          </button>
+        </form>
+      </Modal>
     </>
   );
 }

@@ -16,12 +16,12 @@ function TaskRoute() {
   const result = useTaskRoute(channelId, taskName)
 
   if (result.status === 'loading') {
-    return <div className="flex h-screen items-center justify-center text-[#717182]">Loading…</div>
+    return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading…</div>
   }
 
   if (result.status === 'not-found-task') {
     return (
-      <div className="flex h-screen items-center justify-center text-[#717182]">
+      <div className="flex h-screen items-center justify-center text-muted-foreground">
         Task "{taskName}" not found.
       </div>
     )

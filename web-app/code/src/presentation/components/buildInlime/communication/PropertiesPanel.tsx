@@ -1,7 +1,9 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Plus, X, Trash2, Circle, Flag, Target, CalendarDays, AlertCircle, Percent, Tag, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Circle, Flag, Target, CalendarDays, AlertCircle, Percent, Tag, CheckCircle2 } from "lucide-react";
 import type { Property } from "%/domain/communication/types";
+import { Modal } from "../shared/Modal";
+import { Input, Select, Label } from "../shared/FormField";
 import { PROPERTY_TYPES, STATUS_VALUES, PRIORITY_VALUES, TASK_STATUS_VALUES } from "%/domain/shared/types";
 import { createPropertyAction, updatePropertyAction, deletePropertyAction } from "%/application/actions/properties";
 import { useSession } from "%/infrastructure/auth/client";
@@ -66,7 +68,7 @@ const PRIORITY_LABELS: Record<string, string> = {
 
 type PillStyle = { bg: string; border: string; text: string }
 
-const DEFAULT_PILL: PillStyle = { bg: "bg-[#f0e5d8]", border: "border-[#e5d4c1]", text: "text-[#1e1e1e]" }
+const DEFAULT_PILL: PillStyle = { bg: "bg-icon-chip", border: "border-card-border", text: "text-foreground" }
 
 const STATUS_PILL_STYLES: Record<string, PillStyle> = {
   critical: { bg: "bg-red-100",    border: "border-red-200",    text: "text-red-700"    },
@@ -125,7 +127,7 @@ function ValuePill({ property }: { property: Property }) {
       label = property.pending_task ?? "—"
       break
     case "percent_complete":
-      icon = <Percent className="w-2.5 h-2.5 shrink-0 text-[#976623]" />
+      icon = <Percent className="w-2.5 h-2.5 shrink-0 text-primary" />
       // Own column as of migration 0003 — this used to read `pending_task`,
       // which it shared with the pendingTask type.
       label = `${property.percent_complete ?? "0"}%`
@@ -265,53 +267,49 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
     switch (selectedType) {
       case "status":
         return (
-          <select
+          <Select
             value={valueState.statusValue}
             onChange={(e) => setValueState((v) => ({ ...v, statusValue: e.target.value as typeof STATUS_VALUES[number] }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           >
             {STATUS_VALUES.map((v) => (
               <option key={v} value={v}>{STATUS_VALUE_LABELS[v]}</option>
             ))}
-          </select>
+          </Select>
         );
       case "priority":
         return (
-          <select
+          <Select
             value={valueState.priorityValue}
             onChange={(e) => setValueState((v) => ({ ...v, priorityValue: e.target.value as typeof PRIORITY_VALUES[number] }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           >
             {PRIORITY_VALUES.map((v) => (
               <option key={v} value={v}>{PRIORITY_LABELS[v]}</option>
             ))}
-          </select>
+          </Select>
         );
       case "targetDate":
       case "startDate":
         return (
-          <input
+          <Input
             type="date"
             value={valueState.dateValue}
             onChange={(e) => setValueState((v) => ({ ...v, dateValue: e.target.value }))}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
       case "pendingTask":
         return (
-          <input
+          <Input
             type="text"
             value={valueState.textValue}
             onChange={(e) => setValueState((v) => ({ ...v, textValue: e.target.value }))}
             placeholder="Describe the pending task"
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
       case "percent_complete":
         return (
-          <input
+          <Input
             type="number"
             min="0"
             max="100"
@@ -319,30 +317,27 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
             onChange={(e) => setValueState((v) => ({ ...v, textValue: e.target.value }))}
             placeholder="0–100"
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
       case "taskStatus":
         return (
-          <select
+          <Select
             value={valueState.taskStatusValue}
             onChange={(e) => setValueState((v) => ({ ...v, taskStatusValue: e.target.value as typeof TASK_STATUS_VALUES[number] }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           >
             {TASK_STATUS_VALUES.map((v) => (
               <option key={v} value={v}>{TASK_STATUS_LABELS[v]}</option>
             ))}
-          </select>
+          </Select>
         );
       case "label":
         return (
-          <input
+          <Input
             type="text"
             value={valueState.labelValue}
             onChange={(e) => setValueState((v) => ({ ...v, labelValue: e.target.value }))}
             placeholder="Enter label text"
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
     }
@@ -354,12 +349,12 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
         {(!hideLabel || !hideAddButton) && (
           <div className="flex items-center justify-between mb-4">
             {!hideLabel && (
-              <h3 className="text-sm font-medium text-[#717182]">{label}</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">{label}</h3>
             )}
             {!hideAddButton && (
               <button
                 onClick={openPopup}
-                className="p-1 text-[#717182] hover:text-[#1e1e1e] transition-colors"
+                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -368,12 +363,12 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
         )}
 
         {properties.length === 0 ? (
-          <p className="text-sm text-[#717182]">No properties added yet.</p>
+          <p className="text-sm text-muted-foreground">No properties added yet.</p>
         ) : (
           <div className="space-y-2">
             {properties.map((property) => (
               <div key={property.id} className="group flex items-center justify-between gap-3">
-                <span className="text-sm text-[#717182] shrink-0">
+                <span className="text-sm text-muted-foreground shrink-0">
                   {PROPERTY_TYPE_LABELS[property.type] ?? property.type}
                 </span>
                 <div className="flex items-center gap-1.5 min-w-0">
@@ -393,55 +388,44 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
       </div>
 
       {/* Add Property popup — same form as PropertiesInline */}
-      {isPopupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setIsPopupOpen(false)} />
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-            <button
-              onClick={() => setIsPopupOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+      <Modal
+        open={isPopupOpen}
+        onClose={() => setIsPopupOpen(false)}
+        title={byType.has(selectedType) ? "Set Property" : "Add Property"}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label>Property Type</Label>
+            <Select
+              value={selectedType}
+              onChange={(e) => {
+                const next = e.target.value as typeof PROPERTY_TYPES[number];
+                setSelectedType(next);
+                setValueState(valueStateFrom(byType.get(next)));
+              }}
             >
-              <X className="w-5 h-5" />
-            </button>
-            <h2 className="text-xl font-semibold text-gray-800 mb-6">
-              {byType.has(selectedType) ? "Set Property" : "Add Property"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Property Type</label>
-                <select
-                  value={selectedType}
-                  onChange={(e) => {
-                    const next = e.target.value as typeof PROPERTY_TYPES[number];
-                    setSelectedType(next);
-                    setValueState(valueStateFrom(byType.get(next)));
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
-                >
-                  {availableTypes.map((t) => (
-                    <option key={t} value={t}>
-                      {PROPERTY_TYPE_LABELS[t]}{byType.has(t) ? " (set)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Property Value</label>
-                {renderValueInput()}
-              </div>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                {isSubmitting
-                  ? "Saving…"
-                  : byType.has(selectedType) ? "Update Property" : "Add Property"}
-              </button>
-            </form>
+              {availableTypes.map((t) => (
+                <option key={t} value={t}>
+                  {PROPERTY_TYPE_LABELS[t]}{byType.has(t) ? " (set)" : ""}
+                </option>
+              ))}
+            </Select>
           </div>
-        </div>
-      )}
+          <div>
+            <Label>Property Value</Label>
+            {renderValueInput()}
+          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-primary hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            {isSubmitting
+              ? "Saving…"
+              : byType.has(selectedType) ? "Update Property" : "Add Property"}
+          </button>
+        </form>
+      </Modal>
     </>
   );
 }

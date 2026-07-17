@@ -27,23 +27,23 @@ export function TasksRightPanel({ tasks, onTaskClick, isUnread }: TasksRightPane
   return (
     <div>
       <button onClick={() => setOpen(!open)} className="flex items-center justify-between w-full mb-3">
-        <p className="text-xs font-semibold text-[#ac7f5e] uppercase tracking-wider">Tasks</p>
-        {open ? <ChevronDown className="w-3 h-3 text-[#ac7f5e]" /> : <ChevronRight className="w-3 h-3 text-[#ac7f5e]" />}
+        <p className="text-xs font-semibold text-secondary uppercase tracking-wider">Tasks</p>
+        {open ? <ChevronDown className="w-3 h-3 text-secondary" /> : <ChevronRight className="w-3 h-3 text-secondary" />}
       </button>
       {open && (
         <div className="space-y-2">
-          {tasks.length === 0 && <p className="text-sm text-[#717182]">No tasks yet.</p>}
+          {tasks.length === 0 && <p className="text-sm text-muted-foreground">No tasks yet.</p>}
           {tasks.map((task) => {
             const unread = isUnread?.(task) ?? false;
             return (
               <button key={task.id} onClick={() => onTaskClick?.(task.id)}
-                className="w-full flex items-center gap-2 text-left hover:bg-[#f0e5d8] px-2 py-1.5 rounded transition-colors">
+                className="w-full flex items-center gap-2 text-left hover:bg-icon-chip px-2 py-1.5 rounded transition-colors">
                 {unread ? (
-                  <Circle className="w-4 h-4 text-[#976623] shrink-0" fill="currentColor" />
+                  <Circle className="w-4 h-4 text-primary shrink-0" fill="currentColor" />
                 ) : (
-                  <Circle className="w-4 h-4 text-[#717182] shrink-0" />
+                  <Circle className="w-4 h-4 text-muted-foreground shrink-0" />
                 )}
-                <span className={`text-sm ${unread ? "font-semibold text-[#1e1e1e]" : "text-[#1e1e1e]"}`}>
+                <span className={`text-sm ${unread ? "font-semibold text-foreground" : "text-foreground"}`}>
                   {task.name}
                 </span>
               </button>

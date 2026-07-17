@@ -1,8 +1,11 @@
 import imgJhali from "../../assets/3033b6238b041eebb3e905db71463ada5026ae2f.png";
 
 export function LoginDecorativeImage() {
+  // No top margin here: LoginPage's flex row already applies pt-[63px] to both
+  // columns. Carrying mt-[63px] as well pushed the image 63px below the form it
+  // is meant to sit level with.
   return (
-    <div className="relative overflow-hidden w-[560px] ml-[110px] mt-[63px] h-[657px]">
+    <div className="relative overflow-hidden w-[560px] ml-[110px] h-[657px]">
       <img
         src={imgJhali}
         alt="Brick staircase architecture"

@@ -13,7 +13,7 @@ export interface SidebarProjectsProps {
 
 export function SidebarProjects({ buildUnitsNavTo, buildUnitsNavActive }: SidebarProjectsProps) {
   return (
-    <aside className="w-60 bg-[#fdf8f2] border-r border-[#e5d4c1] flex flex-col">
+    <aside className="w-60 bg-card-surface border-r border-card-border flex flex-col">
       {/* User info */}
       <UserInfo initials="PE" name="ParthaE" />
 

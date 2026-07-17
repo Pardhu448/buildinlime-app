@@ -46,8 +46,8 @@ interface BuildUnitsFilterPanelProps {
 }
 
 const inputClass =
-  "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent";
-const labelClass = "block text-xs font-medium text-[#717182] uppercase tracking-wider mb-1";
+  "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent";
+const labelClass = "block text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1";
 
 export function BuildUnitsFilterPanel({ initialFilters, onApply, onClose }: BuildUnitsFilterPanelProps) {
   // Draft state, seeded from the currently-applied filters. The panel unmounts
@@ -68,9 +68,9 @@ export function BuildUnitsFilterPanel({ initialFilters, onApply, onClose }: Buil
   };
 
   return (
-    <aside className="w-72 shrink-0 border-l border-[#e5d4c1] bg-white overflow-y-auto">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#e5d4c1]">
-        <h2 className="font-semibold text-[14px] text-[#1e1e1e]">Filters</h2>
+    <aside className="w-72 shrink-0 border-l border-card-border bg-white overflow-y-auto">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-card-border">
+        <h2 className="font-semibold text-[14px] text-foreground">Filters</h2>
         <button
           onClick={onClose}
           className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -164,14 +164,14 @@ export function BuildUnitsFilterPanel({ initialFilters, onApply, onClose }: Buil
         <div className="flex items-center gap-2 pt-2">
           <button
             type="submit"
-            className="flex-1 bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="flex-1 bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             Apply
           </button>
           <button
             type="button"
             onClick={handleClear}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-[#717182] hover:text-[#1e1e1e] hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-gray-50 transition-colors"
           >
             Clear
           </button>

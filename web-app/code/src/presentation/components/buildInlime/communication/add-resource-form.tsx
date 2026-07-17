@@ -44,7 +44,7 @@ export function AddResourceForm({ onSubmit, onCancel }: AddResourceFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mb-3 p-3 bg-[#fdf8f2] border border-[#e5d4c1] rounded-lg space-y-2"
+      className="mb-3 p-3 bg-card-surface border border-card-border rounded-lg space-y-2"
     >
       <input
         type="text"
@@ -53,21 +53,21 @@ export function AddResourceForm({ onSubmit, onCancel }: AddResourceFormProps) {
         placeholder="Resource name"
         required
         autoFocus
-        className="w-full text-sm px-2 py-1.5 border border-[#e5d4c1] rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#976623] text-[#1e1e1e] placeholder:text-[#717182]"
+        className="w-full text-sm px-2 py-1.5 border border-card-border rounded bg-white focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
       />
       <input
         type="text"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Description (optional)"
-        className="w-full text-sm px-2 py-1.5 border border-[#e5d4c1] rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#976623] text-[#1e1e1e] placeholder:text-[#717182]"
+        className="w-full text-sm px-2 py-1.5 border border-card-border rounded bg-white focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
       />
 
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-[#717182] border border-[#e5d4c1] rounded bg-white hover:bg-[#f0e5d8] transition-colors"
+          className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground border border-card-border rounded bg-white hover:bg-icon-chip transition-colors"
         >
           <Paperclip className="w-3 h-3" />
           {selectedFile ? selectedFile.name : "Attach file"}
@@ -76,7 +76,7 @@ export function AddResourceForm({ onSubmit, onCancel }: AddResourceFormProps) {
           <button
             type="button"
             onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = "" }}
-            className="text-[#717182] hover:text-[#1e1e1e]"
+            className="text-muted-foreground hover:text-foreground"
           >
             <X className="w-3 h-3" />
           </button>
@@ -95,14 +95,14 @@ export function AddResourceForm({ onSubmit, onCancel }: AddResourceFormProps) {
         <button
           type="submit"
           disabled={!selectedFile || !name.trim()}
-          className="px-3 py-1.5 text-xs bg-[#976623] text-white rounded hover:bg-[#7d5419] disabled:opacity-40 transition-colors"
+          className="px-3 py-1.5 text-xs bg-primary text-white rounded hover:bg-primary-hover disabled:opacity-40 transition-colors"
         >
           Attach
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="px-3 py-1.5 text-xs text-[#717182] hover:text-[#1e1e1e] transition-colors"
+          className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           Cancel
         </button>

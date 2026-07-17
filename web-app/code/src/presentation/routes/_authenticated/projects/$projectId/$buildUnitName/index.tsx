@@ -15,7 +15,7 @@ function BuildUnitIndexRoute() {
   const result = useBuildUnitChannels(buildUnitId, projectId, buildUnitName)
 
   if (result.status === 'loading') {
-    return <div className="flex h-screen items-center justify-center text-[#717182]">Loading…</div>
+    return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading…</div>
   }
 
   const { channels, properties, pendingChannelIds, addPending, removePending, onChannelTrpcComplete } = result

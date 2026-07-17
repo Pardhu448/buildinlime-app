@@ -2,6 +2,7 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native"
 import { useRouter } from "expo-router"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useSignOut } from "../_layout"
+import { colors } from "@/src/presentation/shared/colors"
 
 export default function ProfileScreen() {
   const router = useRouter()
@@ -19,7 +20,7 @@ export default function ProfileScreen() {
   if (isPending) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator size="large" color="#976623" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     )
   }

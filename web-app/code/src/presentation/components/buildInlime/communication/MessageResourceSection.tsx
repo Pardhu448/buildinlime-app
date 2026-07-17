@@ -51,10 +51,10 @@ export function MessageAttachmentPicker({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="p-1.5 hover:bg-[#f0e5d8] rounded transition-colors"
+        className="p-1.5 hover:bg-icon-chip rounded transition-colors"
         title="Attach file"
       >
-        <Paperclip className="w-4 h-4 text-[#717182]" />
+        <Paperclip className="w-4 h-4 text-muted-foreground" />
       </button>
     </>
   )
@@ -74,20 +74,20 @@ export function PendingAttachmentChips({
       {files.map((f) => (
         <div
           key={f.id}
-          className="flex items-center gap-1.5 px-2 py-1 bg-white border border-[#e5d4c1] rounded text-xs text-[#1e1e1e]"
+          className="flex items-center gap-1.5 px-2 py-1 bg-white border border-card-border rounded text-xs text-foreground"
         >
           {/* Previews straight from the local blob — the file has not been uploaded
               yet, so there is nothing to fetch. */}
           <ResourceThumbnail localUrl={f.objectUrl} mimeType={f.file.type} size={24} />
           <span className="max-w-[140px] truncate">{f.file.name}</span>
-          <span className="text-[#717182] shrink-0">{formatBytes(f.file.size)}</span>
+          <span className="text-muted-foreground shrink-0">{formatBytes(f.file.size)}</span>
           <button
             type="button"
             onClick={() => {
               URL.revokeObjectURL(f.objectUrl)
               onRemove(f.id)
             }}
-            className="text-[#717182] hover:text-red-500 transition-colors"
+            className="text-muted-foreground hover:text-red-500 transition-colors"
           >
             <X className="w-3 h-3" />
           </button>
@@ -119,7 +119,7 @@ export function MessageResourceDisplay({ messageId }: { messageId: string }) {
           // The chip is too small for an inline date without crowding the name;
           // the upload time lives in the tooltip instead.
           title={`Download ${r.name} — uploaded ${formatDateTime(r.uploaded_at)}`}
-          className="flex items-center gap-1.5 px-2 py-1 bg-[#fdf8f2] border border-[#e5d4c1] rounded text-xs text-[#1e1e1e] hover:bg-[#f0e5d8] transition-colors"
+          className="flex items-center gap-1.5 px-2 py-1 bg-card-surface border border-card-border rounded text-xs text-foreground hover:bg-icon-chip transition-colors"
         >
           <ResourceThumbnail
             fileLocation={r.file_location}
@@ -127,7 +127,7 @@ export function MessageResourceDisplay({ messageId }: { messageId: string }) {
             size={28}
           />
           <span className="max-w-[150px] truncate">{r.name}</span>
-          <Download className="w-3 h-3 text-[#717182] shrink-0" />
+          <Download className="w-3 h-3 text-muted-foreground shrink-0" />
         </a>
       ))}
     </div>

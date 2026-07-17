@@ -31,16 +31,16 @@ export function BuildUnitsTable({ buildUnits, onBuildUnitClick, pendingIds }: Bu
   return (
     <div className="flex-1 overflow-auto bg-white">
       <table className="w-full">
-        <thead className="bg-[#fdf8f2] sticky top-0">
-          <tr className="border-b border-[#e5d4c1]">
+        <thead className="bg-card-surface sticky top-0">
+          <tr className="border-b border-card-border">
             <th
-              className="text-left px-6 py-3 font-['Instrument_Sans',sans-serif] font-medium text-[12px] text-[#717182] uppercase tracking-wider"
+              className="text-left px-6 py-3 font-['Instrument_Sans',sans-serif] font-medium text-[12px] text-muted-foreground uppercase tracking-wider"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               Name
             </th>
             <th
-              className="text-left px-6 py-3 font-['Instrument_Sans',sans-serif] font-medium text-[12px] text-[#717182] uppercase tracking-wider"
+              className="text-left px-6 py-3 font-['Instrument_Sans',sans-serif] font-medium text-[12px] text-muted-foreground uppercase tracking-wider"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               Properties
@@ -55,21 +55,21 @@ export function BuildUnitsTable({ buildUnits, onBuildUnitClick, pendingIds }: Bu
             return (
               <tr
                 key={unit.id}
-                className="border-b border-[#e5d4c1] hover:bg-[#fdf8f2] transition-colors cursor-pointer"
+                className="border-b border-card-border hover:bg-card-surface transition-colors cursor-pointer"
                 onClick={() => onBuildUnitClick?.(unit)}
               >
                 <td className="px-6 py-4 align-top">
                   <div className="flex items-center gap-2">
-                    <Package className="w-4 h-4 text-[#976623] shrink-0" />
+                    <Package className="w-4 h-4 text-primary shrink-0" />
                     <span
-                      className="font-['Instrument_Sans',sans-serif] text-[14px] text-[#1e1e1e]"
+                      className="font-['Instrument_Sans',sans-serif] text-[14px] text-foreground"
                       style={{ fontVariationSettings: "'wdth' 100" }}
                     >
                       {unit.name}
                     </span>
                     {pendingIds?.has(unit.id) && (
                       <svg
-                        className="animate-spin w-3 h-3 text-[#976623] shrink-0"
+                        className="animate-spin w-3 h-3 text-primary shrink-0"
                         xmlns="http://www.w3.org/2000/svg"
                         fill="none"
                         viewBox="0 0 24 24"
@@ -83,7 +83,7 @@ export function BuildUnitsTable({ buildUnits, onBuildUnitClick, pendingIds }: Bu
                 <td className="px-6 py-4">
                   {properties.length === 0 ? (
                     <span
-                      className="font-['Instrument_Sans',sans-serif] text-[14px] text-[#717182]"
+                      className="font-['Instrument_Sans',sans-serif] text-[14px] text-muted-foreground"
                       style={{ fontVariationSettings: "'wdth' 100" }}
                     >
                       —

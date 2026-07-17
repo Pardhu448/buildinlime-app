@@ -32,12 +32,12 @@ export function BuildUnitPage({ projectId, buildUnitName, buildUnitId, projectNa
               <Link
                 to="/projects/$projectId"
                 params={{ projectId }}
-                className="hover:text-[#1e1e1e] transition-colors"
+                className="hover:text-foreground transition-colors"
               >
                 {projectName}
               </Link>
               <ChevronRight className="w-4 h-4" />
-              <span className="text-[#1e1e1e]">{buildUnitName}</span>
+              <span className="text-foreground">{buildUnitName}</span>
             </>
           }
         />

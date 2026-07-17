@@ -1,36 +1,43 @@
+const tokens = require("./src/presentation/shared/design-tokens")
+
+/**
+ * Colours come from design-tokens.js — the same file colors.ts reads. This block
+ * only reshapes them into the nesting Tailwind needs to build class names
+ * (primary.DEFAULT → bg-primary, card.surface → bg-card-surface). Do not paste a
+ * hex in here; the two sources drifted the last time they were maintained apart.
+ */
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
     "./app/**/*.{js,jsx,ts,tsx}",
-    "./components/**/*.{js,jsx,ts,tsx}",
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
       colors: {
-        background: "#ffffff",
-        foreground: "#1e1e1e",
+        background: tokens.background,
+        foreground: tokens.foreground,
         primary: {
-          DEFAULT: "#976623",
-          foreground: "#ffffff",
+          DEFAULT: tokens.primary,
+          foreground: tokens.primaryForeground,
         },
         secondary: {
-          DEFAULT: "#ac7f5e",
-          foreground: "#1e1e1e",
+          DEFAULT: tokens.secondary,
         },
         muted: {
-          DEFAULT: "#f5f5f5",
-          foreground: "#717182",
+          DEFAULT: tokens.muted,
+          foreground: tokens.mutedForeground,
         },
-        border: "#ac7f5e",
+        border: tokens.border,
         card: {
-          DEFAULT: "#ffffff",
-          foreground: "#1e1e1e",
+          DEFAULT: tokens.card,
+          surface: tokens.cardSurface,
+          border: tokens.cardBorder,
         },
+        "icon-chip": tokens.iconChip,
         destructive: {
-          DEFAULT: "#d4183d",
-          foreground: "#ffffff",
+          DEFAULT: tokens.destructive,
         },
       },
       borderRadius: {

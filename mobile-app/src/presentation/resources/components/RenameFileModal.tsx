@@ -1,6 +1,5 @@
 import { useState } from "react"
 import {
-  Modal,
   View,
   Text,
   TextInput,
@@ -9,6 +8,7 @@ import {
 } from "react-native"
 import { splitExtension } from "@/src/presentation/resources/lib/attachment-format"
 import { colors } from "@/src/presentation/shared/colors"
+import { CenteredModal } from "@/src/presentation/shared/components/CenteredModal"
 
 // Rename a queued attachment before it uploads. Used by the message composer,
 // where attachments have no schedule step (they start when the message sends),
@@ -34,60 +34,44 @@ export function RenameFileModal({
   const valid = trimmed.length > 0
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
-          <Text style={styles.title}>Rename file</Text>
+    <CenteredModal visible={visible} onRequestClose={onCancel}>
+      <Text style={styles.title}>Rename file</Text>
 
-          <View style={styles.nameRow}>
-            <TextInput
-              style={styles.nameInput}
-              value={draft}
-              onChangeText={setDraft}
-              placeholder="File name"
-              placeholderTextColor={colors.mutedForeground}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoFocus
-              selectTextOnFocus
-              returnKeyType="done"
-              onSubmitEditing={() => valid && onSave(`${trimmed}${extension}`)}
-            />
-            {extension ? <Text style={styles.extension}>{extension}</Text> : null}
-          </View>
-          {!valid && <Text style={styles.error}>Name cannot be empty.</Text>}
-
-          <TouchableOpacity
-            style={[styles.primaryBtn, !valid && styles.disabledBtn]}
-            activeOpacity={0.8}
-            disabled={!valid}
-            onPress={() => onSave(`${trimmed}${extension}`)}
-          >
-            <Text style={styles.primaryBtnText}>Save</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.cancelBtn} activeOpacity={0.7} onPress={onCancel}>
-            <Text style={styles.cancelBtnText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+      <View style={styles.nameRow}>
+        <TextInput
+          style={styles.nameInput}
+          value={draft}
+          onChangeText={setDraft}
+          placeholder="File name"
+          placeholderTextColor={colors.mutedForeground}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoFocus
+          selectTextOnFocus
+          returnKeyType="done"
+          onSubmitEditing={() => valid && onSave(`${trimmed}${extension}`)}
+        />
+        {extension ? <Text style={styles.extension}>{extension}</Text> : null}
       </View>
-    </Modal>
+      {!valid && <Text style={styles.error}>Name cannot be empty.</Text>}
+
+      <TouchableOpacity
+        style={[styles.primaryBtn, !valid && styles.disabledBtn]}
+        activeOpacity={0.8}
+        disabled={!valid}
+        onPress={() => onSave(`${trimmed}${extension}`)}
+      >
+        <Text style={styles.primaryBtnText}>Save</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.cancelBtn} activeOpacity={0.7} onPress={onCancel}>
+        <Text style={styles.cancelBtnText}>Cancel</Text>
+      </TouchableOpacity>
+    </CenteredModal>
   )
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  sheet: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 20,
-    gap: 10,
-  },
   title: {
     fontSize: 15,
     fontFamily: "InstrumentSans_600SemiBold",

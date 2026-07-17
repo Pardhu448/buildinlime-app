@@ -43,18 +43,18 @@ function ProjectRoute() {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="h-14 bg-white border-b border-[#e5d4c1] flex items-center justify-between px-6">
+        <header className="h-14 bg-white border-b border-card-border flex items-center justify-between px-6">
           <div className="flex items-center gap-2">
             <Link
               to="/projects"
-              className="font-['Instrument_Sans',sans-serif] font-medium text-[14px] text-[#717182] hover:text-[#1e1e1e]"
+              className="font-['Instrument_Sans',sans-serif] font-medium text-[14px] text-muted-foreground hover:text-foreground"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               Projects
             </Link>
-            <ChevronRight className="w-4 h-4 text-[#717182]" />
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
             <span
-              className="font-['Instrument_Sans',sans-serif] font-semibold text-[18px] text-[#1e1e1e]"
+              className="font-['Instrument_Sans',sans-serif] font-semibold text-[18px] text-foreground"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {projectName}
@@ -64,10 +64,10 @@ function ProjectRoute() {
         </header>
 
         {/* Toolbar */}
-        <div className="bg-white border-b border-[#e5d4c1] px-6 py-3 flex items-center justify-between">
+        <div className="bg-white border-b border-card-border px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
-              className="font-['Instrument_Sans',sans-serif] font-medium text-[14px] text-[#1e1e1e] pb-1 border-b-2 border-[#976623]"
+              className="font-['Instrument_Sans',sans-serif] font-medium text-[14px] text-foreground pb-1 border-b-2 border-primary"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               All Build Units
@@ -81,7 +81,7 @@ function ProjectRoute() {
                    inputs, using the build unit data already in the DB.
 
               <button
-                className="font-['Instrument_Sans',sans-serif] font-medium text-[14px] text-[#717182] hover:text-[#1e1e1e] flex items-center gap-1 transition-colors"
+                className="font-['Instrument_Sans',sans-serif] font-medium text-[14px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 <Plus className="w-3 h-3" />
