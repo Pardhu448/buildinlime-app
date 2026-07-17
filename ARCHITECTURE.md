@@ -106,13 +106,15 @@ Each shape route (`presentation/routes/api/*.ts`) does the same three things:
 2. Build the Electric origin URL, forcing `table` and `where` server-side (`infrastructure/database/electric-proxy.ts`).
 3. Proxy the response, stripping caching headers — shape responses are user-specific and must never be cached, and HTTP caching breaks Electric's handle+offset polling protocol.
 
-The client passes its membership-derived id sets as query params (e.g. `member_channel_ids`), the route validates them as UUIDs, and the `where` clause is built from them. **A user with no memberships gets `where 1 = 0`** — literally zero rows. This is a clean, if blunt, default-deny.
+The scope is resolved **server-side from the session, never from client input**. A shared resolver (`infrastructure/database/access-scope.ts`) turns the session user id into the `{channelIds, buildunitIds, projectIds}` the user is entitled to — active membership OR ownership — and each route builds its `where` clause from that set via `idSetWhere()`. **A user with no memberships gets `where 1 = 0`** — literally zero rows: a clean, if blunt, default-deny.
+
+> **Why server-side, not client-supplied.** Routes used to take these id sets as `member_*_ids` query params and only check their UUID *format*. Format is not ownership: any authenticated user could pass someone else's ids and stream their rows — a broken-access-control / IDOR hole across `tasks`, `resources`, `properties`, `projects`, `build_units`, and `channels`. It was closed by moving scope resolution into `resolveMemberScope()` off the session. `memberships` was already safe (scoped `user_id = session.user.id`, a server-issued value) and keeps its stable self-stream. Clients still send the now-ignored `member_*_ids`, but the proxy never forwards them to Electric, so they are inert — deleting them client-side is a follow-up.
 
 Fourteen collections sync this way: `projects`, `build_units`, `channels`, `memberships`, `channel_members`, `users`, `teams`, `messages`, `tasks`, `resources`, `properties`, `seen_state`, `inbox_mentions`, `my_tasks`. The last three are tiny user-scoped slices that feed the always-mounted badges (web sidebar / mobile drawer); `seen_state` also replaced the old per-item `reads` collection on both apps (see §1).
 
 Two scoping patterns coexist:
 
-- **Owner-escape collections** (projects, build units, channels) are scoped `owner_id = me OR id = ANY(member ids)`. You always see what you own, even before anyone grants you membership.
+- **Owner-escape collections** (projects, build units, channels) are scoped `owner_id = me OR id = ANY(<server-resolved id set>)`. You always see what you own, even before anyone grants you membership.
 - **Channel-scoped collections** (messages, tasks, resources, properties, channel members) have *no* owner escape hatch. They are scoped purely by the visible channel id set. This distinction matters enormously for the resync logic in §6.
 
 ### Soft deletes are not uniform, and that is deliberate
@@ -366,6 +368,7 @@ These are the things to fix before this stops being a POC. Every one of them is 
 | Postgres schema | `web-app/code/src/infrastructure/database/schema/` |
 | Migrations | `web-app/code/drizzle/` |
 | Shape routes (read authorization) | `web-app/code/src/presentation/routes/api/` |
+| Shape scope resolver (`resolveMemberScope` / `idSetWhere`) | `web-app/code/src/infrastructure/database/access-scope.ts` |
 | tRPC routers (write authorization) | `web-app/code/src/infrastructure/trpc/routers/` |
 | Electric proxy | `web-app/code/src/infrastructure/database/electric-proxy.ts` |
 | Auth config | `web-app/code/src/infrastructure/auth/server.ts` |
