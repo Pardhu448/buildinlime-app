@@ -5,6 +5,7 @@ import { useLiveQuery, eq } from "@tanstack/react-db";
 import { useSession } from "%/infrastructure/auth/client";
 import { buildUnitsCollection, channelsCollection, projectsCollection, registerChannelInsertCallback } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 import { Modal } from "../shared/Modal";
+import { Select, Textarea, Label } from "../shared/FormField";
 import type { PendingItem } from "%/presentation/hooks/use-pending-items";
 
 interface NewChannelFormData {
@@ -141,26 +142,25 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Channel Type Select */}
           <div>
-            <label
+            <Label
               htmlFor="name"
-              className="block text-sm font-medium text-gray-700 mb-1"
             >
               Channel Type
-            </label>
-            <select
+            </Label>
+            <Select
               id="name"
               name="name"
               value={formData.name}
               onChange={handleInputChange}
               required
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent ${duplicateError ? "border-red-500" : "border-gray-300"}`}
+              className={duplicateError ? "border-red-500" : undefined}
             >
               {CHANNEL_TYPES.map((type) => (
                 <option key={type.value} value={type.value}>
                   {type.label}
                 </option>
               ))}
-            </select>
+            </Select>
             {duplicateError && (
               <p className="mt-1 text-sm text-red-600">
                 A {formData.name} channel already exists for this build unit.
@@ -170,13 +170,12 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
 
           {/* Description Input */}
           <div>
-            <label
+            <Label
               htmlFor="description"
-              className="block text-sm font-medium text-gray-700 mb-1"
             >
               Description
-            </label>
-            <textarea
+            </Label>
+            <Textarea
               id="description"
               name="description"
               value={formData.description}
@@ -184,7 +183,6 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
               placeholder="Enter a short description of the channel"
               rows={3}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
             />
           </div>
 

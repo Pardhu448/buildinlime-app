@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Plus, Trash2, Circle, Flag, Target, CalendarDays, AlertCircle, Percent, Tag, CheckCircle2 } from "lucide-react";
 import type { Property } from "%/domain/communication/types";
 import { Modal } from "../shared/Modal";
+import { Input, Select, Label } from "../shared/FormField";
 import { PROPERTY_TYPES, STATUS_VALUES, PRIORITY_VALUES, TASK_STATUS_VALUES } from "%/domain/shared/types";
 import { createPropertyAction, updatePropertyAction, deletePropertyAction } from "%/application/actions/properties";
 import { useSession } from "%/infrastructure/auth/client";
@@ -266,53 +267,49 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
     switch (selectedType) {
       case "status":
         return (
-          <select
+          <Select
             value={valueState.statusValue}
             onChange={(e) => setValueState((v) => ({ ...v, statusValue: e.target.value as typeof STATUS_VALUES[number] }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           >
             {STATUS_VALUES.map((v) => (
               <option key={v} value={v}>{STATUS_VALUE_LABELS[v]}</option>
             ))}
-          </select>
+          </Select>
         );
       case "priority":
         return (
-          <select
+          <Select
             value={valueState.priorityValue}
             onChange={(e) => setValueState((v) => ({ ...v, priorityValue: e.target.value as typeof PRIORITY_VALUES[number] }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           >
             {PRIORITY_VALUES.map((v) => (
               <option key={v} value={v}>{PRIORITY_LABELS[v]}</option>
             ))}
-          </select>
+          </Select>
         );
       case "targetDate":
       case "startDate":
         return (
-          <input
+          <Input
             type="date"
             value={valueState.dateValue}
             onChange={(e) => setValueState((v) => ({ ...v, dateValue: e.target.value }))}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
       case "pendingTask":
         return (
-          <input
+          <Input
             type="text"
             value={valueState.textValue}
             onChange={(e) => setValueState((v) => ({ ...v, textValue: e.target.value }))}
             placeholder="Describe the pending task"
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
       case "percent_complete":
         return (
-          <input
+          <Input
             type="number"
             min="0"
             max="100"
@@ -320,30 +317,27 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
             onChange={(e) => setValueState((v) => ({ ...v, textValue: e.target.value }))}
             placeholder="0–100"
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
       case "taskStatus":
         return (
-          <select
+          <Select
             value={valueState.taskStatusValue}
             onChange={(e) => setValueState((v) => ({ ...v, taskStatusValue: e.target.value as typeof TASK_STATUS_VALUES[number] }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           >
             {TASK_STATUS_VALUES.map((v) => (
               <option key={v} value={v}>{TASK_STATUS_LABELS[v]}</option>
             ))}
-          </select>
+          </Select>
         );
       case "label":
         return (
-          <input
+          <Input
             type="text"
             value={valueState.labelValue}
             onChange={(e) => setValueState((v) => ({ ...v, labelValue: e.target.value }))}
             placeholder="Enter label text"
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
     }
@@ -401,25 +395,24 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Property Type</label>
-            <select
+            <Label>Property Type</Label>
+            <Select
               value={selectedType}
               onChange={(e) => {
                 const next = e.target.value as typeof PROPERTY_TYPES[number];
                 setSelectedType(next);
                 setValueState(valueStateFrom(byType.get(next)));
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
             >
               {availableTypes.map((t) => (
                 <option key={t} value={t}>
                   {PROPERTY_TYPE_LABELS[t]}{byType.has(t) ? " (set)" : ""}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Property Value</label>
+            <Label>Property Value</Label>
             {renderValueInput()}
           </div>
           <button

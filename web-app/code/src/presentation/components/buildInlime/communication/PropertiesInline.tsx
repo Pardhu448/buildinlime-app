@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import type { FormEvent } from "react";
 import { Plus, MoreHorizontal } from "lucide-react";
 import { Modal } from "../shared/Modal";
+import { Input, Select, Label } from "../shared/FormField";
 import type { Property } from "%/domain/communication/types";
 import { PROPERTY_TYPES, STATUS_VALUES, PRIORITY_VALUES, TASK_STATUS_VALUES, ENTITY_TYPES } from "%/domain/shared/types";
 import { createPropertyAction, updatePropertyAction } from "%/application/actions/properties";
@@ -117,68 +118,63 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
     switch (selectedType) {
       case "status":
         return (
-          <select
+          <Select
             value={valueState.statusValue}
             onChange={(e) =>
               setValueState((v) => ({ ...v, statusValue: e.target.value as typeof STATUS_VALUES[number] }))
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           >
             {STATUS_VALUES.map((v) => (
               <option key={v} value={v}>{STATUS_VALUE_LABELS[v]}</option>
             ))}
-          </select>
+          </Select>
         );
       case "priority":
         return (
-          <select
+          <Select
             value={valueState.priorityValue}
             onChange={(e) =>
               setValueState((v) => ({ ...v, priorityValue: e.target.value as typeof PRIORITY_VALUES[number] }))
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           >
             {PRIORITY_VALUES.map((v) => (
               <option key={v} value={v}>{PRIORITY_LABELS[v]}</option>
             ))}
-          </select>
+          </Select>
         );
       case "targetDate":
       case "startDate":
         return (
-          <input
+          <Input
             type="date"
             value={valueState.dateValue}
             onChange={(e) => setValueState((v) => ({ ...v, dateValue: e.target.value }))}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
       case "pendingTask":
         return (
-          <input
+          <Input
             type="text"
             value={valueState.textValue}
             onChange={(e) => setValueState((v) => ({ ...v, textValue: e.target.value }))}
             placeholder="Describe the pending task"
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
       case "label":
         return (
-          <input
+          <Input
             type="text"
             value={valueState.labelValue}
             onChange={(e) => setValueState((v) => ({ ...v, labelValue: e.target.value }))}
             placeholder="Enter label text"
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
       case "percent_complete":
         return (
-          <input
+          <Input
             type="number"
             min="0"
             max="100"
@@ -186,22 +182,20 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
             onChange={(e) => setValueState((v) => ({ ...v, textValue: e.target.value }))}
             placeholder="0–100"
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           />
         );
       case "taskStatus":
         return (
-          <select
+          <Select
             value={valueState.taskStatusValue}
             onChange={(e) =>
               setValueState((v) => ({ ...v, taskStatusValue: e.target.value as typeof TASK_STATUS_VALUES[number] }))
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
           >
             {TASK_STATUS_VALUES.map((v) => (
               <option key={v} value={v}>{TASK_STATUS_LABELS[v]}</option>
             ))}
-          </select>
+          </Select>
         );
     }
   };
@@ -330,10 +324,10 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
             {(
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Label>
                     Property Type
-                  </label>
-                  <select
+                  </Label>
+                  <Select
                     value={selectedType}
                     onChange={(e) => {
                       const next = e.target.value as typeof PROPERTY_TYPES[number];
@@ -342,19 +336,18 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
                       // starts from its current value, not a blank default.
                       setValueState(valueStateFrom(byType.get(next)));
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
                   >
                     {availableTypes.map((t) => (
                       <option key={t} value={t}>
                         {PROPERTY_TYPE_LABELS[t]}{byType.has(t) ? " (set)" : ""}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Label>
                     Property Value
-                  </label>
+                  </Label>
                   {renderValueInput()}
                 </div>
                 <button

@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import { useSession } from "%/infrastructure/auth/client";
 import { projectsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 import { Modal } from "../shared/Modal";
+import { Input, Textarea, Label } from "../shared/FormField";
 
 interface NewProjectFormData {
   name: string;
@@ -82,13 +83,12 @@ export function NewProjectButton() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Project Name Input */}
           <div>
-            <label
+            <Label
               htmlFor="name"
-              className="block text-sm font-medium text-gray-700 mb-1"
             >
               Project Name
-            </label>
-            <input
+            </Label>
+            <Input
               type="text"
               id="name"
               name="name"
@@ -96,19 +96,17 @@ export function NewProjectButton() {
               onChange={handleInputChange}
               placeholder="Enter project name"
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
             />
           </div>
 
           {/* Description Input */}
           <div>
-            <label
+            <Label
               htmlFor="description"
-              className="block text-sm font-medium text-gray-700 mb-1"
             >
               Description
-            </label>
-            <textarea
+            </Label>
+            <Textarea
               id="description"
               name="description"
               value={formData.description}
@@ -116,7 +114,6 @@ export function NewProjectButton() {
               placeholder="Enter a short description of the project"
               rows={3}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
             />
           </div>
 

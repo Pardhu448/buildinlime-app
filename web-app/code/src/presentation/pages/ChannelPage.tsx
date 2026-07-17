@@ -28,6 +28,7 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
 } from "../components/ui/alert-dialog";
+import { Input, Textarea, Label } from "../components/buildInlime/shared/FormField";
 import { useChannelPage } from "../hooks/use-channel-page";
 import type { Property } from "%/domain/communication/types";
 
@@ -360,25 +361,23 @@ export function ChannelPage({
             <h2 className="text-xl font-semibold text-gray-800 mb-6">Add Task</h2>
             <form onSubmit={onAddTask} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
-                <input
+                <Label>Task Name</Label>
+                <Input
                   type="text"
                   value={taskName}
                   onChange={(e) => setTaskName(e.target.value)}
                   placeholder="Enter task name"
                   required
                   autoFocus
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
+                <Label>Description</Label>
+                <Textarea
                   value={taskDesc}
                   onChange={(e) => setTaskDesc(e.target.value)}
                   placeholder="Enter a short description"
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
                 />
               </div>
               {taskNameTaken && (
