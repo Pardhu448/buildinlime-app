@@ -3,6 +3,7 @@ import { ChevronRight, Mail, User, ArrowLeft, Loader2 } from "lucide-react";
 import { useRouter, useSearch } from "@tanstack/react-router";
 import { authClient } from "../../../infrastructure/auth/client";
 import { trpc } from "../../../infrastructure/trpc/lib/trpc-client";
+import { LoginCard } from "./LoginCard";
 
 type AuthView = "otp" | "verify";
 
@@ -128,7 +129,7 @@ export function LoginForm() {
   };
 
   return (
-    <div className="bg-white rounded-[16px] border border-card-border-subtle shadow-card">
+    <LoginCard>
       <div className="p-8">
         {/* Header */}
         <div className="mb-[20px]">
@@ -313,6 +314,6 @@ export function LoginForm() {
           </form>
         )}
       </div>
-    </div>
+    </LoginCard>
   );
 }
