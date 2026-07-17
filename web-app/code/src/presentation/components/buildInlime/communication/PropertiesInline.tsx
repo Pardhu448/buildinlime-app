@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import type { FormEvent } from "react";
-import { Plus, X, MoreHorizontal } from "lucide-react";
+import { Plus, MoreHorizontal } from "lucide-react";
+import { Modal } from "../shared/Modal";
 import type { Property } from "%/domain/communication/types";
 import { PROPERTY_TYPES, STATUS_VALUES, PRIORITY_VALUES, TASK_STATUS_VALUES, ENTITY_TYPES } from "%/domain/shared/types";
 import { createPropertyAction, updatePropertyAction } from "%/application/actions/properties";
@@ -321,19 +322,11 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
         )}
       </div>
 
-      {isPopupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setIsPopupOpen(false)} />
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-            <button
-              onClick={() => setIsPopupOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h2 className="text-xl font-semibold text-gray-800 mb-6">
-              {byType.has(selectedType) ? "Set Property" : "Add Property"}
-            </h2>
+      <Modal
+        open={isPopupOpen}
+        onClose={() => setIsPopupOpen(false)}
+        title={byType.has(selectedType) ? "Set Property" : "Add Property"}
+      >
             {(
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -375,9 +368,7 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
                 </button>
               </form>
             )}
-          </div>
-        </div>
-      )}
+      </Modal>
     </>
   );
 }

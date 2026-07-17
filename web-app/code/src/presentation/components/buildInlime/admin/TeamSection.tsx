@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { Modal } from "../shared/Modal";
 
 interface TeamMember {
   id: string;
@@ -95,68 +96,58 @@ export function TeamSection({ teamId, name, description, members, currentMemberI
         )}
       </div>
 
-      {addOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setAddOpen(false)} />
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-            <button
-              onClick={() => setAddOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      <Modal open={addOpen} onClose={() => setAddOpen(false)}>
+        {/* Own heading rather than Modal's `title` — this dialog uses the
+            smaller text-lg/#1e1e1e style, not the standard text-xl/gray-800. */}
+        <h2 className="text-lg font-semibold text-[#1e1e1e] mb-5">Add Members to {name}</h2>
 
-            <h2 className="text-lg font-semibold text-[#1e1e1e] mb-5">Add Members to {name}</h2>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#1e1e1e] mb-2">Members</label>
-                {nonMembers.length === 0 ? (
-                  <p className="px-3 py-3 text-xs text-[#717182] border border-[#e5d4c1] rounded-md">
-                    All users are already members of this team.
-                  </p>
-                ) : (
-                  <div className="max-h-48 overflow-y-auto border border-[#e5d4c1] rounded-md divide-y divide-[#f0e5d8]">
-                    {nonMembers.map((user) => {
-                      const checked = selectedIds.includes(user.id);
-                      return (
-                        <label
-                          key={user.id}
-                          className="flex items-center gap-3 px-3 py-2 hover:bg-[#fdf8f2] transition-colors cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleUser(user.id)}
-                            className="accent-[#976623]"
-                          />
-                          <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
-                            {((user.name || user.email || "?")[0] ?? "?").toUpperCase()}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-[#1e1e1e] truncate">{user.name || user.email}</p>
-                            {user.name && (
-                              <p className="text-xs text-[#717182] truncate">{user.email}</p>
-                            )}
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-[#1e1e1e] mb-2">Members</label>
+            {nonMembers.length === 0 ? (
+              <p className="px-3 py-3 text-xs text-[#717182] border border-[#e5d4c1] rounded-md">
+                All users are already members of this team.
+              </p>
+            ) : (
+              <div className="max-h-48 overflow-y-auto border border-[#e5d4c1] rounded-md divide-y divide-[#f0e5d8]">
+                {nonMembers.map((user) => {
+                  const checked = selectedIds.includes(user.id);
+                  return (
+                    <label
+                      key={user.id}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-[#fdf8f2] transition-colors cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleUser(user.id)}
+                        className="accent-[#976623]"
+                      />
+                      <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                        {((user.name || user.email || "?")[0] ?? "?").toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-[#1e1e1e] truncate">{user.name || user.email}</p>
+                        {user.name && (
+                          <p className="text-xs text-[#717182] truncate">{user.email}</p>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting || !selectedIds.length || nonMembers.length === 0}
-                className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                {isSubmitting ? "Adding…" : "Add Members"}
-              </button>
-            </form>
+            )}
           </div>
-        </div>
-      )}
+
+          <button
+            type="submit"
+            disabled={isSubmitting || !selectedIds.length || nonMembers.length === 0}
+            className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            {isSubmitting ? "Adding…" : "Add Members"}
+          </button>
+        </form>
+      </Modal>
     </>
   );
 }

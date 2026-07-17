@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Plus, X, Trash2, Circle, Flag, Target, CalendarDays, AlertCircle, Percent, Tag, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Circle, Flag, Target, CalendarDays, AlertCircle, Percent, Tag, CheckCircle2 } from "lucide-react";
 import type { Property } from "%/domain/communication/types";
+import { Modal } from "../shared/Modal";
 import { PROPERTY_TYPES, STATUS_VALUES, PRIORITY_VALUES, TASK_STATUS_VALUES } from "%/domain/shared/types";
 import { createPropertyAction, updatePropertyAction, deletePropertyAction } from "%/application/actions/properties";
 import { useSession } from "%/infrastructure/auth/client";
@@ -393,55 +394,45 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
       </div>
 
       {/* Add Property popup — same form as PropertiesInline */}
-      {isPopupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setIsPopupOpen(false)} />
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-            <button
-              onClick={() => setIsPopupOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+      <Modal
+        open={isPopupOpen}
+        onClose={() => setIsPopupOpen(false)}
+        title={byType.has(selectedType) ? "Set Property" : "Add Property"}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Property Type</label>
+            <select
+              value={selectedType}
+              onChange={(e) => {
+                const next = e.target.value as typeof PROPERTY_TYPES[number];
+                setSelectedType(next);
+                setValueState(valueStateFrom(byType.get(next)));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
             >
-              <X className="w-5 h-5" />
-            </button>
-            <h2 className="text-xl font-semibold text-gray-800 mb-6">
-              {byType.has(selectedType) ? "Set Property" : "Add Property"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Property Type</label>
-                <select
-                  value={selectedType}
-                  onChange={(e) => {
-                    const next = e.target.value as typeof PROPERTY_TYPES[number];
-                    setSelectedType(next);
-                    setValueState(valueStateFrom(byType.get(next)));
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
-                >
-                  {availableTypes.map((t) => (
-                    <option key={t} value={t}>
-                      {PROPERTY_TYPE_LABELS[t]}{byType.has(t) ? " (set)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Property Value</label>
-                {renderValueInput()}
-              </div>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                {isSubmitting
-                  ? "Saving…"
-                  : byType.has(selectedType) ? "Update Property" : "Add Property"}
-              </button>
-            </form>
+              {availableTypes.map((t) => (
+                <option key={t} value={t}>
+                  {PROPERTY_TYPE_LABELS[t]}{byType.has(t) ? " (set)" : ""}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Property Value</label>
+            {renderValueInput()}
+          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            {isSubmitting
+              ? "Saving…"
+              : byType.has(selectedType) ? "Update Property" : "Add Property"}
+          </button>
+        </form>
+      </Modal>
     </>
   );
 }

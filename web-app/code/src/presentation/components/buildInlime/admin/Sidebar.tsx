@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Plus, X, Hash, FolderOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Hash, FolderOpen } from "lucide-react";
+import { Modal } from "../shared/Modal";
 import { Link } from "@tanstack/react-router";
 import { useLiveQuery, eq } from "@tanstack/react-db";
 import { useSession } from "%/infrastructure/auth/client";
@@ -334,95 +335,85 @@ export function Sidebar({ projectId }: SidebarProps) {
       </aside>
 
       {/* Create Team modal */}
-      {createOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setCreateOpen(false)} />
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-            <button
-              onClick={() => setCreateOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)}>
+        {/* Own heading rather than Modal's `title` — this dialog uses the
+            smaller text-lg/#1e1e1e style, not the standard text-xl/gray-800. */}
+        <h2 className="text-lg font-semibold text-[#1e1e1e] mb-5">Create Team</h2>
 
-            <h2 className="text-lg font-semibold text-[#1e1e1e] mb-5">Create Team</h2>
-
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#1e1e1e] mb-1">
-                  Team Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={teamName}
-                  onChange={(e) => setTeamName(e.target.value)}
-                  placeholder="e.g. Masonry Team"
-                  required
-                  autoFocus
-                  className="w-full px-3 py-2 border border-[#e5d4c1] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#1e1e1e] mb-1">Description</label>
-                <textarea
-                  value={teamDesc}
-                  onChange={(e) => setTeamDesc(e.target.value)}
-                  placeholder="What does this team work on?"
-                  rows={2}
-                  className="w-full px-3 py-2 border border-[#e5d4c1] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#1e1e1e] mb-2">Members</label>
-                <div className="max-h-48 overflow-y-auto border border-[#e5d4c1] rounded-md divide-y divide-[#f0e5d8]">
-                  {(allUsers ?? []).map((user) => {
-                    const isCreator = user.id === currentUserId;
-                    const checked = selectedMemberIds.includes(user.id);
-                    return (
-                      <label
-                        key={user.id}
-                        className={`flex items-center gap-3 px-3 py-2 hover:bg-[#fdf8f2] transition-colors ${
-                          isCreator ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={isCreator}
-                          onChange={() => toggleMember(user.id)}
-                          className="accent-[#976623]"
-                        />
-                        <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
-                          {((user.name || user.email || "?")[0] ?? "?").toUpperCase()}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-[#1e1e1e] truncate">{user.name || user.email}</p>
-                          {user.name && (
-                            <p className="text-xs text-[#717182] truncate">{user.email}</p>
-                          )}
-                        </div>
-                        {isCreator && (
-                          <span className="text-xs text-[#ac7f5e]">you</span>
-                        )}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting || !teamName.trim()}
-                className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                {isSubmitting ? "Creating…" : "Create Team"}
-              </button>
-            </form>
+        <form onSubmit={handleCreate} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-[#1e1e1e] mb-1">
+              Team Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              placeholder="e.g. Masonry Team"
+              required
+              autoFocus
+              className="w-full px-3 py-2 border border-[#e5d4c1] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
+            />
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="block text-sm font-medium text-[#1e1e1e] mb-1">Description</label>
+            <textarea
+              value={teamDesc}
+              onChange={(e) => setTeamDesc(e.target.value)}
+              placeholder="What does this team work on?"
+              rows={2}
+              className="w-full px-3 py-2 border border-[#e5d4c1] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[#1e1e1e] mb-2">Members</label>
+            <div className="max-h-48 overflow-y-auto border border-[#e5d4c1] rounded-md divide-y divide-[#f0e5d8]">
+              {(allUsers ?? []).map((user) => {
+                const isCreator = user.id === currentUserId;
+                const checked = selectedMemberIds.includes(user.id);
+                return (
+                  <label
+                    key={user.id}
+                    className={`flex items-center gap-3 px-3 py-2 hover:bg-[#fdf8f2] transition-colors ${
+                      isCreator ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={isCreator}
+                      onChange={() => toggleMember(user.id)}
+                      className="accent-[#976623]"
+                    />
+                    <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                      {((user.name || user.email || "?")[0] ?? "?").toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-[#1e1e1e] truncate">{user.name || user.email}</p>
+                      {user.name && (
+                        <p className="text-xs text-[#717182] truncate">{user.email}</p>
+                      )}
+                    </div>
+                    {isCreator && (
+                      <span className="text-xs text-[#ac7f5e]">you</span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting || !teamName.trim()}
+            className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            {isSubmitting ? "Creating…" : "Create Team"}
+          </button>
+        </form>
+      </Modal>
     </>
   );
 }
