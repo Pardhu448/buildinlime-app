@@ -86,9 +86,9 @@ export function CommentInput({
             <button
               key={u.id}
               onMouseDown={(e) => { e.preventDefault(); handleSelectMention(u) }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1e1e1e] hover:bg-card-surface transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-card-surface transition-colors"
             >
-              <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+              <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-primary text-xs font-medium flex-shrink-0">
                 {mentionDisplayName(u)[0].toUpperCase()}
               </div>
               <span className="truncate">{mentionDisplayName(u)}</span>
@@ -103,7 +103,7 @@ export function CommentInput({
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className="w-full bg-transparent text-[#1e1e1e] placeholder-[#ac7f5e] resize-none outline-none mb-3"
+        className="w-full bg-transparent text-foreground placeholder-[#ac7f5e] resize-none outline-none mb-3"
         rows={rows}
       />
 
@@ -123,7 +123,7 @@ export function CommentInput({
           disabled={!canSend}
           className="p-1.5 hover:bg-icon-chip rounded transition-colors disabled:opacity-40"
         >
-          <Send className="w-4 h-4 text-[#717182]" />
+          <Send className="w-4 h-4 text-muted-foreground" />
         </button>
       </div>
     </div>

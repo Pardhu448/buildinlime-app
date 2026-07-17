@@ -33,13 +33,13 @@ export function MyTasksPage() {
         <header className="h-12 bg-white border-b border-card-border flex items-center gap-3 px-6">
           <button
             onClick={() => window.history.back()}
-            className="p-1 text-[#717182] hover:text-[#1e1e1e] hover:bg-icon-chip rounded transition-colors"
+            className="p-1 text-muted-foreground hover:text-foreground hover:bg-icon-chip rounded transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h1 className="font-semibold text-[16px] text-[#1e1e1e]">My Tasks</h1>
+          <h1 className="font-semibold text-[16px] text-foreground">My Tasks</h1>
           {currentUserId && (
-            <span className="ml-auto text-xs text-[#717182]">
+            <span className="ml-auto text-xs text-muted-foreground">
               {openCount} open · {doneCount} done
             </span>
           )}
@@ -48,12 +48,12 @@ export function MyTasksPage() {
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-8 py-6">
           {!currentUserId ? (
-            <p className="text-sm text-[#717182]">Loading…</p>
+            <p className="text-sm text-muted-foreground">Loading…</p>
           ) : sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center">
               <CheckSquare className="w-10 h-10 text-card-border mb-3" />
-              <p className="text-sm font-medium text-[#717182]">No tasks assigned to you</p>
-              <p className="text-xs text-[#717182] mt-1">Tasks assigned to you will appear here.</p>
+              <p className="text-sm font-medium text-muted-foreground">No tasks assigned to you</p>
+              <p className="text-xs text-muted-foreground mt-1">Tasks assigned to you will appear here.</p>
             </div>
           ) : (
             <div className="space-y-1 max-w-2xl">
@@ -74,11 +74,11 @@ export function MyTasksPage() {
                     }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${task.completed ? "line-through text-[#717182]" : "text-[#1e1e1e]"}`}>
+                      <p className={`text-sm font-medium ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
                         {task.name}
                       </p>
                       {task.description && (
-                        <p className="text-xs text-[#717182] mt-0.5 truncate">{task.description}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{task.description}</p>
                       )}
                       <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                         {project && (

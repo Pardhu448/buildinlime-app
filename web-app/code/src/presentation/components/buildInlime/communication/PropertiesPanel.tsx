@@ -68,7 +68,7 @@ const PRIORITY_LABELS: Record<string, string> = {
 
 type PillStyle = { bg: string; border: string; text: string }
 
-const DEFAULT_PILL: PillStyle = { bg: "bg-icon-chip", border: "border-card-border", text: "text-[#1e1e1e]" }
+const DEFAULT_PILL: PillStyle = { bg: "bg-icon-chip", border: "border-card-border", text: "text-foreground" }
 
 const STATUS_PILL_STYLES: Record<string, PillStyle> = {
   critical: { bg: "bg-red-100",    border: "border-red-200",    text: "text-red-700"    },
@@ -127,7 +127,7 @@ function ValuePill({ property }: { property: Property }) {
       label = property.pending_task ?? "—"
       break
     case "percent_complete":
-      icon = <Percent className="w-2.5 h-2.5 shrink-0 text-[#976623]" />
+      icon = <Percent className="w-2.5 h-2.5 shrink-0 text-primary" />
       // Own column as of migration 0003 — this used to read `pending_task`,
       // which it shared with the pendingTask type.
       label = `${property.percent_complete ?? "0"}%`
@@ -349,12 +349,12 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
         {(!hideLabel || !hideAddButton) && (
           <div className="flex items-center justify-between mb-4">
             {!hideLabel && (
-              <h3 className="text-sm font-medium text-[#717182]">{label}</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">{label}</h3>
             )}
             {!hideAddButton && (
               <button
                 onClick={openPopup}
-                className="p-1 text-[#717182] hover:text-[#1e1e1e] transition-colors"
+                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -363,12 +363,12 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
         )}
 
         {properties.length === 0 ? (
-          <p className="text-sm text-[#717182]">No properties added yet.</p>
+          <p className="text-sm text-muted-foreground">No properties added yet.</p>
         ) : (
           <div className="space-y-2">
             {properties.map((property) => (
               <div key={property.id} className="group flex items-center justify-between gap-3">
-                <span className="text-sm text-[#717182] shrink-0">
+                <span className="text-sm text-muted-foreground shrink-0">
                   {PROPERTY_TYPE_LABELS[property.type] ?? property.type}
                 </span>
                 <div className="flex items-center gap-1.5 min-w-0">
@@ -418,7 +418,7 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-[#976623] hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            className="w-full bg-primary hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
             {isSubmitting
               ? "Saving…"

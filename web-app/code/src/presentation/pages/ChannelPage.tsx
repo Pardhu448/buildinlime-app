@@ -134,7 +134,7 @@ export function ChannelPage({
               <Link
                 to="/projects/$projectId"
                 params={{ projectId }}
-                className="hover:text-[#1e1e1e] transition-colors"
+                className="hover:text-foreground transition-colors"
               >
                 {projectName}
               </Link>
@@ -142,12 +142,12 @@ export function ChannelPage({
               <Link
                 to="/projects/$projectId/$buildUnitName"
                 params={{ projectId, buildUnitName }}
-                className="hover:text-[#1e1e1e] transition-colors"
+                className="hover:text-foreground transition-colors"
               >
                 {buildUnitName}
               </Link>
               <ChevronRight className="w-4 h-4" />
-              <span className="text-[#1e1e1e]">{channelName}</span>
+              <span className="text-foreground">{channelName}</span>
             </>
           }
         />
@@ -173,11 +173,11 @@ export function ChannelPage({
                     onClick={() => setAddPeopleOpen(false)}
                   />
                   <div className="absolute left-24 top-0 z-20 bg-white border border-card-border rounded-lg shadow-lg min-w-[220px]">
-                    <p className="px-3 py-2 text-xs font-medium text-[#717182] border-b border-card-border">
+                    <p className="px-3 py-2 text-xs font-medium text-muted-foreground border-b border-card-border">
                       Add to channel
                     </p>
                     {nonMembers.length === 0 ? (
-                      <p className="px-3 py-3 text-xs text-[#717182]">All users are already members.</p>
+                      <p className="px-3 py-3 text-xs text-muted-foreground">All users are already members.</p>
                     ) : (
                       <div className="py-1 max-h-48 overflow-y-auto">
                         {nonMembers.map((u) => (
@@ -185,9 +185,9 @@ export function ChannelPage({
                             key={u.id}
                             onClick={() => handleAddMember(u.id, () => setAddPeopleOpen(false))}
                             disabled={isAddingMember}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1e1e1e] hover:bg-card-surface transition-colors disabled:opacity-50"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-card-surface transition-colors disabled:opacity-50"
                           >
-                            <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                            <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-primary text-xs font-medium flex-shrink-0">
                               {((u.name || u.email || "?")[0] ?? "?").toUpperCase()}
                             </div>
                             <span className="truncate">{u.name || u.email}</span>
@@ -203,10 +203,10 @@ export function ChannelPage({
             {/* Resources */}
             <div className="mt-6">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-[#717182]">Resources</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">Resources</h3>
                 <button
                   onClick={() => setResourcesOpen(!resourcesOpen)}
-                  className="flex items-center gap-1 text-xs text-[#717182] hover:text-[#976623] transition-colors"
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
                 >
                   {resourcesOpen ? (
                     <>Hide <ChevronUp className="w-3.5 h-3.5" /></>
@@ -245,10 +245,10 @@ export function ChannelPage({
                   onClick={() => setPropertiesOpen(!propertiesOpen)}
                   className="flex items-center justify-between w-full mb-4"
                 >
-                  <h3 className="text-sm font-medium text-[#717182]">Properties</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">Properties</h3>
                   {propertiesOpen
-                    ? <ChevronDown className="w-4 h-4 text-[#717182]" />
-                    : <ChevronRight className="w-4 h-4 text-[#717182]" />
+                    ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    : <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   }
                 </button>
                 {propertiesOpen && (
@@ -300,7 +300,7 @@ export function ChannelPage({
               <div>
                 <p className="text-xs font-semibold text-[#ac7f5e] uppercase tracking-wider mb-3">Members</p>
                 {channelMembers.length === 0 ? (
-                  <p className="text-xs text-[#717182]">No members yet.</p>
+                  <p className="text-xs text-muted-foreground">No members yet.</p>
                 ) : (
                   <div className="space-y-2">
                     {channelMembers.map((u) => (
@@ -322,10 +322,10 @@ export function ChannelPage({
                         ) : (
                           <div className="flex items-center justify-between group">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                              <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-primary text-xs font-medium flex-shrink-0">
                                 {((u.name || u.email || "?")[0] ?? "?").toUpperCase()}
                               </div>
-                              <span className="text-sm text-[#1e1e1e] truncate">{u.name || u.email}</span>
+                              <span className="text-sm text-foreground truncate">{u.name || u.email}</span>
                             </div>
                             {isOwner && u.id !== channelOwnerId && (
                               <button
@@ -388,7 +388,7 @@ export function ChannelPage({
               <button
                 type="submit"
                 disabled={isSubmittingTask || !taskName.trim() || taskNameTaken}
-                className="w-full bg-[#976623] hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                className="w-full bg-primary hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
                 {isSubmittingTask ? "Adding…" : "Add Task"}
               </button>

@@ -132,7 +132,7 @@ export function LoginForm() {
       <div className="p-8">
         {/* Header */}
         <div className="mb-[20px]">
-          <h1 className="font-['Inria_Sans',sans-serif] font-bold text-[25.6px] leading-[38.4px] text-[#1e1e1e] tracking-[-0.512px] mb-[6px]">
+          <h1 className="font-['Inria_Sans',sans-serif] font-bold text-[25.6px] leading-[38.4px] text-foreground tracking-[-0.512px] mb-[6px]">
             {view === "verify"
               ? "Verify your email"
               : isSignup
@@ -140,7 +140,7 @@ export function LoginForm() {
               : "Log into BuildInLime"}
           </h1>
           <p
-            className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-[#717182]"
+            className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-muted-foreground"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             {view === "verify"
@@ -161,7 +161,7 @@ export function LoginForm() {
               <button
                 type="button"
                 onClick={() => router.navigate({ to: '/login', search: { mode: 'signup', returnTo } })}
-                className="mt-2 w-full bg-white hover:bg-card-surface border border-[#976623] text-[#976623] rounded-[10px] h-[44px] font-['Instrument_Sans',sans-serif] font-medium text-[15px] flex items-center justify-center gap-2 transition-colors"
+                className="mt-2 w-full bg-white hover:bg-card-surface border border-primary text-primary rounded-[10px] h-[44px] font-['Instrument_Sans',sans-serif] font-medium text-[15px] flex items-center justify-center gap-2 transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 <User className="w-4 h-4" />
@@ -191,14 +191,14 @@ export function LoginForm() {
                   Full Name <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[#717182]" />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-muted-foreground" />
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Your full name"
                     required
-                    className="w-full bg-input-background border border-[#ac7f5e] rounded-[10px] pl-12 pr-4 py-3 font-['Instrument_Sans',sans-serif] text-[16px] text-[#1e1e1e] placeholder:text-[#717182] focus:outline-none focus:ring-2 focus:ring-[#976623]"
+                    className="w-full bg-input-background border border-[#ac7f5e] rounded-[10px] pl-12 pr-4 py-3 font-['Instrument_Sans',sans-serif] text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     style={{ fontVariationSettings: "'wdth' 100" }}
                   />
                 </div>
@@ -214,14 +214,14 @@ export function LoginForm() {
                 Email Address <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[#717182]" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-muted-foreground" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full bg-input-background border border-[#ac7f5e] rounded-[10px] pl-12 pr-4 py-3 font-['Instrument_Sans',sans-serif] text-[16px] text-[#1e1e1e] placeholder:text-[#717182] focus:outline-none focus:ring-2 focus:ring-[#976623]"
+                  className="w-full bg-input-background border border-[#ac7f5e] rounded-[10px] pl-12 pr-4 py-3 font-['Instrument_Sans',sans-serif] text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   style={{ fontVariationSettings: "'wdth' 100" }}
                 />
               </div>
@@ -230,7 +230,7 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#976623] hover:bg-primary-hover disabled:bg-primary-disabled text-white rounded-[10px] h-[48px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] flex items-center justify-center gap-2 transition-colors"
+              className="w-full bg-primary hover:bg-primary-hover disabled:bg-primary-disabled text-white rounded-[10px] h-[48px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] flex items-center justify-center gap-2 transition-colors"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {loading ? (
@@ -264,7 +264,7 @@ export function LoginForm() {
                 }}
                 placeholder="Enter 6-digit code"
                 required
-                className="w-full bg-input-background border border-[#ac7f5e] rounded-[10px] px-4 py-3 font-['Instrument_Sans',sans-serif] text-[16px] text-[#1e1e1e] placeholder:text-[#717182] focus:outline-none focus:ring-2 focus:ring-[#976623] tracking-[8px] text-center"
+                className="w-full bg-input-background border border-[#ac7f5e] rounded-[10px] px-4 py-3 font-['Instrument_Sans',sans-serif] text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring tracking-[8px] text-center"
                 style={{ fontVariationSettings: "'wdth' 100" }}
                 maxLength={6}
               />
@@ -273,7 +273,7 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={loading || otp.length !== 6}
-              className="w-full bg-[#976623] hover:bg-primary-hover disabled:bg-primary-disabled text-white rounded-[10px] h-[48px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] flex items-center justify-center gap-2 transition-colors"
+              className="w-full bg-primary hover:bg-primary-hover disabled:bg-primary-disabled text-white rounded-[10px] h-[48px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] flex items-center justify-center gap-2 transition-colors"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {loading ? (
@@ -287,13 +287,13 @@ export function LoginForm() {
             </button>
 
             <div className="text-center">
-              <p className="font-['Instrument_Sans',sans-serif] text-[14px] text-[#717182]">
+              <p className="font-['Instrument_Sans',sans-serif] text-[14px] text-muted-foreground">
                 Didn't receive the code?{" "}
                 <button
                   type="button"
                   onClick={handleResendOTP}
                   disabled={loading}
-                  className="text-[#976623] hover:underline font-medium disabled:opacity-50"
+                  className="text-primary hover:underline font-medium disabled:opacity-50"
                 >
                   Resend
                 </button>
@@ -304,7 +304,7 @@ export function LoginForm() {
               <button
                 type="button"
                 onClick={handleGoBack}
-                className="font-['Instrument_Sans',sans-serif] text-[14px] text-[#717182] hover:text-[#1e1e1e] flex items-center justify-center gap-1 mx-auto"
+                className="font-['Instrument_Sans',sans-serif] text-[14px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 mx-auto"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to email

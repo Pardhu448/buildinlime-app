@@ -26,7 +26,7 @@ export function Footer() {
             <li>
               <a
                 href="#blog"
-                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-[#976623] transition-colors"
+                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-primary transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 Blog
@@ -35,7 +35,7 @@ export function Footer() {
             <li>
               <a
                 href="#documentation"
-                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-[#976623] transition-colors"
+                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-primary transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 Documentation
@@ -56,7 +56,7 @@ export function Footer() {
             <li>
               <a
                 href="#features"
-                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-[#976623] transition-colors"
+                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-primary transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 Features
@@ -65,7 +65,7 @@ export function Footer() {
             <li>
               <a
                 href="#pricing"
-                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-[#976623] transition-colors"
+                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-primary transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 Pricing
@@ -74,7 +74,7 @@ export function Footer() {
             <li>
               <a
                 href="#support"
-                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-[#976623] transition-colors"
+                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-primary transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 Support
@@ -95,7 +95,7 @@ export function Footer() {
             <li>
               <a
                 href="#about"
-                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-[#976623] transition-colors"
+                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-primary transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 About
@@ -104,7 +104,7 @@ export function Footer() {
             <li>
               <a
                 href="#careers"
-                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-[#976623] transition-colors"
+                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-primary transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 Careers
@@ -113,7 +113,7 @@ export function Footer() {
             <li>
               <a
                 href="#contact"
-                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-[#976623] transition-colors"
+                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-primary transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 Contact

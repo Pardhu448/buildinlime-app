@@ -70,7 +70,7 @@ const TYPE_ICON: Record<typeof PROPERTY_TYPES[number], LucideIcon> = {
 
 type PillStyle = { bg: string; border: string; text: string }
 
-const DEFAULT_PILL: PillStyle = { bg: "bg-icon-chip", border: "border-card-border", text: "text-[#1e1e1e]" }
+const DEFAULT_PILL: PillStyle = { bg: "bg-icon-chip", border: "border-card-border", text: "text-foreground" }
 
 const STATUS_PILL_STYLES: Record<string, PillStyle> = {
   critical: { bg: "bg-red-100",    border: "border-red-200",    text: "text-red-700"    },
@@ -118,7 +118,7 @@ function pillVisual(property: Property): { icon: React.ReactNode; style: PillSty
     case "pendingTask":
       return { icon: <Icon className="w-3 h-3 shrink-0 text-yellow-600" />, style, text }
     case "percent_complete":
-      return { icon: <Icon className="w-3 h-3 shrink-0 text-[#976623]" />, style, text }
+      return { icon: <Icon className="w-3 h-3 shrink-0 text-primary" />, style, text }
     case "label":
       return { icon: <Icon className="w-3 h-3 shrink-0 text-purple-600" />, style, text }
     case "taskStatus":

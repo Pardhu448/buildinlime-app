@@ -18,18 +18,18 @@ export function ActivityPanel({ activities, onSeeAll }: ActivityPanelProps) {
     if (activity.target) {
       return (
         <div>
-          <span className="text-[#1e1e1e]">{activity.user}</span>
-          <span className="text-[#717182]"> {activity.action} </span>
-          <span className="text-[#1e1e1e]">{activity.target}</span>
-          <span className="text-[#717182]"> · {activity.date}</span>
+          <span className="text-foreground">{activity.user}</span>
+          <span className="text-muted-foreground"> {activity.action} </span>
+          <span className="text-foreground">{activity.target}</span>
+          <span className="text-muted-foreground"> · {activity.date}</span>
         </div>
       );
     }
 
     return (
       <div>
-        <span className="text-[#1e1e1e]">{activity.user}</span>
-        <span className="text-[#717182]">
+        <span className="text-foreground">{activity.user}</span>
+        <span className="text-muted-foreground">
           {" "}
           {activity.action} · {activity.date}
         </span>
@@ -40,10 +40,10 @@ export function ActivityPanel({ activities, onSeeAll }: ActivityPanelProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-[#717182]">Activity</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">Activity</h3>
         <button
           onClick={onSeeAll}
-          className="text-sm text-[#976623] hover:underline"
+          className="text-sm text-primary hover:underline"
         >
           See all
         </button>

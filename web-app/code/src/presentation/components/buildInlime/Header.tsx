@@ -13,7 +13,7 @@ export function Header() {
             className="w-[54px] h-[34px] object-cover"
           />
           <span
-            className="font-['Inria_Sans',sans-serif] font-bold text-[24px] text-[#1e1e1e]"
+            className="font-['Inria_Sans',sans-serif] font-bold text-[24px] text-foreground"
           >
             BuildInLime
           </span>
@@ -23,28 +23,28 @@ export function Header() {
         <nav className="flex items-center gap-8 ml-auto">
           <Link
             to="/"
-            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-[#976623] transition-colors"
+            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-primary transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             About
           </Link>
           <Link
             to="/"
-            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-[#976623] transition-colors"
+            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-primary transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Resources
           </Link>
           <Link
             to="/"
-            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-[#976623] transition-colors"
+            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-primary transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Get Started
           </Link>
           <Link
             to="/"
-            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-[#976623] transition-colors"
+            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-primary transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Pricing
@@ -55,7 +55,7 @@ export function Header() {
         <div className="flex items-center gap-[16px]">
           <Link
             to="/login"
-            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-[#976623] transition-colors"
+            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-primary transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Login
@@ -63,7 +63,7 @@ export function Header() {
           <Link
             to="/login"
             search={{ mode: "signup" }}
-            className="bg-[#976623] hover:bg-primary-hover text-white px-[24px] py-[12px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] transition-colors"
+            className="bg-primary hover:bg-primary-hover text-white px-[24px] py-[12px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Sign up

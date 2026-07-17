@@ -23,7 +23,7 @@ export function HeaderLoggedIn({ onSignOut }: HeaderLoggedInProps) {
             className="w-[54px] h-[34px] object-cover"
           />
           <span
-            className="font-['Inria_Sans',sans-serif] font-bold text-[24px] text-[#1e1e1e]"
+            className="font-['Inria_Sans',sans-serif] font-bold text-[24px] text-foreground"
           >
             BuildInLime
           </span>
@@ -33,28 +33,28 @@ export function HeaderLoggedIn({ onSignOut }: HeaderLoggedInProps) {
         <nav className="flex items-center gap-8 ml-auto">
           <Link
             to="/"
-            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-[#976623] transition-colors"
+            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-primary transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             About
           </Link>
           <Link
             to="/"
-            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-[#976623] transition-colors"
+            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-primary transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Resources
           </Link>
           <Link
             to="/"
-            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-[#976623] transition-colors"
+            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-primary transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Get Started
           </Link>
           <Link
             to="/"
-            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-[#976623] transition-colors"
+            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-primary transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Pricing
@@ -65,7 +65,7 @@ export function HeaderLoggedIn({ onSignOut }: HeaderLoggedInProps) {
         <div className="flex items-center gap-[16px]">
           <button
             onClick={handleSignOut}
-            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-[#976623] transition-colors"
+            className="font-['Instrument_Sans',sans-serif] text-[16px] text-black hover:text-primary transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Sign out

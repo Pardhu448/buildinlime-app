@@ -13,8 +13,8 @@ export function ToolbarButton({ icon: Icon, label, onClick, active }: ToolbarBut
       onClick={onClick}
       className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded transition-colors ${
         active
-          ? "text-[#1e1e1e] bg-icon-chip"
-          : "text-[#717182] hover:text-[#1e1e1e] hover:bg-gray-50"
+          ? "text-foreground bg-icon-chip"
+          : "text-muted-foreground hover:text-foreground hover:bg-gray-50"
       }`}
     >
       <Icon className="w-4 h-4" />

@@ -38,22 +38,22 @@ export function InboxPage() {
         <header className="h-12 bg-white border-b border-card-border flex items-center gap-3 px-6">
           <button
             onClick={() => window.history.back()}
-            className="p-1 text-[#717182] hover:text-[#1e1e1e] hover:bg-icon-chip rounded transition-colors"
+            className="p-1 text-muted-foreground hover:text-foreground hover:bg-icon-chip rounded transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h1 className="font-semibold text-[16px] text-[#1e1e1e]">Inbox</h1>
+          <h1 className="font-semibold text-[16px] text-foreground">Inbox</h1>
         </header>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-8 py-6">
           {!currentUserId ? (
-            <p className="text-sm text-[#717182]">Loading…</p>
+            <p className="text-sm text-muted-foreground">Loading…</p>
           ) : mentionedMessages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center">
               <MessageSquare className="w-10 h-10 text-card-border mb-3" />
-              <p className="text-sm font-medium text-[#717182]">No mentions yet</p>
-              <p className="text-xs text-[#717182] mt-1">Messages where you're mentioned will appear here.</p>
+              <p className="text-sm font-medium text-muted-foreground">No mentions yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Messages where you're mentioned will appear here.</p>
             </div>
           ) : (
             <div className="space-y-2 max-w-2xl">
@@ -77,7 +77,7 @@ export function InboxPage() {
                         : "bg-card-surface border-card-border"
                     }`}
                   >
-                    <div className="w-8 h-8 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-semibold flex-shrink-0 mt-0.5">
+                    <div className="w-8 h-8 rounded-full bg-card-border flex items-center justify-center text-primary text-xs font-semibold flex-shrink-0 mt-0.5">
                       {initial}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -85,15 +85,15 @@ export function InboxPage() {
                         <span className="flex items-center gap-1.5 min-w-0">
                           {/* Unread marker — only on unread rows, so it means something. */}
                           {unread && (
-                            <span className="w-2 h-2 rounded-full bg-[#976623] flex-shrink-0" />
+                            <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
                           )}
-                          <span className={`text-sm truncate ${unread ? "font-semibold text-[#1e1e1e]" : "font-medium text-[#1e1e1e]"}`}>
+                          <span className={`text-sm truncate ${unread ? "font-semibold text-foreground" : "font-medium text-foreground"}`}>
                             {senderName}
                           </span>
                         </span>
-                        <span className="text-xs text-[#717182] whitespace-nowrap">{formatTime(msg.created_at)}</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{formatTime(msg.created_at)}</span>
                       </div>
-                      <p className={`text-sm break-words ${unread ? "text-[#1e1e1e]" : "text-[#717182]"}`}>
+                      <p className={`text-sm break-words ${unread ? "text-foreground" : "text-muted-foreground"}`}>
                         {msg.text}
                       </p>
                       <div className="flex items-center gap-1 mt-1.5 flex-wrap">

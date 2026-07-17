@@ -52,7 +52,7 @@ return (
         {/* Header */}
         <header className="h-14 bg-white border-b border-card-border flex items-center justify-between px-6">
           <h1
-            className="font-['Instrument_Sans',sans-serif] font-semibold text-[18px] text-[#1e1e1e]"
+            className="font-['Instrument_Sans',sans-serif] font-semibold text-[18px] text-foreground"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Projects
@@ -64,13 +64,13 @@ return (
         <div className="bg-white border-b border-card-border px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
-              className="font-['Instrument_Sans',sans-serif] font-medium text-[14px] text-[#1e1e1e] pb-1 border-b-2 border-[#976623]"
+              className="font-['Instrument_Sans',sans-serif] font-medium text-[14px] text-foreground pb-1 border-b-2 border-primary"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               All Projects
             </button>
             {/* <button
-              className="font-['Instrument_Sans',sans-serif] font-medium text-[14px] text-[#717182] hover:text-[#1e1e1e] flex items-center gap-1 transition-colors"
+              className="font-['Instrument_Sans',sans-serif] font-medium text-[14px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               <Plus className="w-3 h-3" />
@@ -85,7 +85,7 @@ return (
 
         {/* Table */}
         {projectsFromDB === undefined ? (
-          <div className="flex flex-1 items-center justify-center text-[#717182]">Loading projects…</div>
+          <div className="flex flex-1 items-center justify-center text-muted-foreground">Loading projects…</div>
         ) : (
           <ProjectsTable projects={projects} onProjectClick={onProjectClick} />
         )}

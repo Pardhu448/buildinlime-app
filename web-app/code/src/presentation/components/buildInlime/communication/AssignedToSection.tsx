@@ -46,13 +46,13 @@ export function AssignedToSection({
 
   return (
     <div className="flex items-center gap-0 py-2">
-      <span className="text-sm text-[#717182] w-32 shrink-0">Assigned To</span>
+      <span className="text-sm text-muted-foreground w-32 shrink-0">Assigned To</span>
 
       {canAssign && (
         <button
           onClick={() => { setSelectedUserId(""); setIsPopupOpen(true) }}
           title="Assign this task"
-          className="p-0.5 text-[#717182] hover:bg-gray-100 rounded transition-colors"
+          className="p-0.5 text-muted-foreground hover:bg-gray-100 rounded transition-colors"
         >
           <Plus className="w-4 h-4" />
         </button>
@@ -63,7 +63,7 @@ export function AssignedToSection({
           {assignee.name || assignee.email}
         </span>
       ) : (
-        !canAssign && <span className="text-sm text-[#717182]">Unassigned</span>
+        !canAssign && <span className="text-sm text-muted-foreground">Unassigned</span>
       )}
 
       {isPopupOpen && (
@@ -72,10 +72,10 @@ export function AssignedToSection({
             className="bg-white rounded-lg shadow-xl p-5 w-72 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-sm font-semibold text-[#1e1e1e]">Assign To</h3>
+            <h3 className="text-sm font-semibold text-foreground">Assign To</h3>
 
             <select
-              className="w-full border border-gray-200 rounded px-3 py-2 text-sm text-[#1e1e1e] focus:outline-none focus:ring-2 focus:ring-[#ac7f5e]"
+              className="w-full border border-gray-200 rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#ac7f5e]"
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
             >
@@ -88,7 +88,7 @@ export function AssignedToSection({
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setIsPopupOpen(false)}
-                className="px-3 py-1.5 text-sm text-[#717182] hover:bg-gray-100 rounded transition-colors"
+                className="px-3 py-1.5 text-sm text-muted-foreground hover:bg-gray-100 rounded transition-colors"
               >
                 Cancel
               </button>

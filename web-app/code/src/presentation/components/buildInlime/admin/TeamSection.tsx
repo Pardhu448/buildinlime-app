@@ -53,23 +53,23 @@ export function TeamSection({ teamId, name, description, members, currentMemberI
     <>
       <div className="mb-1">
         <div className="group flex items-center gap-2 px-3 py-1.5 hover:bg-icon-chip rounded transition-colors">
-          <div className="w-5 h-5 rounded bg-[#976623] flex items-center justify-center flex-shrink-0">
+          <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0">
             <span className="text-white text-xs font-bold">{initial}</span>
           </div>
-          <span className="text-sm text-[#1e1e1e] font-medium truncate flex-1">{name}</span>
+          <span className="text-sm text-foreground font-medium truncate flex-1">{name}</span>
           <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 flex-shrink-0">
             <button
               onClick={openAdd}
-              className="p-0.5 hover:text-[#976623] hover:bg-card-border rounded transition-colors"
+              className="p-0.5 hover:text-primary hover:bg-card-border rounded transition-colors"
               title="Add member"
             >
-              <Plus className="w-3 h-3 text-[#717182]" />
+              <Plus className="w-3 h-3 text-muted-foreground" />
             </button>
             <button onClick={() => setExpanded(!expanded)}>
               {expanded ? (
-                <ChevronDown className="w-3 h-3 text-[#717182]" />
+                <ChevronDown className="w-3 h-3 text-muted-foreground" />
               ) : (
-                <ChevronRight className="w-3 h-3 text-[#717182]" />
+                <ChevronRight className="w-3 h-3 text-muted-foreground" />
               )}
             </button>
           </div>
@@ -78,17 +78,17 @@ export function TeamSection({ teamId, name, description, members, currentMemberI
         {expanded && (
           <div className="ml-7 mt-1 space-y-1">
             {description && (
-              <p className="px-2 py-1 text-xs text-[#717182] italic">{description}</p>
+              <p className="px-2 py-1 text-xs text-muted-foreground italic">{description}</p>
             )}
             {members.length === 0 ? (
-              <p className="px-2 py-1 text-xs text-[#717182]">No members</p>
+              <p className="px-2 py-1 text-xs text-muted-foreground">No members</p>
             ) : (
               members.map((m) => (
                 <div key={m.id} className="flex items-center gap-2 px-2 py-1">
-                  <div className="w-5 h-5 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                  <div className="w-5 h-5 rounded-full bg-card-border flex items-center justify-center text-primary text-xs font-medium flex-shrink-0">
                     {((m.name || m.email)[0] ?? "?").toUpperCase()}
                   </div>
-                  <span className="text-xs text-[#1e1e1e] truncate">{m.name || m.email}</span>
+                  <span className="text-xs text-foreground truncate">{m.name || m.email}</span>
                 </div>
               ))
             )}
@@ -98,14 +98,14 @@ export function TeamSection({ teamId, name, description, members, currentMemberI
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)}>
         {/* Own heading rather than Modal's `title` — this dialog uses the
-            smaller text-lg/#1e1e1e style, not the standard text-xl/gray-800. */}
-        <h2 className="text-lg font-semibold text-[#1e1e1e] mb-5">Add Members to {name}</h2>
+            smaller text-lg/foreground style, not the standard text-xl/gray-800. */}
+        <h2 className="text-lg font-semibold text-foreground mb-5">Add Members to {name}</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[#1e1e1e] mb-2">Members</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Members</label>
             {nonMembers.length === 0 ? (
-              <p className="px-3 py-3 text-xs text-[#717182] border border-card-border rounded-md">
+              <p className="px-3 py-3 text-xs text-muted-foreground border border-card-border rounded-md">
                 All users are already members of this team.
               </p>
             ) : (
@@ -121,15 +121,15 @@ export function TeamSection({ teamId, name, description, members, currentMemberI
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleUser(user.id)}
-                        className="accent-[#976623]"
+                        className="accent-primary"
                       />
-                      <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-primary text-xs font-medium flex-shrink-0">
                         {((user.name || user.email || "?")[0] ?? "?").toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm text-[#1e1e1e] truncate">{user.name || user.email}</p>
+                        <p className="text-sm text-foreground truncate">{user.name || user.email}</p>
                         {user.name && (
-                          <p className="text-xs text-[#717182] truncate">{user.email}</p>
+                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                         )}
                       </div>
                     </label>
@@ -142,7 +142,7 @@ export function TeamSection({ teamId, name, description, members, currentMemberI
           <button
             type="submit"
             disabled={isSubmitting || !selectedIds.length || nonMembers.length === 0}
-            className="w-full bg-[#976623] hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="w-full bg-primary hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             {isSubmitting ? "Adding…" : "Add Members"}
           </button>

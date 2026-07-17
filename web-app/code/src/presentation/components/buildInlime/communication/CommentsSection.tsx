@@ -154,22 +154,22 @@ function MessageItem({
     >
       <div className="flex gap-2 py-2">
         {/* Avatar */}
-        <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+        <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-primary text-xs font-medium flex-shrink-0">
           {avatarInitial(author)}
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-xs font-medium text-[#1e1e1e]">{displayName(author)}</span>
-            <span className="text-xs text-[#717182]">{formatDateTime(message.created_at)}</span>
+            <span className="text-xs font-medium text-foreground">{displayName(author)}</span>
+            <span className="text-xs text-muted-foreground">{formatDateTime(message.created_at)}</span>
           </div>
 
           {isDeleted ? (
             /* The row survives so its replies keep a parent — see deleteMessageAction.
                Nothing to hide: the server already cleared the text. */
-            <p className="text-xs italic text-[#717182]">This message was deleted</p>
+            <p className="text-xs italic text-muted-foreground">This message was deleted</p>
           ) : (
-            <p className="text-xs text-[#1e1e1e] whitespace-pre-wrap break-words">
+            <p className="text-xs text-foreground whitespace-pre-wrap break-words">
               {message.text}
             </p>
           )}
@@ -180,7 +180,7 @@ function MessageItem({
               {myPending.map((r) => (
                 <div
                   key={r.id}
-                  className="flex items-center gap-1.5 px-2 py-1 bg-white border border-card-border rounded text-xs text-[#717182]"
+                  className="flex items-center gap-1.5 px-2 py-1 bg-white border border-card-border rounded text-xs text-muted-foreground"
                 >
                   {/* Spinners stay while the upload is in flight — status beats a
                       preview there. Once it settles (or fails) the local blob is
@@ -188,7 +188,7 @@ function MessageItem({
                   {r.status === "uploading" ? (
                     <Loader className="w-3 h-3 animate-spin shrink-0" />
                   ) : r.status === "awaiting_network" ? (
-                    <Loader className="w-3 h-3 animate-spin shrink-0 text-[#976623]" />
+                    <Loader className="w-3 h-3 animate-spin shrink-0 text-primary" />
                   ) : (
                     <ResourceThumbnail
                       localUrl={r.objectUrl}
@@ -203,7 +203,7 @@ function MessageItem({
                     {r.name}
                   </span>
                   {r.status === "awaiting_network" && (
-                    <span className="text-[#976623] shrink-0">Waiting for network…</span>
+                    <span className="text-primary shrink-0">Waiting for network…</span>
                   )}
                   {r.status === "error" && (
                     <>
@@ -211,7 +211,7 @@ function MessageItem({
                       <button
                         onClick={() => onRetryUpload(r.id)}
                         title="Retry upload"
-                        className="shrink-0 text-[#717182] hover:text-[#976623] transition-colors"
+                        className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
                       >
                         <RefreshCw className="w-3 h-3" />
                       </button>
@@ -230,7 +230,7 @@ function MessageItem({
             {!isDeleted && (
               <button
                 onClick={() => setShowReplyInput(!showReplyInput)}
-                className="flex items-center gap-1 text-xs text-[#717182] hover:text-[#976623] transition-colors"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
               >
                 <MessageCircle className="w-3 h-3" />
                 Reply
@@ -242,7 +242,7 @@ function MessageItem({
             {isOwn && !isDeleted && (
               <button
                 onClick={confirmDelete}
-                className="flex items-center gap-1 text-xs text-[#717182] hover:text-red-700 transition-colors"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-700 transition-colors"
               >
                 <Trash2 className="w-3 h-3" />
                 Delete
@@ -252,7 +252,7 @@ function MessageItem({
             {replies.length > 0 && (
               <button
                 onClick={() => setShowReplies(!showReplies)}
-                className="flex items-center gap-1 text-xs text-[#717182] hover:text-[#976623] transition-colors"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
               >
                 {showReplies ? (
                   <ChevronDown className="w-3 h-3" />
@@ -274,9 +274,9 @@ function MessageItem({
                     <button
                       key={u.id}
                       onMouseDown={(e) => { e.preventDefault(); handleSelectReplyMention(u) }}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[#1e1e1e] hover:bg-card-surface transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-card-surface transition-colors"
                     >
-                      <div className="w-5 h-5 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                      <div className="w-5 h-5 rounded-full bg-card-border flex items-center justify-center text-primary text-xs font-medium flex-shrink-0">
                         {mentionDisplayName(u)[0].toUpperCase()}
                       </div>
                       <span className="truncate">{mentionDisplayName(u)}</span>
@@ -294,7 +294,7 @@ function MessageItem({
                 onChange={handleReplyTextChange}
                 onKeyDown={handleKeyDown}
                 placeholder="Write a reply… (Ctrl+Enter to send)"
-                className="w-full text-xs bg-transparent resize-none outline-none text-[#1e1e1e] placeholder-[#ac7f5e]"
+                className="w-full text-xs bg-transparent resize-none outline-none text-foreground placeholder-[#ac7f5e]"
                 rows={1}
                 autoFocus
               />
@@ -308,7 +308,7 @@ function MessageItem({
                   <button
                     onClick={handleSubmitReply}
                     disabled={!canSendReply}
-                    className="p-1 bg-[#976623] text-white rounded hover:bg-primary-hover disabled:opacity-40 transition-colors"
+                    className="p-1 bg-primary text-white rounded hover:bg-primary-hover disabled:opacity-40 transition-colors"
                   >
                     <Send className="w-3 h-3" />
                   </button>
@@ -318,7 +318,7 @@ function MessageItem({
                       setReplyText("")
                       setReplyFiles([])
                     }}
-                    className="p-1 text-[#717182] hover:text-[#1e1e1e] transition-colors"
+                    className="p-1 text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -479,7 +479,7 @@ export function CommentsSection({
           ))}
         </div>
       ) : (
-        <p className="text-xs text-[#717182] py-2 text-center">
+        <p className="text-xs text-muted-foreground py-2 text-center">
           No comments yet. Be the first to comment!
         </p>
       )}

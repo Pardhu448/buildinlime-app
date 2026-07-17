@@ -26,7 +26,7 @@ import { cn } from "%/presentation/lib/utils";
  * later is a one-file edit.
  */
 const INPUT_BASE =
-  "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent";
+  "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent";
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cn(INPUT_BASE, className)} />;

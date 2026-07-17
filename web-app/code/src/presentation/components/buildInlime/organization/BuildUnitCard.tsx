@@ -22,13 +22,13 @@ export function BuildUnitCard({ unit, onClick, isPending }: BuildUnitCardProps) 
       {/* Header: icon + name */}
       <div className="flex items-center gap-3 mb-3">
         <div className="w-10 h-10 rounded bg-icon-chip border border-card-border flex items-center justify-center shrink-0">
-          <Package className="w-5 h-5 text-[#976623]" />
+          <Package className="w-5 h-5 text-primary" />
         </div>
         <div className="flex items-center gap-2 min-w-0">
-          <h3 className="font-semibold text-[#1e1e1e] truncate">{unit.name}</h3>
+          <h3 className="font-semibold text-foreground truncate">{unit.name}</h3>
           {isPending && (
             <svg
-              className="animate-spin w-3 h-3 text-[#976623] shrink-0"
+              className="animate-spin w-3 h-3 text-primary shrink-0"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
@@ -42,7 +42,7 @@ export function BuildUnitCard({ unit, onClick, isPending }: BuildUnitCardProps) 
 
       {/* Properties — value pills, same source of truth as the table */}
       {properties.length === 0 ? (
-        <p className="text-sm text-[#717182]">No properties</p>
+        <p className="text-sm text-muted-foreground">No properties</p>
       ) : (
         <div className="flex items-center gap-2 flex-wrap">
           {properties.map((property) => (

@@ -107,36 +107,36 @@ export function TaskPage({
         {/* Top navigation bar */}
         <header className="border-b border-gray-200 bg-white px-6 py-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-[#717182] text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Link
                 to="/projects/$projectId"
                 params={{ projectId }}
-                className="hover:text-[#1e1e1e] transition-colors"
+                className="hover:text-foreground transition-colors"
               >
                 {projectName}
               </Link>
               <ChevronRight className="w-4 h-4" />
               <Link
                 href={`/projects/${projectId}/${buildUnitName}`}
-                className="hover:text-[#1e1e1e] transition-colors"
+                className="hover:text-foreground transition-colors"
               >
                 {buildUnitName}
               </Link>
               <ChevronRight className="w-4 h-4" />
               <Link
                 href={`/projects/${projectId}/${buildUnitName}/${channelName}`}
-                className="hover:text-[#1e1e1e] transition-colors"
+                className="hover:text-foreground transition-colors"
               >
                 {channelName}
               </Link>
               <ChevronRight className="w-4 h-4" />
-              <span className="text-[#1e1e1e]">{taskName}</span>
+              <span className="text-foreground">{taskName}</span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleCopyLink}
                 title="Copy link"
-                className={`p-1.5 rounded transition-colors ${linkCopied ? "text-green-600 bg-green-50" : "text-[#717182] hover:bg-gray-100"}`}
+                className={`p-1.5 rounded transition-colors ${linkCopied ? "text-green-600 bg-green-50" : "text-muted-foreground hover:bg-gray-100"}`}
               >
                 {linkCopied ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
               </button>
@@ -157,7 +157,7 @@ export function TaskPage({
                 tables, activity rows emitted in the channels.create /
                 properties.create tRPC mutations.
 
-                <button className="p-1.5 text-[#717182] hover:bg-gray-100 rounded transition-colors">
+                <button className="p-1.5 text-muted-foreground hover:bg-gray-100 rounded transition-colors">
                   <Bell className="w-4 h-4" />
                 </button>
               */}
@@ -165,14 +165,14 @@ export function TaskPage({
                 <button
                   onClick={confirmDelete}
                   title="Delete this task"
-                  className="p-1.5 text-[#717182] hover:text-red-700 hover:bg-gray-100 rounded transition-colors"
+                  className="p-1.5 text-muted-foreground hover:text-red-700 hover:bg-gray-100 rounded transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
               <button
                 onClick={() => setRightPanelOpen(!rightPanelOpen)}
-                className="p-1.5 text-[#717182] hover:bg-gray-100 rounded transition-colors"
+                className="p-1.5 text-muted-foreground hover:bg-gray-100 rounded transition-colors"
               >
                 <PanelRight className="w-4 h-4" />
               </button>
@@ -191,10 +191,10 @@ export function TaskPage({
             {/* Who created this, and when. Also the basis for the assignment
                 restriction below — only the creator may assign. */}
             <div className="flex items-center gap-0 py-2">
-              <span className="text-sm text-[#717182] w-32 shrink-0">Created By</span>
-              <span className="text-sm text-[#1e1e1e]">{createdByName}</span>
+              <span className="text-sm text-muted-foreground w-32 shrink-0">Created By</span>
+              <span className="text-sm text-foreground">{createdByName}</span>
               {createdAt && (
-                <span className="text-sm text-[#717182] ml-2">
+                <span className="text-sm text-muted-foreground ml-2">
                   · {formatDateTime(createdAt)}
                 </span>
               )}
@@ -241,10 +241,10 @@ export function TaskPage({
                   onClick={() => setPropertiesOpen(!propertiesOpen)}
                   className="flex items-center justify-between w-full mb-4"
                 >
-                  <h3 className="text-sm font-medium text-[#717182]">Properties</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">Properties</h3>
                   {propertiesOpen
-                    ? <ChevronDown className="w-4 h-4 text-[#717182]" />
-                    : <ChevronRight className="w-4 h-4 text-[#717182]" />
+                    ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    : <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   }
                 </button>
                 {propertiesOpen && (
@@ -272,12 +272,12 @@ export function TaskPage({
                 <p className="text-xs font-semibold text-[#ac7f5e] uppercase tracking-wider mb-3">Details</p>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-[#717182]">Channel</span>
-                    <span className="text-sm text-[#1e1e1e]">{channelName}</span>
+                    <span className="text-sm text-muted-foreground">Channel</span>
+                    <span className="text-sm text-foreground">{channelName}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-[#717182]">Build Unit</span>
-                    <span className="text-sm text-[#1e1e1e]">{buildUnitName}</span>
+                    <span className="text-sm text-muted-foreground">Build Unit</span>
+                    <span className="text-sm text-foreground">{buildUnitName}</span>
                   </div>
                 </div>
               </div>

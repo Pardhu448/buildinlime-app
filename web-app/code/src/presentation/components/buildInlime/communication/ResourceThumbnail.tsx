@@ -25,7 +25,7 @@ function IconThumb({ mimeType, size }: { mimeType: string; size: number }) {
       className="flex items-center justify-center rounded-md border border-card-border bg-card-surface flex-shrink-0"
       style={{ width: size, height: size }}
     >
-      <Icon className="text-[#976623]" style={{ width: size * 0.45, height: size * 0.45 }} />
+      <Icon className="text-primary" style={{ width: size * 0.45, height: size * 0.45 }} />
     </div>
   )
 }

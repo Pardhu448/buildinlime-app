@@ -22,19 +22,19 @@ export function ProjectsTable({ projects, onProjectClick }: ProjectsTableProps) 
         <thead className="bg-card-surface sticky top-0">
           <tr className="border-b border-card-border">
             <th
-              className="text-left px-6 py-3 font-['Instrument_Sans',sans-serif] font-medium text-[12px] text-[#717182] uppercase tracking-wider"
+              className="text-left px-6 py-3 font-['Instrument_Sans',sans-serif] font-medium text-[12px] text-muted-foreground uppercase tracking-wider"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               Name
             </th>
             <th
-              className="text-left px-6 py-3 font-['Instrument_Sans',sans-serif] font-medium text-[12px] text-[#717182] uppercase tracking-wider"
+              className="text-left px-6 py-3 font-['Instrument_Sans',sans-serif] font-medium text-[12px] text-muted-foreground uppercase tracking-wider"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               Created By
             </th>
             <th
-              className="text-left px-6 py-3 font-['Instrument_Sans',sans-serif] font-medium text-[12px] text-[#717182] uppercase tracking-wider"
+              className="text-left px-6 py-3 font-['Instrument_Sans',sans-serif] font-medium text-[12px] text-muted-foreground uppercase tracking-wider"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               Created At
@@ -50,9 +50,9 @@ export function ProjectsTable({ projects, onProjectClick }: ProjectsTableProps) 
             >
               <td className="px-6 py-4">
                 <div className="flex items-center gap-2">
-                  <Boxes className="w-4 h-4 text-[#976623]" />
+                  <Boxes className="w-4 h-4 text-primary" />
                   <span
-                    className="font-['Instrument_Sans',sans-serif] text-[14px] text-[#1e1e1e]"
+                    className="font-['Instrument_Sans',sans-serif] text-[14px] text-foreground"
                     style={{ fontVariationSettings: "'wdth' 100" }}
                   >
                     {project.name}
@@ -61,7 +61,7 @@ export function ProjectsTable({ projects, onProjectClick }: ProjectsTableProps) 
               </td>
               <td className="px-6 py-4">
                 <span
-                  className="font-['Instrument_Sans',sans-serif] text-[14px] text-[#1e1e1e]"
+                  className="font-['Instrument_Sans',sans-serif] text-[14px] text-foreground"
                   style={{ fontVariationSettings: "'wdth' 100" }}
                 >
                   {project.createdBy}
@@ -69,7 +69,7 @@ export function ProjectsTable({ projects, onProjectClick }: ProjectsTableProps) 
               </td>
               <td className="px-6 py-4">
                 <span
-                  className="font-['Instrument_Sans',sans-serif] text-[14px] text-[#717182]"
+                  className="font-['Instrument_Sans',sans-serif] text-[14px] text-muted-foreground"
                   style={{ fontVariationSettings: "'wdth' 100" }}
                 >
                   {project.createdAt}

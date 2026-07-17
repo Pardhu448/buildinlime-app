@@ -104,16 +104,16 @@ export function ResourcesSection({
     <div className="mb-8">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-sm text-[#717182]">Resources</span>
+        <span className="text-sm text-muted-foreground">Resources</span>
         <button
-          className="p-1 text-[#717182] hover:text-[#1e1e1e] transition-colors"
+          className="p-1 text-muted-foreground hover:text-foreground transition-colors"
           onClick={() => setFormOpen((v) => !v)}
           title="Add resource"
         >
           <Plus className="w-3 h-3" />
         </button>
         {isEmpty && (
-          <span className="text-sm text-[#717182]">Add document or link…</span>
+          <span className="text-sm text-muted-foreground">Add document or link…</span>
         )}
       </div>
 
@@ -142,9 +142,9 @@ export function ResourcesSection({
               />
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-[#1e1e1e] truncate">{r.name}</p>
+                <p className="text-sm text-foreground truncate">{r.name}</p>
                 {r.status === "scheduled" && r.scheduledAt && (
-                  <p className="text-[10px] text-[#976623]">
+                  <p className="text-[10px] text-primary">
                     Scheduled: {format(r.scheduledAt, "MMM d, h:mm a")}
                   </p>
                 )}
@@ -152,15 +152,15 @@ export function ResourcesSection({
                   <p className="text-[10px] text-red-500">{r.errorMessage}</p>
                 )}
                 {r.status === "awaiting_network" && (
-                  <p className="text-[10px] text-[#976623]">
+                  <p className="text-[10px] text-primary">
                     Waiting for network — will upload when back online
                   </p>
                 )}
                 {r.status === "uploading" && (
-                  <p className="text-[10px] text-[#717182]">Uploading…</p>
+                  <p className="text-[10px] text-muted-foreground">Uploading…</p>
                 )}
                 {r.status === "awaiting_schedule" && (
-                  <p className="text-[10px] text-[#717182]">
+                  <p className="text-[10px] text-muted-foreground">
                     {formatBytes(r.file.size)} · waiting to upload
                   </p>
                 )}
@@ -171,7 +171,7 @@ export function ResourcesSection({
                 href={r.objectUrl}
                 download={r.file.name}
                 title="Download local copy"
-                className="p-1 text-[#717182] hover:text-[#1e1e1e] transition-colors"
+                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />
               </a>
@@ -193,7 +193,7 @@ export function ResourcesSection({
                 <button
                   onClick={() => cancelPending(r.id)}
                   title="Remove"
-                  className="p-1 text-[#717182] hover:text-red-500 transition-colors"
+                  className="p-1 text-muted-foreground hover:text-red-500 transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -218,8 +218,8 @@ export function ResourcesSection({
               />
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-[#1e1e1e] truncate">{r.name}</p>
-                <p className="text-[10px] text-[#717182]">
+                <p className="text-sm text-foreground truncate">{r.name}</p>
+                <p className="text-[10px] text-muted-foreground">
                   {formatDateTime(r.uploaded_at)}
                   {` · ${formatBytes(r.file_size_bytes)}`}
                   {r.description ? ` · ${r.description}` : ""}
@@ -231,7 +231,7 @@ export function ResourcesSection({
                 href={r.file_location}
                 download
                 title="Download"
-                className="p-1 text-[#717182] hover:text-[#1e1e1e] transition-colors"
+                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />
               </a>
@@ -245,7 +245,7 @@ export function ResourcesSection({
                 <button
                   onClick={() => deleteResourceAction({ id: r.id })}
                   title="Delete resource"
-                  className="p-1 text-[#717182] hover:text-red-500 transition-colors"
+                  className="p-1 text-muted-foreground hover:text-red-500 transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>

@@ -286,9 +286,9 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
   return (
     <>
       <div className="flex items-center gap-4 mb-6 text-sm flex-wrap">
-        <span className="text-[#717182]">Properties</span>
+        <span className="text-muted-foreground">Properties</span>
         <button
-          className="p-1 text-[#717182] hover:text-[#1e1e1e] transition-colors"
+          className="p-1 text-muted-foreground hover:text-foreground transition-colors"
           onClick={openPopup}
         >
           <Plus className="w-3 h-3" />
@@ -299,7 +299,7 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
         {hiddenProperties.length > 0 && (
           <div ref={moreRef} className="relative">
             <button
-              className="p-1 text-[#717182] hover:text-[#1e1e1e] transition-colors"
+              className="p-1 text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => setShowMore((v) => !v)}
               title={`${hiddenProperties.length} more`}
             >
@@ -353,7 +353,7 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-[#976623] hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  className="w-full bg-primary hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                 >
                   {isSubmitting
                     ? "Saving…"
