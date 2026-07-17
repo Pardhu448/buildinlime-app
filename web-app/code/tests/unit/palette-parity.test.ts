@@ -43,17 +43,29 @@ const mobileTokens: Record<string, string> = require(MOBILE_TOKENS)
 /**
  * The `:root` block of theme.css, as a `--var` → hex map.
  *
- * The end boundary is the `.dark {` RULE, not the first `.dark` substring —
- * theme.css opens with `@custom-variant dark (&:is(.dark *))` on line 1, so a
- * naive indexOf(".dark") slices an empty string and this whole file then
- * asserts nothing while reporting success. Hence the sanity check below.
+ * Ends at :root's own matching brace rather than at some landmark that follows
+ * it. An earlier version sliced up to the `.dark {` rule, which broke twice
+ * over: first because theme.css opened with `@custom-variant dark (&:is(.dark
+ * *))`, so a naive indexOf(".dark") matched line 1 and sliced an empty string;
+ * then because `.dark` was deleted outright and the boundary vanished. Both
+ * times the slice would have been empty and every assertion below would have
+ * passed vacuously — hence the sanity check on the parsed count.
  */
 function webRootVars(): Record<string, string> {
   const css = readFileSync(WEB_THEME, "utf8")
   const start = css.indexOf(":root")
-  const end = css.indexOf(".dark {")
   expect(start, "theme.css has no :root block").toBeGreaterThanOrEqual(0)
-  expect(end, "theme.css has no .dark rule").toBeGreaterThan(start)
+
+  let depth = 0
+  let end = -1
+  for (let i = css.indexOf("{", start); i < css.length; i++) {
+    if (css[i] === "{") depth++
+    else if (css[i] === "}" && --depth === 0) {
+      end = i
+      break
+    }
+  }
+  expect(end, "theme.css :root block is unterminated").toBeGreaterThan(start)
 
   const vars: Record<string, string> = {}
   for (const m of css.slice(start, end).matchAll(/--([a-z0-9-]+):\s*(#[0-9a-fA-F]{6})/g)) {
