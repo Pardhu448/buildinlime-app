@@ -1,27 +1,16 @@
+import tokens from "./design-tokens"
+
 /**
- * BuildInLime design tokens as raw hex values.
- * Use these for imperative APIs (tabBarActiveTintColor, StatusBar, etc.)
- * that cannot accept Tailwind class names.
+ * BuildInLime design tokens as raw hex values, for StyleSheet call sites and for
+ * imperative APIs (tabBarActiveTintColor, StatusBar) that cannot take a class name.
  *
- * For all component styling, prefer NativeWind classes (bg-primary, text-foreground, etc.)
+ * This is how the app usually styles: 24 files use StyleSheet with these tokens,
+ * 3 use NativeWind classes. Both are fed from the same design-tokens.js, so a
+ * colour added there is available as `colors.x` here and as `bg-x` in a class —
+ * add it there, not here.
+ *
+ * (An earlier version of this comment said to prefer NativeWind classes for all
+ * component styling. The codebase never went that way — every screen added since
+ * has used StyleSheet — so the advice is removed rather than left to mislead.)
  */
-export const colors = {
-  primary: "#976623",
-  primaryForeground: "#ffffff",
-  secondary: "#ac7f5e",
-  secondaryForeground: "#1e1e1e",
-  background: "#ffffff",
-  foreground: "#1e1e1e",
-  muted: "#f5f5f5",
-  mutedForeground: "#717182",
-  border: "#ac7f5e",
-  card: "#ffffff",
-  cardForeground: "#1e1e1e",
-  // Card surfaces, matching the web cards (ChannelCard / BuildUnitCard).
-  cardSurface: "#fdf8f2",
-  cardBorder: "#e5d4c1",
-  cardSurfaceHover: "#f0e5d8",
-  iconChip: "#f0e5d8",
-  destructive: "#d4183d",
-  destructiveForeground: "#ffffff",
-} as const
+export const colors = tokens
