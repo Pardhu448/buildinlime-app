@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import type { FormEvent } from "react";
-import { Plus, X, MoreHorizontal, Circle, Flag, Target, CalendarDays, AlertCircle, Percent, Tag, CheckCircle2 } from "lucide-react";
+import { Plus, X, MoreHorizontal } from "lucide-react";
 import type { Property } from "%/domain/communication/types";
 import { PROPERTY_TYPES, STATUS_VALUES, PRIORITY_VALUES, TASK_STATUS_VALUES, ENTITY_TYPES } from "%/domain/shared/types";
 import { createPropertyAction, updatePropertyAction } from "%/application/actions/properties";
 import { useSession } from "%/infrastructure/auth/client";
+import { PropertyPill, TASK_STATUS_LABELS, STATUS_VALUE_LABELS, PRIORITY_LABELS } from "./PropertyPill";
 
 export interface PropertiesInlineProps {
   properties: Property[];
@@ -19,18 +20,6 @@ export interface PropertiesInlineProps {
   channelId?: string;
 }
 
-// Short labels shown inside inline pills
-const PILL_LABELS: Record<typeof PROPERTY_TYPES[number], string> = {
-  status:           "Status",
-  priority:         "Priority",
-  targetDate:       "Target",
-  startDate:        "Start",
-  pendingTask:      "Pending",
-  percent_complete: "% Done",
-  label:            "Label",
-  taskStatus:       "Task Status",
-}
-
 // Full labels used in the add-property form selects
 const PROPERTY_TYPE_LABELS: Record<typeof PROPERTY_TYPES[number], string> = {
   status:           "Status",
@@ -41,112 +30,6 @@ const PROPERTY_TYPE_LABELS: Record<typeof PROPERTY_TYPES[number], string> = {
   percent_complete: "Percent Complete",
   label:            "Label",
   taskStatus:       "Task Status",
-}
-
-const TASK_STATUS_LABELS: Record<typeof TASK_STATUS_VALUES[number], string> = {
-  open:      "Open",
-  completed: "Completed",
-}
-
-const STATUS_VALUE_LABELS: Record<typeof STATUS_VALUES[number], string> = {
-  critical: "Critical",
-  high:     "High",
-  medium:   "Medium",
-  low:      "Low",
-}
-
-const PRIORITY_LABELS: Record<string, string> = {
-  notStarted:  "Not Started",
-  inProgress:  "In Progress",
-  onTrack:     "On Track",
-  atRisk:      "At Risk",
-  backLog:     "Backlog",
-  overBudget:  "Over Budget",
-  onHold:      "On Hold",
-  completed:   "Completed",
-  cancelled:   "Cancelled",
-}
-
-type PillStyle = { bg: string; border: string; text: string }
-
-const DEFAULT_PILL: PillStyle = { bg: "bg-[#f0e5d8]", border: "border-[#e5d4c1]", text: "text-[#1e1e1e]" }
-
-const STATUS_PILL_STYLES: Record<string, PillStyle> = {
-  critical: { bg: "bg-red-100",    border: "border-red-200",    text: "text-red-700"    },
-  high:     { bg: "bg-orange-100", border: "border-orange-200", text: "text-orange-700" },
-  medium:   { bg: "bg-yellow-100", border: "border-yellow-200", text: "text-yellow-700" },
-  low:      { bg: "bg-green-100",  border: "border-green-200",  text: "text-green-700"  },
-}
-
-const PRIORITY_PILL_STYLES: Record<string, PillStyle> = {
-  notStarted:  { bg: "bg-gray-100",   border: "border-gray-200",   text: "text-gray-600"   },
-  inProgress:  { bg: "bg-blue-100",   border: "border-blue-200",   text: "text-blue-700"   },
-  onTrack:     { bg: "bg-green-100",  border: "border-green-200",  text: "text-green-700"  },
-  atRisk:      { bg: "bg-orange-100", border: "border-orange-200", text: "text-orange-700" },
-  backLog:     { bg: "bg-gray-100",   border: "border-gray-200",   text: "text-gray-500"   },
-  overBudget:  { bg: "bg-red-100",    border: "border-red-200",    text: "text-red-700"    },
-  onHold:      { bg: "bg-yellow-100", border: "border-yellow-200", text: "text-yellow-700" },
-  completed:   { bg: "bg-green-100",  border: "border-green-300",  text: "text-green-800"  },
-  cancelled:   { bg: "bg-gray-100",   border: "border-gray-200",   text: "text-gray-400"   },
-}
-
-const TASK_STATUS_PILL_STYLES: Record<string, PillStyle> = {
-  open:      { bg: "bg-blue-100",  border: "border-blue-200",  text: "text-blue-700"  },
-  completed: { bg: "bg-green-100", border: "border-green-300", text: "text-green-800" },
-}
-
-function PropertyPill({ property }: { property: Property }) {
-  let icon: React.ReactNode
-  let style: PillStyle = DEFAULT_PILL
-  // Most pills convey their value through colour alone and show the type name.
-  // Task status is binary and load-bearing (it drives tasks.completed), so it
-  // spells the value out instead.
-  let text: string = PILL_LABELS[property.type]
-
-  switch (property.type) {
-    case "status": {
-      style = STATUS_PILL_STYLES[property.status_value ?? ""] ?? DEFAULT_PILL
-      icon = <Circle className={`w-3 h-3 shrink-0 ${style.text}`} fill="currentColor" />
-      break
-    }
-    case "priority": {
-      style = PRIORITY_PILL_STYLES[property.priority_value ?? ""] ?? DEFAULT_PILL
-      icon = <Flag className={`w-3 h-3 shrink-0 ${style.text}`} />
-      break
-    }
-    case "targetDate":
-      icon = <Target className="w-3 h-3 shrink-0 text-green-600" />
-      break
-    case "startDate":
-      icon = <CalendarDays className="w-3 h-3 shrink-0 text-blue-600" />
-      break
-    case "pendingTask":
-      icon = <AlertCircle className="w-3 h-3 shrink-0 text-yellow-600" />
-      break
-    case "percent_complete":
-      icon = <Percent className="w-3 h-3 shrink-0 text-[#976623]" />
-      break
-    case "label":
-      icon = <Tag className="w-3 h-3 shrink-0 text-purple-600" />
-      break
-    case "taskStatus": {
-      style = TASK_STATUS_PILL_STYLES[property.task_status_value ?? ""] ?? DEFAULT_PILL
-      icon = <CheckCircle2 className={`w-3 h-3 shrink-0 ${style.text}`} />
-      text = TASK_STATUS_LABELS[property.task_status_value ?? "open"] ?? PILL_LABELS.taskStatus
-      break
-    }
-    default:
-      return null
-  }
-
-  return (
-    <div className={`flex items-center gap-1.5 px-2.5 h-7 min-w-[80px] ${style.bg} border ${style.border} rounded`}>
-      {icon}
-      <span className={`text-xs font-medium ${style.text} whitespace-nowrap`}>
-        {text}
-      </span>
-    </div>
-  )
 }
 
 type ValueState = {

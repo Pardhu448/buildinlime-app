@@ -4,7 +4,7 @@ import { NewProjectButton } from "../../../components/buildInlime";
 //import { DisplayButton } from "../../../components/buildInlime";
 //import { FilterButton } from "../../../components/buildInlime";
 import { ProjectsTable } from "../../../components/buildInlime";
-import { projectsCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
+import { projectsCollection, usersCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
 import { RoutePendingComponent } from "../../../components/buildInlime";
 
 import { useLiveQuery } from "@tanstack/react-db"
@@ -18,14 +18,25 @@ function ProjectsRoute() {
   const navigate = useNavigate()
 
   const { data: projectsFromDB } = useLiveQuery((q) => q.from({ projectsCollection }), [])
+  const { data: usersFromDB } = useLiveQuery((q) => q.from({ usersCollection }), [])
 
-  const projects = (projectsFromDB ?? []).map((p) => ({
-    id: p.id,
-    name: p.name,
-    priority: (p.priority ?? "Low") as "High" | "Mid" | "Low",
-    targetDate: p.target_date ?? "—",
-    statusPercent: parseInt(p.status_percent ?? "0", 10),
-  }))
+  // FUTURE WORK: a project has no roll-up metrics of its own. Health, target date
+  // and % complete should be *derived* by a custom analytics function that
+  // aggregates the real property data of the project's build units and channels
+  // (e.g. roll their statuses into a project health, average % complete, take the
+  // nearest target date). Until that exists we show concrete facts off the project
+  // row — who created it and when — rather than placeholder metrics. See the
+  // build-units table + channel cards, which already read live property data via
+  // use-project-build-units / use-build-unit-channels.
+  const projects = (projectsFromDB ?? []).map((p) => {
+    const creator = (usersFromDB ?? []).find((u) => u.id === p.owner_id)
+    return {
+      id: p.id,
+      name: p.name,
+      createdBy: creator?.name || creator?.email || "Unknown",
+      createdAt: p.created_at ? new Date(p.created_at as string | Date).toLocaleDateString() : "—",
+    }
+  })
 
   const onProjectClick = (project: { id: string; name: string }) => {
     navigate({ to: '/projects/$projectId', params: { projectId: project.id }, state: { projectName: project.name } })

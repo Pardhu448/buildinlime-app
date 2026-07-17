@@ -1,5 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import type { Property } from "%/domain/communication/types";
+import { PropertyPill } from "../communication/PropertyPill";
 
 interface ChannelCardProps {
   icon: LucideIcon;
@@ -8,6 +10,7 @@ interface ChannelCardProps {
   to?: string;
   onClick?: () => void;
   isPending?: boolean;
+  properties?: Property[];
 }
 
 export function ChannelCard({
@@ -17,6 +20,7 @@ export function ChannelCard({
   to,
   onClick,
   isPending,
+  properties,
 }: ChannelCardProps) {
   const content = (
     <>
@@ -40,6 +44,15 @@ export function ChannelCard({
         </div>
       </div>
       <p className="text-sm text-[#717182]">{description}</p>
+      {properties && properties.filter((p) => p.type !== "taskStatus").length > 0 && (
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
+          {properties
+            .filter((p) => p.type !== "taskStatus")
+            .map((property) => (
+              <PropertyPill key={property.id} property={property} showValue />
+            ))}
+        </div>
+      )}
     </>
   );
 

@@ -1,5 +1,6 @@
 import { Package } from "lucide-react";
 import type { BuildUnit } from "./BuildUnitsTable";
+import { PropertyPill } from "../communication/PropertyPill";
 
 interface BuildUnitCardProps {
   unit: BuildUnit;
@@ -7,33 +8,10 @@ interface BuildUnitCardProps {
   isPending?: boolean;
 }
 
-const getHealthColor = (health: string) => {
-  switch (health) {
-    case "On track":
-      return "text-green-600";
-    case "At risk":
-      return "text-yellow-600";
-    case "Off track":
-      return "text-red-600";
-    default:
-      return "text-gray-600";
-  }
-};
-
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case "High":
-      return "text-red-600";
-    case "Mid":
-      return "text-yellow-600";
-    case "Low":
-      return "text-blue-600";
-    default:
-      return "text-gray-600";
-  }
-};
-
 export function BuildUnitCard({ unit, onClick, isPending }: BuildUnitCardProps) {
+  // taskStatus is never meaningful on a build unit; drop it defensively.
+  const properties = unit.properties.filter((p) => p.type !== "taskStatus");
+
   return (
     <div
       onClick={!isPending ? onClick : undefined}
@@ -62,28 +40,16 @@ export function BuildUnitCard({ unit, onClick, isPending }: BuildUnitCardProps) 
         </div>
       </div>
 
-      {/* Health + Priority */}
-      <div className="flex items-center gap-4 mb-3 text-sm">
-        <span className={`font-medium ${getHealthColor(unit.health)}`}>{unit.health}</span>
-        <span className={`font-medium ${getPriorityColor(unit.priority)}`}>{unit.priority}</span>
-      </div>
-
-      {/* Latest task + target date */}
-      <div className="flex items-center justify-between gap-2 mb-3 text-sm text-[#717182]">
-        <span className="truncate">Latest: {unit.waitingOnTask.name}</span>
-        <span className="shrink-0">{unit.targetDate}</span>
-      </div>
-
-      {/* Status */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-[#976623] rounded-full"
-            style={{ width: `${unit.statusPercent}%` }}
-          />
+      {/* Properties — value pills, same source of truth as the table */}
+      {properties.length === 0 ? (
+        <p className="text-sm text-[#717182]">No properties</p>
+      ) : (
+        <div className="flex items-center gap-2 flex-wrap">
+          {properties.map((property) => (
+            <PropertyPill key={property.id} property={property} showValue />
+          ))}
         </div>
-        <span className="text-sm text-[#717182] shrink-0">{unit.statusPercent}%</span>
-      </div>
+      )}
     </div>
   );
 }

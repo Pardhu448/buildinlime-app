@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef } from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { useLiveQuery, eq } from "@tanstack/react-db"
-import { projectsCollection, buildUnitsCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
+import { useLiveQuery, eq, inArray } from "@tanstack/react-db"
+import { projectsCollection, buildUnitsCollection, propertiesCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
+import { mapPropertyRow } from "%/presentation/lib/utils"
+import type { Property } from "%/domain/communication/types"
 import { usePendingBuildUnits } from "./use-pending-build-units"
 
 export function useProjectBuildUnits(projectId: string) {
@@ -26,6 +28,23 @@ export function useProjectBuildUnits(projectId: string) {
     [projectId]
   )
 
+  // Live properties for every build unit in the project. Grouped by entity_id
+  // below so each build unit renders its own status/priority/target/… pills
+  // instead of the stale columns that used to live on the build_units row.
+  const buildUnitIds = (buildUnitsFromDB ?? []).map((bu) => bu.id)
+  const { data: buildUnitProperties } = useLiveQuery(
+    (q) => q.from({ propertiesCollection }).where(({ propertiesCollection: p }) => inArray(p.entity_id, buildUnitIds)),
+    [buildUnitIds.join(`,`)]
+  )
+
+  const propertiesByEntity = new Map<string, Property[]>()
+  for (const p of buildUnitProperties ?? []) {
+    const property = mapPropertyRow(p)
+    const list = propertiesByEntity.get(property.entity_id) ?? []
+    list.push(property)
+    propertiesByEntity.set(property.entity_id, list)
+  }
+
   // Two-signal: stop spinner only when both tRPC is done AND Electric confirms the write
   useEffect(() => {
     if (!buildUnitsFromDB) return
@@ -43,6 +62,7 @@ export function useProjectBuildUnits(projectId: string) {
     id: bu.id,
     name: bu.name,
     description: bu.descritption,
+    properties: propertiesByEntity.get(bu.id as string) ?? [],
     health: (bu.health ?? "On track") as "On track" | "At risk" | "Off track",
     priority: (bu.priority ?? "Low") as "High" | "Mid" | "Low",
     waitingOnTask: {
@@ -62,6 +82,7 @@ export function useProjectBuildUnits(projectId: string) {
       id: p.id,
       name: p.name,
       description: p.description,
+      properties: [] as Property[],
       health: "On track" as const,
       priority: "Low" as const,
       waitingOnTask: { name: "—", assignee: "—", since: "—" },
