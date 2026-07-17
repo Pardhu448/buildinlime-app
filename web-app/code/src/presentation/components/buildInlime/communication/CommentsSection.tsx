@@ -308,7 +308,7 @@ function MessageItem({
                   <button
                     onClick={handleSubmitReply}
                     disabled={!canSendReply}
-                    className="p-1 bg-[#976623] text-white rounded hover:bg-[#7a521c] disabled:opacity-40 transition-colors"
+                    className="p-1 bg-[#976623] text-white rounded hover:bg-primary-hover disabled:opacity-40 transition-colors"
                   >
                     <Send className="w-3 h-3" />
                   </button>

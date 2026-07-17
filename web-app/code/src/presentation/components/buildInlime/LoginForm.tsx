@@ -230,7 +230,7 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#976623] hover:bg-primary-hover disabled:bg-[#c4a574] text-white rounded-[10px] h-[48px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] flex items-center justify-center gap-2 transition-colors"
+              className="w-full bg-[#976623] hover:bg-primary-hover disabled:bg-primary-disabled text-white rounded-[10px] h-[48px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] flex items-center justify-center gap-2 transition-colors"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {loading ? (
@@ -273,7 +273,7 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={loading || otp.length !== 6}
-              className="w-full bg-[#976623] hover:bg-primary-hover disabled:bg-[#c4a574] text-white rounded-[10px] h-[48px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] flex items-center justify-center gap-2 transition-colors"
+              className="w-full bg-[#976623] hover:bg-primary-hover disabled:bg-primary-disabled text-white rounded-[10px] h-[48px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] flex items-center justify-center gap-2 transition-colors"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {loading ? (

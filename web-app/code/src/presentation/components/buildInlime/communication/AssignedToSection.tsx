@@ -95,7 +95,7 @@ export function AssignedToSection({
               <button
                 onClick={handleSubmit}
                 disabled={!selectedUserId || isSubmitting}
-                className="px-3 py-1.5 text-sm font-medium bg-[#ac7f5e] text-white rounded hover:bg-[#9b6e4d] disabled:opacity-50 transition-colors"
+                className="px-3 py-1.5 text-sm font-medium bg-[#ac7f5e] text-white rounded hover:bg-secondary-hover disabled:opacity-50 transition-colors"
               >
                 {isSubmitting ? "Saving…" : "Assign"}
               </button>

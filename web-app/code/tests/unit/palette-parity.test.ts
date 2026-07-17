@@ -123,21 +123,19 @@ const KNOWN_EXCEPTIONS: Record<string, string> = {
   "#6b7280": "mobile: neutral gray-500",
   "#4b5563": "mobile: neutral gray-600",
 
-  // Web — undocumented strays predating this guard. Each is either a brand
-  // shade that deserves a token or a one-off that deserves deleting; they are
-  // pinned here so the set cannot grow silently while that gets decided.
-  // (#7d5419 graduated: it is --primary-hover in theme.css, so the membership
-  // check now allows it as a theme var rather than an exception.)
-  "#f5ece0": "web: warm surface tint (4 uses)",
-  "#e5ddd5": "web: warm border tint (2 uses)",
-  "#c4a574": "web: brand tan (2 uses)",
-  "#9b6e4d": "web: brand brown (2 uses)",
-  "#936b4f": "web: brand brown variant (1 use)",
-  "#7a5840": "web: brand brown, dark (1 use)",
-  "#7a521c": "web: primary, dark (1 use)",
-  "#654212": "web: primary, darkest (1 use)",
-  "#f0f0f0": "web: neutral surface (1 use)",
-  "#c8c8d0": "web: neutral border (1 use)",
+  // Web — one-offs with no token yet. Each is a brand shade that wants naming
+  // or a stray that wants deleting; pinned so the set cannot grow silently.
+  //
+  // Entries graduate out of this list rather than lingering: #7d5419, #c4a574
+  // and #9b6e4d became --primary-hover, --primary-disabled and
+  // --secondary-hover, so the membership check now allows them as theme vars.
+  "#f5ece0": "web: focus highlight + row hover (4 uses) — near --icon-chip, may fold in",
+  "#e5ddd5": "web: login-card border (2 uses) — near --card-border, may fold in",
+  "#c8c8d0": "web: disabled date text in the schedule popover (1 use)",
+
+  // Not a design-system colour at all: an HTML email body, which cannot
+  // reference CSS custom properties. This one will never graduate.
+  "#f0f0f0": "web: OTP email template (infrastructure/lib/utils/sendEmailOtp.ts)",
 }
 
 const SCAN_ROOTS = [
@@ -187,6 +185,19 @@ describe("brand palette", () => {
       expect(mobileTokens[key], `design-tokens.js lost "${key}"`).toBeTruthy()
       expect(web[key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)]).toBeUndefined()
     }
+  })
+
+  it("every documented exception is still in use", () => {
+    // Without this the list rots silently: three entries (#936b4f, #7a5840,
+    // #654212) outlived the files that used them and sat here describing
+    // colours the repo no longer contained. An exception is a claim about the
+    // code — if the claim expires, it should say so rather than accumulate.
+    const blob = sourceFiles()
+      .map((f) => readFileSync(f, "utf8"))
+      .join("\n")
+      .toLowerCase()
+    const stale = Object.keys(KNOWN_EXCEPTIONS).filter((hex) => !blob.includes(hex))
+    expect(stale, "KNOWN_EXCEPTIONS entries whose colour is gone — delete them").toEqual([])
   })
 
   it("every hex in either app is a known colour", () => {

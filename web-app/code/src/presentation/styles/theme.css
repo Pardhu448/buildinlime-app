@@ -8,11 +8,15 @@
   --card: #ffffff;
   --primary: #976623;
   --primary-foreground: #ffffff;
-  /* The hover shade for --primary. Only ever paired with it (bg-primary
-     hover:bg-primary-hover), which is why it is named for the state. */
+  /* Interaction states for --primary. Each is only ever paired with it
+     (bg-primary hover:bg-primary-hover disabled:bg-primary-disabled), which is
+     why they are named for the state rather than the colour. They leaked as raw
+     hexes for a long time because the palette had no word for them. */
   --primary-hover: #7d5419;
+  --primary-disabled: #c4a574;
   --secondary: #ac7f5e;
   --secondary-foreground: #1e1e1e;
+  --secondary-hover: #9b6e4d;
   --muted: #f5f5f5;
   --muted-foreground: #717182;
   --accent: #ac7f5e;
@@ -43,6 +47,8 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-hover: var(--primary-hover);
+  --color-primary-disabled: var(--primary-disabled);
+  --color-secondary-hover: var(--secondary-hover);
   --color-card-surface: var(--card-surface);
   --color-card-border: var(--card-border);
   --color-icon-chip: var(--icon-chip);
