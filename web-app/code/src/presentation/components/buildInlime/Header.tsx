@@ -3,7 +3,7 @@ import imgBrickPattern from "../../assets/brick-logo-brown.png";
 
 export function Header() {
   return (
-    <header className="w-full bg-white py-[24px] border-b border-[#ac7f5e]">
+    <header className="w-full bg-white py-[24px] border-b border-border">
       <div className="max-w-[1440px] mx-auto px-6 flex items-center gap-8">
         {/* Logo — links to the home page */}
         <Link to="/" className="flex items-center gap-[12px] hover:opacity-80 transition-opacity">

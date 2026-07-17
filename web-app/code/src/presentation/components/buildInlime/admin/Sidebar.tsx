@@ -397,7 +397,7 @@ export function Sidebar({ projectId }: SidebarProps) {
                       )}
                     </div>
                     {isCreator && (
-                      <span className="text-xs text-[#ac7f5e]">you</span>
+                      <span className="text-xs text-secondary">you</span>
                     )}
                   </label>
                 );

@@ -70,7 +70,7 @@ export function MyTasksPage() {
                     className={`w-full flex items-start gap-3 px-4 py-3 rounded-lg border transition-colors text-left ${
                       task.completed
                         ? "bg-white border-card-border opacity-60 hover:opacity-80"
-                        : "bg-card-surface border-card-border hover:border-[#ac7f5e] hover:bg-[#f5ece0]"
+                        : "bg-card-surface border-card-border hover:border-border hover:bg-[#f5ece0]"
                     }`}
                   >
                     <div className="flex-1 min-w-0">
@@ -83,18 +83,18 @@ export function MyTasksPage() {
                       <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                         {project && (
                           <>
-                            <span className="text-xs text-[#ac7f5e]">{project.name}</span>
-                            <ChevronRight className="w-3 h-3 text-[#ac7f5e]" />
+                            <span className="text-xs text-secondary">{project.name}</span>
+                            <ChevronRight className="w-3 h-3 text-secondary" />
                           </>
                         )}
                         {buildUnit && (
                           <>
-                            <span className="text-xs text-[#ac7f5e]">{buildUnit.name}</span>
-                            <ChevronRight className="w-3 h-3 text-[#ac7f5e]" />
+                            <span className="text-xs text-secondary">{buildUnit.name}</span>
+                            <ChevronRight className="w-3 h-3 text-secondary" />
                           </>
                         )}
                         {channelName && (
-                          <span className="text-xs text-[#ac7f5e]">#{channelName}</span>
+                          <span className="text-xs text-secondary">#{channelName}</span>
                         )}
                       </div>
                     </div>

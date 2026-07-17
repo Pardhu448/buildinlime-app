@@ -294,7 +294,7 @@ function MessageItem({
                 onChange={handleReplyTextChange}
                 onKeyDown={handleKeyDown}
                 placeholder="Write a reply… (Ctrl+Enter to send)"
-                className="w-full text-xs bg-transparent resize-none outline-none text-foreground placeholder-[#ac7f5e]"
+                className="w-full text-xs bg-transparent resize-none outline-none text-foreground placeholder-secondary"
                 rows={1}
                 autoFocus
               />

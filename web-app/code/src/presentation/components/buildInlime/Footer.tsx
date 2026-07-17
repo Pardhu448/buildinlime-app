@@ -3,7 +3,7 @@ import imgBrickPattern from "../../assets/brick-logo-brown.png";
 
 export function Footer() {
   return (
-    <footer className="w-full px-[120px] py-[56px] border-t border-[#ac7f5e] mt-auto">
+    <footer className="w-full px-[120px] py-[56px] border-t border-border mt-auto">
       <div className="max-w-[1268px] mx-auto flex items-start gap-[109px]">
         {/* Logo — links to the home page */}
         <Link to="/" className="shrink-0 hover:opacity-80 transition-opacity">

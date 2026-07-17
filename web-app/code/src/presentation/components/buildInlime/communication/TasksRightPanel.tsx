@@ -27,8 +27,8 @@ export function TasksRightPanel({ tasks, onTaskClick, isUnread }: TasksRightPane
   return (
     <div>
       <button onClick={() => setOpen(!open)} className="flex items-center justify-between w-full mb-3">
-        <p className="text-xs font-semibold text-[#ac7f5e] uppercase tracking-wider">Tasks</p>
-        {open ? <ChevronDown className="w-3 h-3 text-[#ac7f5e]" /> : <ChevronRight className="w-3 h-3 text-[#ac7f5e]" />}
+        <p className="text-xs font-semibold text-secondary uppercase tracking-wider">Tasks</p>
+        {open ? <ChevronDown className="w-3 h-3 text-secondary" /> : <ChevronRight className="w-3 h-3 text-secondary" />}
       </button>
       {open && (
         <div className="space-y-2">

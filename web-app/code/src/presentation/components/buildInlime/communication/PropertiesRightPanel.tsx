@@ -41,7 +41,7 @@ export function PropertiesRightPanel({
 
       {/* Labels */}
       <div className="mb-6">
-        <p className="text-xs text-[#ac7f5e] mb-2">Labels</p>
+        <p className="text-xs text-secondary mb-2">Labels</p>
         <button className="w-full text-left" onClick={onAddLabel}>
           <div className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
             <Tag className="w-4 h-4" />
@@ -53,7 +53,7 @@ export function PropertiesRightPanel({
       {/* Channel */}
       {channel && (
         <div className="mb-6">
-          <p className="text-xs text-[#ac7f5e] mb-2">Channel</p>
+          <p className="text-xs text-secondary mb-2">Channel</p>
           <div className="text-sm text-foreground">{channel}</div>
         </div>
       )}
@@ -61,7 +61,7 @@ export function PropertiesRightPanel({
       {/* BuildUnit */}
       {buildUnit && (
         <div className="mb-6">
-          <p className="text-xs text-[#ac7f5e] mb-2">BuildUnit</p>
+          <p className="text-xs text-secondary mb-2">BuildUnit</p>
           <Link
             to={buildUnit.link}
             className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors"

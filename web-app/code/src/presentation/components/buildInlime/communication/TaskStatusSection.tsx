@@ -219,7 +219,7 @@ export function TaskStatusSection({
             </div>
 
             <textarea
-              className="w-full border border-gray-200 rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#ac7f5e]"
+              className="w-full border border-gray-200 rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               rows={3}
               maxLength={400}
               autoFocus
@@ -245,7 +245,7 @@ export function TaskStatusSection({
               <button
                 onClick={handleConfirm}
                 disabled={!note.trim() || isSubmitting}
-                className="px-3 py-1.5 text-sm font-medium bg-[#ac7f5e] text-white rounded hover:bg-secondary-hover disabled:opacity-50 transition-colors"
+                className="px-3 py-1.5 text-sm font-medium bg-secondary text-white rounded hover:bg-secondary-hover disabled:opacity-50 transition-colors"
               >
                 {isSubmitting
                   ? "Saving…"

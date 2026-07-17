@@ -103,7 +103,7 @@ export function CommentInput({
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className="w-full bg-transparent text-foreground placeholder-[#ac7f5e] resize-none outline-none mb-3"
+        className="w-full bg-transparent text-foreground placeholder-secondary resize-none outline-none mb-3"
         rows={rows}
       />
 

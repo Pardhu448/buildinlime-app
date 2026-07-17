@@ -71,9 +71,9 @@ export function InboxPage() {
                   <button
                     key={msg.id}
                     onClick={() => handleMessageClick(msg)}
-                    className={`w-full flex items-start gap-3 px-4 py-3 border rounded-lg hover:border-[#ac7f5e] hover:bg-[#f5ece0] transition-colors text-left ${
+                    className={`w-full flex items-start gap-3 px-4 py-3 border rounded-lg hover:border-border hover:bg-[#f5ece0] transition-colors text-left ${
                       unread
-                        ? "bg-[#f5ece0] border-[#ac7f5e]"
+                        ? "bg-[#f5ece0] border-border"
                         : "bg-card-surface border-card-border"
                     }`}
                   >
@@ -99,18 +99,18 @@ export function InboxPage() {
                       <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                         {project && (
                           <>
-                            <span className="text-xs text-[#ac7f5e]">{project.name}</span>
-                            <ChevronRight className="w-3 h-3 text-[#ac7f5e]" />
+                            <span className="text-xs text-secondary">{project.name}</span>
+                            <ChevronRight className="w-3 h-3 text-secondary" />
                           </>
                         )}
                         {buildUnit && (
                           <>
-                            <span className="text-xs text-[#ac7f5e]">{buildUnit.name}</span>
-                            <ChevronRight className="w-3 h-3 text-[#ac7f5e]" />
+                            <span className="text-xs text-secondary">{buildUnit.name}</span>
+                            <ChevronRight className="w-3 h-3 text-secondary" />
                           </>
                         )}
                         {channelName && (
-                          <span className="text-xs text-[#ac7f5e]">#{channelName}</span>
+                          <span className="text-xs text-secondary">#{channelName}</span>
                         )}
                       </div>
                     </div>

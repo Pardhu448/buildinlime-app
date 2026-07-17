@@ -259,10 +259,10 @@ export function ChannelPage({
                         onClick={() => setChannelPropsOpen(!channelPropsOpen)}
                         className="flex items-center justify-between w-full mb-3"
                       >
-                        <p className="text-xs text-[#ac7f5e]">Channel</p>
+                        <p className="text-xs text-secondary">Channel</p>
                         {channelPropsOpen
-                          ? <ChevronDown className="w-3 h-3 text-[#ac7f5e]" />
-                          : <ChevronRight className="w-3 h-3 text-[#ac7f5e]" />
+                          ? <ChevronDown className="w-3 h-3 text-secondary" />
+                          : <ChevronRight className="w-3 h-3 text-secondary" />
                         }
                       </button>
                       {channelPropsOpen && (
@@ -275,10 +275,10 @@ export function ChannelPage({
                         onClick={() => setBuildUnitPropsOpen(!buildUnitPropsOpen)}
                         className="flex items-center justify-between w-full mb-3"
                       >
-                        <p className="text-xs text-[#ac7f5e]">Build Unit</p>
+                        <p className="text-xs text-secondary">Build Unit</p>
                         {buildUnitPropsOpen
-                          ? <ChevronDown className="w-3 h-3 text-[#ac7f5e]" />
-                          : <ChevronRight className="w-3 h-3 text-[#ac7f5e]" />
+                          ? <ChevronDown className="w-3 h-3 text-secondary" />
+                          : <ChevronRight className="w-3 h-3 text-secondary" />
                         }
                       </button>
                       {buildUnitPropsOpen && (
@@ -298,7 +298,7 @@ export function ChannelPage({
 
               {/* Members */}
               <div>
-                <p className="text-xs font-semibold text-[#ac7f5e] uppercase tracking-wider mb-3">Members</p>
+                <p className="text-xs font-semibold text-secondary uppercase tracking-wider mb-3">Members</p>
                 {channelMembers.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No members yet.</p>
                 ) : (

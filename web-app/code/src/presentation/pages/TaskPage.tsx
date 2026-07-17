@@ -254,10 +254,10 @@ export function TaskPage({
                       onClick={() => setTaskPropsOpen(!taskPropsOpen)}
                       className="flex items-center justify-between w-full mb-3"
                     >
-                      <p className="text-xs text-[#ac7f5e]">Task</p>
+                      <p className="text-xs text-secondary">Task</p>
                       {taskPropsOpen
-                        ? <ChevronDown className="w-3 h-3 text-[#ac7f5e]" />
-                        : <ChevronRight className="w-3 h-3 text-[#ac7f5e]" />
+                        ? <ChevronDown className="w-3 h-3 text-secondary" />
+                        : <ChevronRight className="w-3 h-3 text-secondary" />
                       }
                     </button>
                     {taskPropsOpen && (
@@ -269,7 +269,7 @@ export function TaskPage({
 
               {/* Details */}
               <div>
-                <p className="text-xs font-semibold text-[#ac7f5e] uppercase tracking-wider mb-3">Details</p>
+                <p className="text-xs font-semibold text-secondary uppercase tracking-wider mb-3">Details</p>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Channel</span>

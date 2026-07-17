@@ -28,7 +28,7 @@ export function Hero() {
             Start Building
           </Link>
           <button
-            className="bg-white border-[1.833px] border-[#ac7f5e] text-primary px-[33.833px] py-[17.833px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[18px] leading-[28px] hover:bg-card-surface transition-colors"
+            className="bg-white border-[1.833px] border-border text-primary px-[33.833px] py-[17.833px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[18px] leading-[28px] hover:bg-card-surface transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Learn More
