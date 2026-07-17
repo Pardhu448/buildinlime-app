@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { auth } from "../../../infrastructure/auth/server"
 import { prepareElectricUrl, proxyElectricRequest } from "../../../infrastructure/database/electric-proxy"
+import { resolveMemberScope, idSetWhere } from "../../../infrastructure/database/access-scope"
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
+// Channel set resolved server-side from the session (member or owner), never from
+// a client `member_ids` param — closes the IDOR. resolveMemberScope already
+// unions owned channels; owner_id is kept as defense-in-depth.
 const serve = async ({ request }: { request: Request }) => {
   const session = await auth.api.getSession({ headers: request.headers })
   if (!session) {
@@ -13,13 +15,10 @@ const serve = async ({ request }: { request: Request }) => {
     })
   }
 
-  const url = new URL(request.url)
-  const memberIds = (url.searchParams.get(`member_ids`) ?? ``).split(`,`).filter(id => UUID_REGEX.test(id))
+  const { channelIds } = await resolveMemberScope(session.user.id)
 
   const parts: string[] = []
-  if (memberIds.length > 0) {
-    parts.push(`id = ANY(ARRAY[${memberIds.map(id => `'${id}'`).join(`,`)}]::text[])`)
-  }
+  if (channelIds.length > 0) parts.push(idSetWhere(`id`, channelIds))
   parts.push(`owner_id = '${session.user.id}'`)
 
   const originUrl = prepareElectricUrl(request.url)

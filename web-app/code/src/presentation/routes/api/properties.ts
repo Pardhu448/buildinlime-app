@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { auth } from "../../../infrastructure/auth/server"
 import { prepareElectricUrl, proxyElectricRequest } from "../../../infrastructure/database/electric-proxy"
+import { resolveMemberScope } from "../../../infrastructure/database/access-scope"
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
+// Property rows attach to an entity via `entity_id`, which may be a project,
+// buildunit, channel, or task id. The full entity scope is resolved server-side
+// from the session (never from client `member_*_ids` params) — closes the IDOR.
 const serve = async ({ request }: { request: Request }) => {
   const session = await auth.api.getSession({ headers: request.headers })
   if (!session) {
@@ -13,10 +15,7 @@ const serve = async ({ request }: { request: Request }) => {
     })
   }
 
-  const url = new URL(request.url)
-  const projectIds = (url.searchParams.get(`member_project_ids`) ?? ``).split(`,`).filter(id => UUID_REGEX.test(id))
-  const buildunitIds = (url.searchParams.get(`member_buildunit_ids`) ?? ``).split(`,`).filter(id => UUID_REGEX.test(id))
-  const channelIds = (url.searchParams.get(`member_channel_ids`) ?? ``).split(`,`).filter(id => UUID_REGEX.test(id))
+  const { channelIds, buildunitIds, projectIds } = await resolveMemberScope(session.user.id)
 
   // Two orthogonal scopes, OR'd together:
   //   - Project & build-unit properties are matched by entity_id (they have no
