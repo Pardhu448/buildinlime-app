@@ -51,7 +51,7 @@ export function MessageAttachmentPicker({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="p-1.5 hover:bg-[#f0e5d8] rounded transition-colors"
+        className="p-1.5 hover:bg-icon-chip rounded transition-colors"
         title="Attach file"
       >
         <Paperclip className="w-4 h-4 text-[#717182]" />
@@ -74,7 +74,7 @@ export function PendingAttachmentChips({
       {files.map((f) => (
         <div
           key={f.id}
-          className="flex items-center gap-1.5 px-2 py-1 bg-white border border-[#e5d4c1] rounded text-xs text-[#1e1e1e]"
+          className="flex items-center gap-1.5 px-2 py-1 bg-white border border-card-border rounded text-xs text-[#1e1e1e]"
         >
           {/* Previews straight from the local blob — the file has not been uploaded
               yet, so there is nothing to fetch. */}
@@ -119,7 +119,7 @@ export function MessageResourceDisplay({ messageId }: { messageId: string }) {
           // The chip is too small for an inline date without crowding the name;
           // the upload time lives in the tooltip instead.
           title={`Download ${r.name} — uploaded ${formatDateTime(r.uploaded_at)}`}
-          className="flex items-center gap-1.5 px-2 py-1 bg-[#fdf8f2] border border-[#e5d4c1] rounded text-xs text-[#1e1e1e] hover:bg-[#f0e5d8] transition-colors"
+          className="flex items-center gap-1.5 px-2 py-1 bg-card-surface border border-card-border rounded text-xs text-[#1e1e1e] hover:bg-icon-chip transition-colors"
         >
           <ResourceThumbnail
             fileLocation={r.file_location}

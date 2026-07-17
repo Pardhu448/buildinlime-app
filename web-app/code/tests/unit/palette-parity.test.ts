@@ -74,12 +74,17 @@ const SHARED: Record<string, string> = {
   border: "border",
   card: "card",
   destructive: "destructive",
+  // Web carried these as bare hexes in ~146 places until they were named in
+  // theme.css to match mobile's spelling; now their values are pinned together.
+  cardSurface: "card-surface",
+  cardBorder: "card-border",
+  iconChip: "icon-chip",
 }
 
-// Mobile tokens with no web counterpart. Web uses these exact colours, but as
-// bare hexes in components rather than theme vars — so they cannot be compared
-// by name. Promoting them to real web vars would let them join SHARED above.
-const MOBILE_ONLY = ["cardSurface", "cardBorder", "iconChip"] as const
+// Mobile tokens with no web counterpart. Empty for now — every mobile token has
+// one. Kept because the asymmetry is likely to return: mobile has no hover
+// states, so web's --primary-hover has no mobile twin and is not listed here.
+const MOBILE_ONLY: readonly string[] = []
 
 // Colours that are deliberately outside the brand palette. Each is a decision
 // someone already made; listing them here is what makes a NEW one fail loudly.
@@ -109,7 +114,8 @@ const KNOWN_EXCEPTIONS: Record<string, string> = {
   // Web — undocumented strays predating this guard. Each is either a brand
   // shade that deserves a token or a one-off that deserves deleting; they are
   // pinned here so the set cannot grow silently while that gets decided.
-  "#7d5419": "web: darker primary, hover state (20 uses) — candidate for a token",
+  // (#7d5419 graduated: it is --primary-hover in theme.css, so the membership
+  // check now allows it as a theme var rather than an exception.)
   "#f5ece0": "web: warm surface tint (4 uses)",
   "#e5ddd5": "web: warm border tint (2 uses)",
   "#c4a574": "web: brand tan (2 uses)",

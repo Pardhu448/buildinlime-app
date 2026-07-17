@@ -172,8 +172,8 @@ export function ChannelPage({
                     className="fixed inset-0 z-10"
                     onClick={() => setAddPeopleOpen(false)}
                   />
-                  <div className="absolute left-24 top-0 z-20 bg-white border border-[#e5d4c1] rounded-lg shadow-lg min-w-[220px]">
-                    <p className="px-3 py-2 text-xs font-medium text-[#717182] border-b border-[#e5d4c1]">
+                  <div className="absolute left-24 top-0 z-20 bg-white border border-card-border rounded-lg shadow-lg min-w-[220px]">
+                    <p className="px-3 py-2 text-xs font-medium text-[#717182] border-b border-card-border">
                       Add to channel
                     </p>
                     {nonMembers.length === 0 ? (
@@ -185,9 +185,9 @@ export function ChannelPage({
                             key={u.id}
                             onClick={() => handleAddMember(u.id, () => setAddPeopleOpen(false))}
                             disabled={isAddingMember}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1e1e1e] hover:bg-[#fdf8f2] transition-colors disabled:opacity-50"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1e1e1e] hover:bg-card-surface transition-colors disabled:opacity-50"
                           >
-                            <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                            <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
                               {((u.name || u.email || "?")[0] ?? "?").toUpperCase()}
                             </div>
                             <span className="truncate">{u.name || u.email}</span>
@@ -238,7 +238,7 @@ export function ChannelPage({
 
           {/* Right panel */}
           {rightPanelOpen && (
-            <aside className="w-72 bg-[#fdf8f2] border-l border-[#e5d4c1] overflow-y-auto p-6 space-y-8">
+            <aside className="w-72 bg-card-surface border-l border-card-border overflow-y-auto p-6 space-y-8">
               {/* Properties */}
               <div>
                 <button
@@ -322,7 +322,7 @@ export function ChannelPage({
                         ) : (
                           <div className="flex items-center justify-between group">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                              <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
                                 {((u.name || u.email || "?")[0] ?? "?").toUpperCase()}
                               </div>
                               <span className="text-sm text-[#1e1e1e] truncate">{u.name || u.email}</span>
@@ -388,7 +388,7 @@ export function ChannelPage({
               <button
                 type="submit"
                 disabled={isSubmittingTask || !taskName.trim() || taskNameTaken}
-                className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                className="w-full bg-[#976623] hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
                 {isSubmittingTask ? "Adding…" : "Add Task"}
               </button>

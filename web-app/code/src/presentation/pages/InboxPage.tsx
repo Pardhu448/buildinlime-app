@@ -35,10 +35,10 @@ export function InboxPage() {
 
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Top nav */}
-        <header className="h-12 bg-white border-b border-[#e5d4c1] flex items-center gap-3 px-6">
+        <header className="h-12 bg-white border-b border-card-border flex items-center gap-3 px-6">
           <button
             onClick={() => window.history.back()}
-            className="p-1 text-[#717182] hover:text-[#1e1e1e] hover:bg-[#f0e5d8] rounded transition-colors"
+            className="p-1 text-[#717182] hover:text-[#1e1e1e] hover:bg-icon-chip rounded transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -51,7 +51,7 @@ export function InboxPage() {
             <p className="text-sm text-[#717182]">Loading…</p>
           ) : mentionedMessages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center">
-              <MessageSquare className="w-10 h-10 text-[#e5d4c1] mb-3" />
+              <MessageSquare className="w-10 h-10 text-card-border mb-3" />
               <p className="text-sm font-medium text-[#717182]">No mentions yet</p>
               <p className="text-xs text-[#717182] mt-1">Messages where you're mentioned will appear here.</p>
             </div>
@@ -74,10 +74,10 @@ export function InboxPage() {
                     className={`w-full flex items-start gap-3 px-4 py-3 border rounded-lg hover:border-[#ac7f5e] hover:bg-[#f5ece0] transition-colors text-left ${
                       unread
                         ? "bg-[#f5ece0] border-[#ac7f5e]"
-                        : "bg-[#fdf8f2] border-[#e5d4c1]"
+                        : "bg-card-surface border-card-border"
                     }`}
                   >
-                    <div className="w-8 h-8 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-semibold flex-shrink-0 mt-0.5">
+                    <div className="w-8 h-8 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-semibold flex-shrink-0 mt-0.5">
                       {initial}
                     </div>
                     <div className="flex-1 min-w-0">

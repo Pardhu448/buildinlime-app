@@ -148,13 +148,13 @@ function MessageItem({
     <div
       // Anchor for the Inbox deep-link (?messageId=). Also the highlight target.
       id={`message-${message.id}`}
-      className={`${depth > 0 ? "ml-7 border-l-2 border-[#e5d4c1] pl-3 mt-1" : ""} ${
+      className={`${depth > 0 ? "ml-7 border-l-2 border-card-border pl-3 mt-1" : ""} ${
         isFocused ? "bg-[#f5ece0] rounded transition-colors duration-1000" : ""
       }`}
     >
       <div className="flex gap-2 py-2">
         {/* Avatar */}
-        <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+        <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
           {avatarInitial(author)}
         </div>
 
@@ -180,7 +180,7 @@ function MessageItem({
               {myPending.map((r) => (
                 <div
                   key={r.id}
-                  className="flex items-center gap-1.5 px-2 py-1 bg-white border border-[#e5d4c1] rounded text-xs text-[#717182]"
+                  className="flex items-center gap-1.5 px-2 py-1 bg-white border border-card-border rounded text-xs text-[#717182]"
                 >
                   {/* Spinners stay while the upload is in flight — status beats a
                       preview there. Once it settles (or fails) the local blob is
@@ -266,17 +266,17 @@ function MessageItem({
 
           {/* Reply input */}
           {showReplyInput && (
-            <div className="mt-1.5 bg-white border border-[#e5d4c1] rounded px-2 py-1.5 relative">
+            <div className="mt-1.5 bg-white border border-card-border rounded px-2 py-1.5 relative">
               {/* Mention dropdown */}
               {replyMentionQuery !== null && replyFilteredUsers.length > 0 && (
-                <div className="absolute bottom-full left-0 mb-1 w-full bg-white border border-[#e5d4c1] rounded-lg shadow-lg max-h-36 overflow-y-auto z-10">
+                <div className="absolute bottom-full left-0 mb-1 w-full bg-white border border-card-border rounded-lg shadow-lg max-h-36 overflow-y-auto z-10">
                   {replyFilteredUsers.map((u) => (
                     <button
                       key={u.id}
                       onMouseDown={(e) => { e.preventDefault(); handleSelectReplyMention(u) }}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[#1e1e1e] hover:bg-[#fdf8f2] transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[#1e1e1e] hover:bg-card-surface transition-colors"
                     >
-                      <div className="w-5 h-5 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                      <div className="w-5 h-5 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
                         {mentionDisplayName(u)[0].toUpperCase()}
                       </div>
                       <span className="truncate">{mentionDisplayName(u)}</span>
@@ -463,7 +463,7 @@ export function CommentsSection({
       </div>
 
       {topLevelMessages.length > 0 ? (
-        <div className="divide-y divide-[#e5d4c1]">
+        <div className="divide-y divide-card-border">
           {topLevelMessages.map((message) => (
             <MessageItem
               key={message.id}

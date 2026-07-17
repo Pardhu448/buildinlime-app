@@ -161,7 +161,7 @@ export function LoginForm() {
               <button
                 type="button"
                 onClick={() => router.navigate({ to: '/login', search: { mode: 'signup', returnTo } })}
-                className="mt-2 w-full bg-white hover:bg-[#fdf8f2] border border-[#976623] text-[#976623] rounded-[10px] h-[44px] font-['Instrument_Sans',sans-serif] font-medium text-[15px] flex items-center justify-center gap-2 transition-colors"
+                className="mt-2 w-full bg-white hover:bg-card-surface border border-[#976623] text-[#976623] rounded-[10px] h-[44px] font-['Instrument_Sans',sans-serif] font-medium text-[15px] flex items-center justify-center gap-2 transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 <User className="w-4 h-4" />
@@ -230,7 +230,7 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:bg-[#c4a574] text-white rounded-[10px] h-[48px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] flex items-center justify-center gap-2 transition-colors"
+              className="w-full bg-[#976623] hover:bg-primary-hover disabled:bg-[#c4a574] text-white rounded-[10px] h-[48px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] flex items-center justify-center gap-2 transition-colors"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {loading ? (
@@ -273,7 +273,7 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={loading || otp.length !== 6}
-              className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:bg-[#c4a574] text-white rounded-[10px] h-[48px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] flex items-center justify-center gap-2 transition-colors"
+              className="w-full bg-[#976623] hover:bg-primary-hover disabled:bg-[#c4a574] text-white rounded-[10px] h-[48px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] flex items-center justify-center gap-2 transition-colors"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {loading ? (

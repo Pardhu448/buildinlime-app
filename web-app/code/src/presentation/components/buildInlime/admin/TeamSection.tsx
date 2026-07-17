@@ -52,7 +52,7 @@ export function TeamSection({ teamId, name, description, members, currentMemberI
   return (
     <>
       <div className="mb-1">
-        <div className="group flex items-center gap-2 px-3 py-1.5 hover:bg-[#f0e5d8] rounded transition-colors">
+        <div className="group flex items-center gap-2 px-3 py-1.5 hover:bg-icon-chip rounded transition-colors">
           <div className="w-5 h-5 rounded bg-[#976623] flex items-center justify-center flex-shrink-0">
             <span className="text-white text-xs font-bold">{initial}</span>
           </div>
@@ -60,7 +60,7 @@ export function TeamSection({ teamId, name, description, members, currentMemberI
           <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 flex-shrink-0">
             <button
               onClick={openAdd}
-              className="p-0.5 hover:text-[#976623] hover:bg-[#e5d4c1] rounded transition-colors"
+              className="p-0.5 hover:text-[#976623] hover:bg-card-border rounded transition-colors"
               title="Add member"
             >
               <Plus className="w-3 h-3 text-[#717182]" />
@@ -85,7 +85,7 @@ export function TeamSection({ teamId, name, description, members, currentMemberI
             ) : (
               members.map((m) => (
                 <div key={m.id} className="flex items-center gap-2 px-2 py-1">
-                  <div className="w-5 h-5 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                  <div className="w-5 h-5 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
                     {((m.name || m.email)[0] ?? "?").toUpperCase()}
                   </div>
                   <span className="text-xs text-[#1e1e1e] truncate">{m.name || m.email}</span>
@@ -105,17 +105,17 @@ export function TeamSection({ teamId, name, description, members, currentMemberI
           <div>
             <label className="block text-sm font-medium text-[#1e1e1e] mb-2">Members</label>
             {nonMembers.length === 0 ? (
-              <p className="px-3 py-3 text-xs text-[#717182] border border-[#e5d4c1] rounded-md">
+              <p className="px-3 py-3 text-xs text-[#717182] border border-card-border rounded-md">
                 All users are already members of this team.
               </p>
             ) : (
-              <div className="max-h-48 overflow-y-auto border border-[#e5d4c1] rounded-md divide-y divide-[#f0e5d8]">
+              <div className="max-h-48 overflow-y-auto border border-card-border rounded-md divide-y divide-icon-chip">
                 {nonMembers.map((user) => {
                   const checked = selectedIds.includes(user.id);
                   return (
                     <label
                       key={user.id}
-                      className="flex items-center gap-3 px-3 py-2 hover:bg-[#fdf8f2] transition-colors cursor-pointer"
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-card-surface transition-colors cursor-pointer"
                     >
                       <input
                         type="checkbox"
@@ -123,7 +123,7 @@ export function TeamSection({ teamId, name, description, members, currentMemberI
                         onChange={() => toggleUser(user.id)}
                         className="accent-[#976623]"
                       />
-                      <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
                         {((user.name || user.email || "?")[0] ?? "?").toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -142,7 +142,7 @@ export function TeamSection({ teamId, name, description, members, currentMemberI
           <button
             type="submit"
             disabled={isSubmitting || !selectedIds.length || nonMembers.length === 0}
-            className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="w-full bg-[#976623] hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             {isSubmitting ? "Adding…" : "Add Members"}
           </button>

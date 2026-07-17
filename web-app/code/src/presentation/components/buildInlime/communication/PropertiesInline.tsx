@@ -353,7 +353,7 @@ export function PropertiesInline({ properties, onAddProperty, entityId, entity, 
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  className="w-full bg-[#976623] hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                 >
                   {isSubmitting
                     ? "Saving…"

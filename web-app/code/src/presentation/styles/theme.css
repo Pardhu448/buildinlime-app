@@ -19,6 +19,9 @@
   --popover-foreground: #1e1e1e;
   --primary: #976623;
   --primary-foreground: #ffffff;
+  /* The hover shade for --primary. Only ever paired with it (bg-primary
+     hover:bg-primary-hover), which is why it is named for the state. */
+  --primary-hover: #7d5419;
   --secondary: #ac7f5e;
   --secondary-foreground: #1e1e1e;
   --muted: #f5f5f5;
@@ -30,6 +33,14 @@
   --border: #ac7f5e;
   --input: transparent;
   --input-background: #f3f3f5;
+
+  /* Card surfaces. These carry the same names and values as mobile's
+     design-tokens.js (cardSurface / cardBorder / iconChip), so the two apps'
+     cards are pinned together by tests/unit/palette-parity.test.ts. They lived
+     here as bare hexes in ~146 places before being named. */
+  --card-surface: #fdf8f2;
+  --card-border: #e5d4c1;
+  --icon-chip: #f0e5d8;
   --switch-background: #cbced4;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
@@ -100,6 +111,10 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-card-surface: var(--card-surface);
+  --color-card-border: var(--card-border);
+  --color-icon-chip: var(--icon-chip);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);

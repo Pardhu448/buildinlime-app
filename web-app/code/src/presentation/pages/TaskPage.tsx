@@ -234,7 +234,7 @@ export function TaskPage({
 
           {/* Right panel */}
           {rightPanelOpen && (
-            <aside className="w-72 bg-[#fdf8f2] border-l border-[#e5d4c1] overflow-y-auto p-6 space-y-8">
+            <aside className="w-72 bg-card-surface border-l border-card-border overflow-y-auto p-6 space-y-8">
               {/* Properties */}
               <div>
                 <button

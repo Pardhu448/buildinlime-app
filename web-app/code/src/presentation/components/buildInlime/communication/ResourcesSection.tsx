@@ -131,7 +131,7 @@ export function ResourcesSection({
           {pendingResources.map((r) => (
             <div
               key={r.id}
-              className="flex items-center gap-2 px-3 py-2 bg-[#fdf8f2] border border-[#e5d4c1] rounded"
+              className="flex items-center gap-2 px-3 py-2 bg-card-surface border border-card-border rounded"
             >
               {/* Previews from the local blob while it is still uploading — the bytes
                   are already here, so it costs no request. */}
@@ -209,7 +209,7 @@ export function ResourcesSection({
           {syncedResources.map((r) => (
             <div
               key={r.id}
-              className="flex items-center gap-2 px-3 py-2 bg-[#fdf8f2] border border-[#e5d4c1] rounded hover:bg-[#f0e5d8] transition-colors"
+              className="flex items-center gap-2 px-3 py-2 bg-card-surface border border-card-border rounded hover:bg-icon-chip transition-colors"
             >
               <ResourceThumbnail
                 fileLocation={r.file_location}

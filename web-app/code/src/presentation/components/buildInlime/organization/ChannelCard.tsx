@@ -25,7 +25,7 @@ export function ChannelCard({
   const content = (
     <>
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-10 h-10 rounded bg-[#f0e5d8] border border-[#e5d4c1] flex items-center justify-center">
+        <div className="w-10 h-10 rounded bg-icon-chip border border-card-border flex items-center justify-center">
           <Icon className="w-5 h-5 text-[#976623]" />
         </div>
         <div className="flex items-center gap-2">
@@ -60,7 +60,7 @@ export function ChannelCard({
     return (
       <Link
         href={to}
-        className="bg-[#fdf8f2] border border-[#e5d4c1] rounded-lg p-4 hover:bg-[#f0e5d8] transition-colors cursor-pointer block"
+        className="bg-card-surface border border-card-border rounded-lg p-4 hover:bg-icon-chip transition-colors cursor-pointer block"
       >
         {content}
       </Link>
@@ -70,7 +70,7 @@ export function ChannelCard({
   return (
     <div
       onClick={!isPending ? onClick : undefined}
-      className={`bg-[#fdf8f2] border border-[#e5d4c1] rounded-lg p-4 transition-colors ${isPending ? "opacity-70 cursor-default" : "hover:bg-[#f0e5d8] cursor-pointer"}`}
+      className={`bg-card-surface border border-card-border rounded-lg p-4 transition-colors ${isPending ? "opacity-70 cursor-default" : "hover:bg-icon-chip cursor-pointer"}`}
     >
       {content}
     </div>

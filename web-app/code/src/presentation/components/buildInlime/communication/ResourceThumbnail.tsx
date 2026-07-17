@@ -22,7 +22,7 @@ function IconThumb({ mimeType, size }: { mimeType: string; size: number }) {
 
   return (
     <div
-      className="flex items-center justify-center rounded-md border border-[#e5d4c1] bg-[#fdf8f2] flex-shrink-0"
+      className="flex items-center justify-center rounded-md border border-card-border bg-card-surface flex-shrink-0"
       style={{ width: size, height: size }}
     >
       <Icon className="text-[#976623]" style={{ width: size * 0.45, height: size * 0.45 }} />
@@ -61,7 +61,7 @@ export function ResourceThumbnail({
 
   return (
     <div
-      className="relative overflow-hidden rounded-md bg-[#fdf8f2] flex-shrink-0"
+      className="relative overflow-hidden rounded-md bg-card-surface flex-shrink-0"
       style={{ width: size, height: size }}
     >
       {isImage ? (

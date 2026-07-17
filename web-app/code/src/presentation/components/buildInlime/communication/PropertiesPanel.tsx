@@ -68,7 +68,7 @@ const PRIORITY_LABELS: Record<string, string> = {
 
 type PillStyle = { bg: string; border: string; text: string }
 
-const DEFAULT_PILL: PillStyle = { bg: "bg-[#f0e5d8]", border: "border-[#e5d4c1]", text: "text-[#1e1e1e]" }
+const DEFAULT_PILL: PillStyle = { bg: "bg-icon-chip", border: "border-card-border", text: "text-[#1e1e1e]" }
 
 const STATUS_PILL_STYLES: Record<string, PillStyle> = {
   critical: { bg: "bg-red-100",    border: "border-red-200",    text: "text-red-700"    },
@@ -418,7 +418,7 @@ export function PropertiesPanel({ properties, entityId, hideAddButton = false, h
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            className="w-full bg-[#976623] hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
             {isSubmitting
               ? "Saving…"

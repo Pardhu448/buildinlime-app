@@ -7,11 +7,11 @@ export function TrySection() {
         Try
       </p>
       <div className="space-y-1">
-        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1e1e1e] hover:bg-[#f0e5d8] rounded transition-colors">
+        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1e1e1e] hover:bg-icon-chip rounded transition-colors">
           <Download className="w-4 h-4" />
           <span>Import issues</span>
         </button>
-        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1e1e1e] hover:bg-[#f0e5d8] rounded transition-colors">
+        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1e1e1e] hover:bg-icon-chip rounded transition-colors">
           <Plus className="w-4 h-4" />
           <span>Invite people</span>
         </button>

@@ -31,8 +31,8 @@ export function BuildUnitsTable({ buildUnits, onBuildUnitClick, pendingIds }: Bu
   return (
     <div className="flex-1 overflow-auto bg-white">
       <table className="w-full">
-        <thead className="bg-[#fdf8f2] sticky top-0">
-          <tr className="border-b border-[#e5d4c1]">
+        <thead className="bg-card-surface sticky top-0">
+          <tr className="border-b border-card-border">
             <th
               className="text-left px-6 py-3 font-['Instrument_Sans',sans-serif] font-medium text-[12px] text-[#717182] uppercase tracking-wider"
               style={{ fontVariationSettings: "'wdth' 100" }}
@@ -55,7 +55,7 @@ export function BuildUnitsTable({ buildUnits, onBuildUnitClick, pendingIds }: Bu
             return (
               <tr
                 key={unit.id}
-                className="border-b border-[#e5d4c1] hover:bg-[#fdf8f2] transition-colors cursor-pointer"
+                className="border-b border-card-border hover:bg-card-surface transition-colors cursor-pointer"
                 onClick={() => onBuildUnitClick?.(unit)}
               >
                 <td className="px-6 py-4 align-top">

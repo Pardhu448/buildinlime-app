@@ -55,7 +55,7 @@ interface ResourceCardProps {
 
 function ResourceCard({ resource: r, subtitle, canDelete, onDelete, onDismiss }: ResourceCardProps) {
   return (
-    <div className="flex items-center gap-2 px-2 py-1.5 bg-[#fdf8f2] border border-[#e5d4c1] rounded">
+    <div className="flex items-center gap-2 px-2 py-1.5 bg-card-surface border border-card-border rounded">
       <ResourceThumbnail fileLocation={r.file_location} mimeType={r.mime_type} size={36} />
 
       <div className="flex-1 min-w-0">
@@ -111,8 +111,8 @@ function Column({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col min-w-0 border border-[#e5d4c1] rounded bg-white/40">
-      <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-[#e5d4c1]">
+    <div className="flex flex-col min-w-0 border border-card-border rounded bg-white/40">
+      <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-card-border">
         <h4 className="text-xs font-medium text-[#717182]">{title}</h4>
         <span className="text-[10px] text-[#717182] tabular-nums">{count}</span>
       </div>

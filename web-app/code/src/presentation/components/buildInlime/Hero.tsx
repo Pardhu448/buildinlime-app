@@ -22,13 +22,13 @@ export function Hero() {
         <div className="flex items-start gap-[16px]">
           <Link
             to="/projects"
-            className="bg-[#976623] hover:bg-[#7d5419] text-white px-[32px] py-[16px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[18px] leading-[28px] transition-colors"
+            className="bg-[#976623] hover:bg-primary-hover text-white px-[32px] py-[16px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[18px] leading-[28px] transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Start Building
           </Link>
           <button
-            className="bg-white border-[1.833px] border-[#ac7f5e] text-[#976623] px-[33.833px] py-[17.833px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[18px] leading-[28px] hover:bg-[#fdf8f2] transition-colors"
+            className="bg-white border-[1.833px] border-[#ac7f5e] text-[#976623] px-[33.833px] py-[17.833px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[18px] leading-[28px] hover:bg-card-surface transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Learn More

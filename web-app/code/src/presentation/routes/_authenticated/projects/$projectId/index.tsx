@@ -43,7 +43,7 @@ function ProjectRoute() {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="h-14 bg-white border-b border-[#e5d4c1] flex items-center justify-between px-6">
+        <header className="h-14 bg-white border-b border-card-border flex items-center justify-between px-6">
           <div className="flex items-center gap-2">
             <Link
               to="/projects"
@@ -64,7 +64,7 @@ function ProjectRoute() {
         </header>
 
         {/* Toolbar */}
-        <div className="bg-white border-b border-[#e5d4c1] px-6 py-3 flex items-center justify-between">
+        <div className="bg-white border-b border-card-border px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               className="font-['Instrument_Sans',sans-serif] font-medium text-[14px] text-[#1e1e1e] pb-1 border-b-2 border-[#976623]"

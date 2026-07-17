@@ -19,8 +19,8 @@ export function ProjectsTable({ projects, onProjectClick }: ProjectsTableProps) 
   return (
     <div className="flex-1 overflow-auto bg-white">
       <table className="w-full">
-        <thead className="bg-[#fdf8f2] sticky top-0">
-          <tr className="border-b border-[#e5d4c1]">
+        <thead className="bg-card-surface sticky top-0">
+          <tr className="border-b border-card-border">
             <th
               className="text-left px-6 py-3 font-['Instrument_Sans',sans-serif] font-medium text-[12px] text-[#717182] uppercase tracking-wider"
               style={{ fontVariationSettings: "'wdth' 100" }}
@@ -46,7 +46,7 @@ export function ProjectsTable({ projects, onProjectClick }: ProjectsTableProps) 
             <tr
               key={project.id}
               onClick={() => onProjectClick?.(project)}
-              className="border-b border-[#e5d4c1] hover:bg-[#fdf8f2] transition-colors cursor-pointer"
+              className="border-b border-card-border hover:bg-card-surface transition-colors cursor-pointer"
             >
               <td className="px-6 py-4">
                 <div className="flex items-center gap-2">

@@ -30,10 +30,10 @@ export function MyTasksPage() {
 
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Top nav */}
-        <header className="h-12 bg-white border-b border-[#e5d4c1] flex items-center gap-3 px-6">
+        <header className="h-12 bg-white border-b border-card-border flex items-center gap-3 px-6">
           <button
             onClick={() => window.history.back()}
-            className="p-1 text-[#717182] hover:text-[#1e1e1e] hover:bg-[#f0e5d8] rounded transition-colors"
+            className="p-1 text-[#717182] hover:text-[#1e1e1e] hover:bg-icon-chip rounded transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -51,7 +51,7 @@ export function MyTasksPage() {
             <p className="text-sm text-[#717182]">Loading…</p>
           ) : sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center">
-              <CheckSquare className="w-10 h-10 text-[#e5d4c1] mb-3" />
+              <CheckSquare className="w-10 h-10 text-card-border mb-3" />
               <p className="text-sm font-medium text-[#717182]">No tasks assigned to you</p>
               <p className="text-xs text-[#717182] mt-1">Tasks assigned to you will appear here.</p>
             </div>
@@ -69,8 +69,8 @@ export function MyTasksPage() {
                     onClick={() => handleTaskClick(task)}
                     className={`w-full flex items-start gap-3 px-4 py-3 rounded-lg border transition-colors text-left ${
                       task.completed
-                        ? "bg-white border-[#e5d4c1] opacity-60 hover:opacity-80"
-                        : "bg-[#fdf8f2] border-[#e5d4c1] hover:border-[#ac7f5e] hover:bg-[#f5ece0]"
+                        ? "bg-white border-card-border opacity-60 hover:opacity-80"
+                        : "bg-card-surface border-card-border hover:border-[#ac7f5e] hover:bg-[#f5ece0]"
                     }`}
                   >
                     <div className="flex-1 min-w-0">

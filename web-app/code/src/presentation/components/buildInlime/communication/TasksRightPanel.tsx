@@ -37,7 +37,7 @@ export function TasksRightPanel({ tasks, onTaskClick, isUnread }: TasksRightPane
             const unread = isUnread?.(task) ?? false;
             return (
               <button key={task.id} onClick={() => onTaskClick?.(task.id)}
-                className="w-full flex items-center gap-2 text-left hover:bg-[#f0e5d8] px-2 py-1.5 rounded transition-colors">
+                className="w-full flex items-center gap-2 text-left hover:bg-icon-chip px-2 py-1.5 rounded transition-colors">
                 {unread ? (
                   <Circle className="w-4 h-4 text-[#976623] shrink-0" fill="currentColor" />
                 ) : (

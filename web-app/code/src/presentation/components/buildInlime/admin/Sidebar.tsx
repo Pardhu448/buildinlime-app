@@ -117,7 +117,7 @@ export function Sidebar({ projectId }: SidebarProps) {
 
   return (
     <>
-      <aside className="w-60 bg-[#fdf8f2] border-r border-[#e5d4c1] flex flex-col">
+      <aside className="w-60 bg-card-surface border-r border-card-border flex flex-col">
         <UserInfo
           name={session?.user?.name || session?.user?.email || ""}
           initials={
@@ -142,7 +142,7 @@ export function Sidebar({ projectId }: SidebarProps) {
             <Link
               to="/projects/$projectId"
               params={{ projectId }}
-              className="flex items-center gap-2 px-3 py-2 mb-2 rounded hover:bg-[#f0e5d8] transition-colors group"
+              className="flex items-center gap-2 px-3 py-2 mb-2 rounded hover:bg-icon-chip transition-colors group"
             >
               <div className="w-5 h-5 rounded bg-[#976623] flex items-center justify-center flex-shrink-0">
                 <span className="text-white text-xs font-bold">{projectName[0]?.toUpperCase()}</span>
@@ -170,7 +170,7 @@ export function Sidebar({ projectId }: SidebarProps) {
                 {/* All Projects link */}
                 <Link
                   to="/projects"
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#1e1e1e] hover:bg-[#f0e5d8] rounded transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#1e1e1e] hover:bg-icon-chip rounded transition-colors"
                 >
                   <FolderOpen className="w-4 h-4 text-[#976623] flex-shrink-0" />
                   <span className="font-medium">All Projects</span>
@@ -182,9 +182,9 @@ export function Sidebar({ projectId }: SidebarProps) {
                     key={p.id}
                     to="/projects/$projectId"
                     params={{ projectId: p.id }}
-                    className="w-full flex items-center gap-2 pl-7 pr-3 py-1.5 text-sm text-[#717182] hover:text-[#1e1e1e] hover:bg-[#f0e5d8] rounded transition-colors"
+                    className="w-full flex items-center gap-2 pl-7 pr-3 py-1.5 text-sm text-[#717182] hover:text-[#1e1e1e] hover:bg-icon-chip rounded transition-colors"
                   >
-                    <div className="w-4 h-4 rounded bg-[#e5d4c1] flex items-center justify-center flex-shrink-0">
+                    <div className="w-4 h-4 rounded bg-card-border flex items-center justify-center flex-shrink-0">
                       <span className="text-[#976623] text-[9px] font-bold leading-none">
                         {p.name[0]?.toUpperCase()}
                       </span>
@@ -226,7 +226,7 @@ export function Sidebar({ projectId }: SidebarProps) {
                       return (
                         <div key={bu.id}>
                           {/* Build Unit row */}
-                          <div className="group flex items-center gap-1 rounded hover:bg-[#f0e5d8] transition-colors">
+                          <div className="group flex items-center gap-1 rounded hover:bg-icon-chip transition-colors">
                             <button
                               onClick={() => toggleBu(bu.id)}
                               className="p-1 flex-shrink-0 text-[#717182]"
@@ -259,7 +259,7 @@ export function Sidebar({ projectId }: SidebarProps) {
                                       key={ch.id}
                                       to="/projects/$projectId/$buildUnitName/$channelName/"
                                       params={{ projectId: projectId!, buildUnitName: bu.name, channelName }}
-                                      className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-[#717182] hover:text-[#1e1e1e] hover:bg-[#f0e5d8] rounded transition-colors"
+                                      className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-[#717182] hover:text-[#1e1e1e] hover:bg-icon-chip rounded transition-colors"
                                     >
                                       <Hash className="w-3 h-3 flex-shrink-0" />
                                       <span className="truncate flex-1">
@@ -296,7 +296,7 @@ export function Sidebar({ projectId }: SidebarProps) {
               </button>
               <button
                 onClick={openCreate}
-                className="p-0.5 text-[#717182] hover:text-[#976623] hover:bg-[#f0e5d8] rounded transition-colors"
+                className="p-0.5 text-[#717182] hover:text-[#976623] hover:bg-icon-chip rounded transition-colors"
                 title="Create team"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -352,7 +352,7 @@ export function Sidebar({ projectId }: SidebarProps) {
               placeholder="e.g. Masonry Team"
               required
               autoFocus
-              className="w-full px-3 py-2 border border-[#e5d4c1] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
+              className="w-full px-3 py-2 border border-card-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent"
             />
           </div>
 
@@ -363,20 +363,20 @@ export function Sidebar({ projectId }: SidebarProps) {
               onChange={(e) => setTeamDesc(e.target.value)}
               placeholder="What does this team work on?"
               rows={2}
-              className="w-full px-3 py-2 border border-[#e5d4c1] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
+              className="w-full px-3 py-2 border border-card-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#976623] focus:border-transparent resize-none"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-[#1e1e1e] mb-2">Members</label>
-            <div className="max-h-48 overflow-y-auto border border-[#e5d4c1] rounded-md divide-y divide-[#f0e5d8]">
+            <div className="max-h-48 overflow-y-auto border border-card-border rounded-md divide-y divide-icon-chip">
               {(allUsers ?? []).map((user) => {
                 const isCreator = user.id === currentUserId;
                 const checked = selectedMemberIds.includes(user.id);
                 return (
                   <label
                     key={user.id}
-                    className={`flex items-center gap-3 px-3 py-2 hover:bg-[#fdf8f2] transition-colors ${
+                    className={`flex items-center gap-3 px-3 py-2 hover:bg-card-surface transition-colors ${
                       isCreator ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
                     }`}
                   >
@@ -387,7 +387,7 @@ export function Sidebar({ projectId }: SidebarProps) {
                       onChange={() => toggleMember(user.id)}
                       className="accent-[#976623]"
                     />
-                    <div className="w-6 h-6 rounded-full bg-[#e5d4c1] flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
+                    <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-[#976623] text-xs font-medium flex-shrink-0">
                       {((user.name || user.email || "?")[0] ?? "?").toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -408,7 +408,7 @@ export function Sidebar({ projectId }: SidebarProps) {
           <button
             type="submit"
             disabled={isSubmitting || !teamName.trim()}
-            className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="w-full bg-[#976623] hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             {isSubmitting ? "Creating…" : "Create Team"}
           </button>

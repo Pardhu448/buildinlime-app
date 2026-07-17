@@ -64,7 +64,7 @@ export function NewProjectButton() {
           setOfflineError(false);
           setIsPopupOpen(true);
         }}
-        className="bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+        className="bg-[#976623] hover:bg-primary-hover text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
       >
         <Plus className="w-4 h-4" />
         <span
@@ -129,7 +129,7 @@ export function NewProjectButton() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-[#976623] hover:bg-[#7d5419] disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            className="w-full bg-[#976623] hover:bg-primary-hover disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
             {isSubmitting ? "Creating…" : "Create Project"}
           </button>

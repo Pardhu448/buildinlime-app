@@ -123,7 +123,7 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
           setOfflineError(false);
           setIsPopupOpen(true);
         }}
-        className="bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+        className="bg-[#976623] hover:bg-primary-hover text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
       >
         <Plus className="w-4 h-4" />
         <span
@@ -197,7 +197,7 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            className="w-full bg-[#976623] hover:bg-primary-hover text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
             Create Channel
           </button>

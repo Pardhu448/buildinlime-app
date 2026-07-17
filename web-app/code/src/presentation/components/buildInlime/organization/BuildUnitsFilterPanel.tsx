@@ -68,8 +68,8 @@ export function BuildUnitsFilterPanel({ initialFilters, onApply, onClose }: Buil
   };
 
   return (
-    <aside className="w-72 shrink-0 border-l border-[#e5d4c1] bg-white overflow-y-auto">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#e5d4c1]">
+    <aside className="w-72 shrink-0 border-l border-card-border bg-white overflow-y-auto">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-card-border">
         <h2 className="font-semibold text-[14px] text-[#1e1e1e]">Filters</h2>
         <button
           onClick={onClose}
@@ -164,7 +164,7 @@ export function BuildUnitsFilterPanel({ initialFilters, onApply, onClose }: Buil
         <div className="flex items-center gap-2 pt-2">
           <button
             type="submit"
-            className="flex-1 bg-[#976623] hover:bg-[#7d5419] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="flex-1 bg-[#976623] hover:bg-primary-hover text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             Apply
           </button>

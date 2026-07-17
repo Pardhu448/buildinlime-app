@@ -63,7 +63,7 @@ export function Header() {
           <Link
             to="/login"
             search={{ mode: "signup" }}
-            className="bg-[#976623] hover:bg-[#7d5419] text-white px-[24px] py-[12px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] transition-colors"
+            className="bg-[#976623] hover:bg-primary-hover text-white px-[24px] py-[12px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Sign up

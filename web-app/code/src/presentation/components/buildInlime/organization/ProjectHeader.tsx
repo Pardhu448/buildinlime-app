@@ -10,7 +10,7 @@ interface ProjectHeaderProps {
 export function ProjectHeader({ title, description, icon: Icon = Boxes }: ProjectHeaderProps) {
   return (
     <div className="flex items-start gap-4 mb-6">
-      <div className="w-12 h-12 rounded bg-[#f0e5d8] border border-[#e5d4c1] flex items-center justify-center">
+      <div className="w-12 h-12 rounded bg-icon-chip border border-card-border flex items-center justify-center">
         <Icon className="w-6 h-6 text-[#976623]" />
       </div>
       <div className="flex-1">
