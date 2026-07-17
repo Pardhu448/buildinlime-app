@@ -7,7 +7,7 @@ if (typeof crypto !== "undefined" && !crypto.randomUUID) {
   ;(crypto as any).randomUUID = ExpoCrypto.randomUUID
 }
 import "react-native-gesture-handler"
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native"
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
   useFonts,
@@ -23,7 +23,6 @@ import { ActivityIndicator, View } from "react-native"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 import "react-native-reanimated"
 
-import { useColorScheme } from "@/components/useColorScheme"
 import { useSession, signOutAndDispose, clearAuthCookies } from "@/src/infrastructure/auth/client"
 import { ProjectProvider, useProjectContext } from "@/src/application/context/ProjectContext"
 import { waitForLiveQueryRelease } from "@/src/application/collections/live-query-release"
@@ -61,13 +60,15 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme()
   const [queryClient] = useState(() => new QueryClient())
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        {/* Pinned light: the app has no dark tokens and no dark: variants, so
+            following the device scheme only darkened the navigation chrome
+            while every screen stayed light. */}
+        <ThemeProvider value={DefaultTheme}>
           <ProjectProvider>
             <AuthGuard />
           </ProjectProvider>
