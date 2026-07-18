@@ -1,12 +1,14 @@
 import { useState } from "react"
 import { Send } from "lucide-react"
-import { useMentions, type MentionUser } from "./use-mentions"
+import { useMentions  } from "./use-mentions"
+import type {MentionUser} from "./use-mentions";
 import { MentionDropdown } from "./MentionDropdown"
 import {
   MessageAttachmentPicker,
-  PendingAttachmentChips,
-  type PendingAttachment,
+  PendingAttachmentChips
+  
 } from "./MessageResourceSection"
+import type {PendingAttachment} from "./MessageResourceSection";
 
 // Re-exported for the call sites that still import the mention helpers from here.
 export { mentionDisplayName, type MentionUser } from "./use-mentions"

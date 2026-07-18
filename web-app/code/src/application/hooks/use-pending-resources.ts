@@ -7,7 +7,8 @@ import {
   scheduleDecision,
 } from "@buildinlime/sync-core"
 import type { UploadStatus } from "@buildinlime/sync-core"
-import { dbGetAll, dbPut, dbDelete, type StoredResource } from "./pending-resources-db"
+import { dbGetAll, dbPut, dbDelete  } from "./pending-resources-db"
+import type {StoredResource} from "./pending-resources-db";
 
 // Retry/backoff numbers and the status vocabulary are shared with mobile — see
 // @buildinlime/sync-core's upload-policy. Re-exported because the schedule
@@ -126,7 +127,7 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
         }
       })
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Mount-only on purpose: this hydrates the pending queue once.
   }, [])
 
   const doUpload = useCallback(async (id: string) => {

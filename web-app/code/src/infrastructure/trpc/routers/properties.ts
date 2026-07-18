@@ -17,7 +17,7 @@ import {
  *
  * `closed_at` is stamped on completion so "when was this finished" is answerable.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 async function syncTaskCompletion(tx: any, property: {
   type: string
   entity: string

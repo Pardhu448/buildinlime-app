@@ -2,15 +2,17 @@ import { useState } from "react"
 import { MessageCircle, ChevronDown, ChevronRight, Send, X, Trash2 } from "lucide-react"
 import { deleteMessageAction } from "%/application/actions/messages"
 import type { PendingResource } from "%/application/hooks/use-pending-resources"
-import { useMentions, type MentionUser } from "./use-mentions"
+import { useMentions  } from "./use-mentions"
+import type {MentionUser} from "./use-mentions";
 import { MentionDropdown } from "./MentionDropdown"
 import { MessagePendingChips } from "./MessagePendingChips"
 import {
   MessageResourceDisplay,
   MessageAttachmentPicker,
-  PendingAttachmentChips,
-  type PendingAttachment,
+  PendingAttachmentChips
+  
 } from "./MessageResourceSection"
+import type {PendingAttachment} from "./MessageResourceSection";
 import { formatDateTime } from "%/presentation/lib/datetime"
 import type { MessageRow } from "@buildinlime/contracts"
 import { toDate } from "@buildinlime/contracts"

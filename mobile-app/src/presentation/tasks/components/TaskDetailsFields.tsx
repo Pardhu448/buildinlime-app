@@ -53,7 +53,7 @@ export function TaskDetailsFields({
             </TouchableOpacity>
           )}
         </View>
-        {!canAssign && <FieldHint>Only the task's creator can assign it.</FieldHint>}
+        {!canAssign && <FieldHint>Only the task&apos;s creator can assign it.</FieldHint>}
       </TaskField>
 
       {properties.length > 0 && (

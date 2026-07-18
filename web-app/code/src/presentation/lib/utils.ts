@@ -3,10 +3,6 @@ import type { ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import type { Property } from '%/domain/communication/types'
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
-
 // Re-exported, not redefined. This file used to carry its OWN copy returning
 // `unknown` — a third implementation alongside the one in @buildinlime/contracts
 // that sync-core re-exports — so every unwrapped jsonb value arrived untyped in
@@ -23,6 +19,10 @@ export function cn(...inputs: ClassValue[]) {
 // changes what those schemas infer. Presentation gets the convenient type; the
 // schemas keep the function they were written against.
 import { unwrapJsonb as unwrapJsonbRaw } from '@buildinlime/contracts'
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
 
 /** Unwraps a jsonb column. Defaults to `string` — every jsonb column here is a
  *  string enum. Pass an explicit type argument for anything else. */

@@ -14,17 +14,19 @@ import {
   STATUS_PILL_STYLES,
   PRIORITY_PILL_STYLES,
   TASK_STATUS_PILL_STYLES,
-  DEFAULT_PILL,
-  type PillStyle,
+  DEFAULT_PILL
+  
 } from "./PropertyPill"
+import type {PillStyle} from "./PropertyPill";
 import {
   PROPERTY_TYPE_LABELS,
   DEFAULT_VALUE_STATE,
   valueStateFrom,
   buildPropertyValues,
-  PropertyValueInput,
-  type ValueState,
+  PropertyValueInput
+  
 } from "./property-form"
+import type {ValueState} from "./property-form";
 
 export interface PropertiesPanelProps {
   properties: Property[];

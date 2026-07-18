@@ -1,6 +1,7 @@
 import { Input, Select } from "../shared/FormField"
 import type { Property } from "%/domain/communication/types"
-import { PROPERTY_TYPES, STATUS_VALUES, PRIORITY_VALUES, TASK_STATUS_VALUES } from "%/domain/shared/types"
+import type { PROPERTY_TYPES} from "%/domain/shared/types";
+import { STATUS_VALUES, PRIORITY_VALUES, TASK_STATUS_VALUES } from "%/domain/shared/types"
 import { STATUS_VALUE_LABELS, PRIORITY_LABELS, TASK_STATUS_LABELS } from "./PropertyPill"
 
 // Full type labels used in the add-property form's type select (and the panel's
