@@ -1,14 +1,12 @@
 import { useState } from "react"
 import { useLiveQuery, eq } from "@tanstack/react-db"
-import { Plus, Download, X } from "lucide-react"
-import { format } from "date-fns"
+import { Plus } from "lucide-react"
 import { resourcesCollection, tasksCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
 import { deleteResourceAction } from "%/application/actions/resources"
 import { usePendingResources } from "%/application/hooks/use-pending-resources"
 import { AddResourceForm } from "./add-resource-form"
-import { ResourceThumbnail } from "./ResourceThumbnail"
-import { UploadSchedulePopover } from "./upload-schedule-popover"
-import { formatDateTime } from "%/presentation/lib/datetime"
+import { PendingResourceRow } from "./PendingResourceRow"
+import { SyncedResourceRow } from "./SyncedResourceRow"
 
 export interface ResourcesSectionProps {
   channelId: string | null
@@ -17,13 +15,6 @@ export interface ResourcesSectionProps {
   projectId: string
   createdbyId: string
   memberIds: string[]
-}
-
-function formatBytes(bytes: number | bigint) {
-  const n = Number(bytes)
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`
 }
 
 export function ResourcesSection({
@@ -129,76 +120,13 @@ export function ResourcesSection({
       {pendingResources.length > 0 && (
         <div className="space-y-1.5 mb-2">
           {pendingResources.map((r) => (
-            <div
+            <PendingResourceRow
               key={r.id}
-              className="flex items-center gap-2 px-3 py-2 bg-card-surface border border-card-border rounded"
-            >
-              {/* Previews from the local blob while it is still uploading — the bytes
-                  are already here, so it costs no request. */}
-              <ResourceThumbnail
-                localUrl={r.objectUrl}
-                mimeType={r.file.type}
-                size={36}
-              />
-
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground truncate">{r.name}</p>
-                {r.status === "scheduled" && r.scheduledAt && (
-                  <p className="text-[10px] text-primary">
-                    Scheduled: {format(r.scheduledAt, "MMM d, h:mm a")}
-                  </p>
-                )}
-                {r.status === "error" && (
-                  <p className="text-[10px] text-red-500">{r.errorMessage}</p>
-                )}
-                {r.status === "awaiting_network" && (
-                  <p className="text-[10px] text-primary">
-                    Waiting for network — will upload when back online
-                  </p>
-                )}
-                {r.status === "uploading" && (
-                  <p className="text-[10px] text-muted-foreground">Uploading…</p>
-                )}
-                {r.status === "awaiting_schedule" && (
-                  <p className="text-[10px] text-muted-foreground">
-                    {formatBytes(r.file.size)} · waiting to upload
-                  </p>
-                )}
-              </div>
-
-              {/* Local download (from objectUrl) */}
-              <a
-                href={r.objectUrl}
-                download={r.file.name}
-                title="Download local copy"
-                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-              </a>
-
-              {/* Upload schedule popover */}
-              <UploadSchedulePopover
-                resourceId={r.id}
-                status={r.status}
-                scheduledAt={r.scheduledAt}
-                onSchedule={(id, scheduledAt) =>
-                  r.status === "error"
-                    ? retryUpload(id)
-                    : scheduleUpload(id, scheduledAt)
-                }
-              />
-
-              {/* Cancel/remove */}
-              {r.status !== "uploading" && (
-                <button
-                  onClick={() => cancelPending(r.id)}
-                  title="Remove"
-                  className="p-1 text-muted-foreground hover:text-red-500 transition-colors"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+              resource={r}
+              scheduleUpload={scheduleUpload}
+              retryUpload={retryUpload}
+              cancelPending={cancelPending}
+            />
           ))}
         </div>
       )}
@@ -207,50 +135,12 @@ export function ResourcesSection({
       {syncedResources.length > 0 && (
         <div className="space-y-1.5">
           {syncedResources.map((r) => (
-            <div
+            <SyncedResourceRow
               key={r.id}
-              className="flex items-center gap-2 px-3 py-2 bg-card-surface border border-card-border rounded hover:bg-icon-chip transition-colors"
-            >
-              <ResourceThumbnail
-                fileLocation={r.file_location}
-                mimeType={r.mime_type}
-                size={36}
-              />
-
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground truncate">{r.name}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {formatDateTime(r.uploaded_at)}
-                  {` · ${formatBytes(r.file_size_bytes)}`}
-                  {r.description ? ` · ${r.description}` : ""}
-                </p>
-              </div>
-
-              {/* Download from server */}
-              <a
-                href={r.file_location}
-                download
-                title="Download"
-                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-              </a>
-
-              {/* Delete — uploader, or the creator of the task this file hangs off.
-                  The server enforces it (FORBIDDEN otherwise); hiding the button is
-                  courtesy, not the control. It used to render unconditionally, so
-                  deleting someone else's file optimistically removed the row and then
-                  snapped it back when the server refused, with nothing shown. */}
-              {canDelete(r.createdby_id as string) && (
-                <button
-                  onClick={() => deleteResourceAction({ id: r.id })}
-                  title="Delete resource"
-                  className="p-1 text-muted-foreground hover:text-red-500 transition-colors"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+              resource={r}
+              canDelete={canDelete(r.createdby_id as string)}
+              onDelete={(id) => deleteResourceAction({ id })}
+            />
           ))}
         </div>
       )}

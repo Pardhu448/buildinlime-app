@@ -3,19 +3,15 @@ import { Paperclip, X, Download } from "lucide-react"
 import { useLiveQuery, eq } from "@tanstack/react-db"
 import { resourcesCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
 import { formatDateTime } from "%/presentation/lib/datetime"
+import { formatBytes } from "%/presentation/lib/format-bytes"
 import { ResourceThumbnail } from "./ResourceThumbnail"
+
 export { parseTextArray } from "%/presentation/lib/utils"
 
 export interface PendingAttachment {
   id: string
   file: File
   objectUrl: string
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 // ── Paperclip trigger + hidden file input ──────────────────────────────────
