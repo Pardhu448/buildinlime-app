@@ -61,7 +61,7 @@ async function loadMembershipsCollection(timeoutMs = 10000): Promise<void> {
 
 export const Route = createFileRoute('/_authenticated')({
   ssr: false,
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const cached = authStateCollection.get(`auth`)
     let sessionData: unknown
     if (cached?.session && cached.session.expiresAt > new Date()) {
@@ -75,11 +75,22 @@ export const Route = createFileRoute('/_authenticated')({
           doc.user = result.data?.user ?? null
         })
       } else {
-        authStateCollection.insert({ id: `auth`, ...result.data })
+        // Spreading result.data left `session`/`user` optional, while the row
+        // requires both present (nullable). Same normalisation the update branch
+        // above already does.
+        authStateCollection.insert({
+          id: `auth`,
+          session: result.data?.session ?? null,
+          user: result.data?.user ?? null,
+        })
       }
 
       if (!result.data?.session) {
-        throw redirect({ to: `/login` })
+        // returnTo is what LoginForm navigates to after a successful sign-in. It
+        // was never populated — every bounce landed you at "/" regardless of
+        // where you were headed — because the only callers passing search were
+        // the marketing header's Login/Sign up links.
+        throw redirect({ to: `/login`, search: { returnTo: location.href, mode: `login` } })
       }
 
       sessionData = result.data
@@ -284,7 +295,12 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     if (!isPending && !session) {
-      navigate({ to: '/login' })
+      // Same returnTo reasoning as the beforeLoad redirect above. This path is
+      // the session going away mid-visit rather than a cold load.
+      navigate({
+        to: '/login',
+        search: { returnTo: window.location.pathname + window.location.search, mode: 'login' },
+      })
     }
   }, [session, isPending, navigate])
 

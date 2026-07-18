@@ -1,5 +1,5 @@
+import type { LucideIcon } from "lucide-react"
 import { createContext, useContext } from 'react'
-import type React from 'react'
 
 // ── BuildUnit context ─────────────────────────────────────────────────────────
 // Provided by the $buildUnitName layout route. Gives all descendants immediate
@@ -28,7 +28,9 @@ export function useBuildUnitContext(): BuildUnitContextValue {
 export type ChannelContextValue = {
   channelId: string
   channelDescription: string
-  channelIcon: React.ElementType
+  // Always a lucide icon (CHANNEL_ICONS, or the ClipboardCheck fallback), and
+  // consumers ask for LucideIcon — ElementType was wider than anything supplied.
+  channelIcon: LucideIcon
 }
 
 const ChannelContext = createContext<ChannelContextValue | null>(null)
