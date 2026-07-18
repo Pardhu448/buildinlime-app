@@ -45,12 +45,15 @@ export function useInboxPage() {
     const buildUnit = getBuildUnit(msg.buildunit_id)
     const channel = getChannel(msg.channel_id)
     if (!buildUnit || !channel) return
+    // Bound before the call: inferring through the params union picks `undefined`
+    // for the generic rather than its `string` default.
+    const channelName = unwrapJsonb(channel.name)
     navigate({
-      to: "/projects/$projectId/$buildUnitName/$channelName/",
+      to: "/projects/$projectId/$buildUnitName/$channelName",
       params: {
         projectId: msg.project_id,
         buildUnitName: buildUnit.name,
-        channelName: unwrapJsonb(channel.name),
+        channelName,
       },
       // Carry the message id so the channel can scroll to it. Without this the
       // Inbox only ever landed you at the top of the channel, leaving you to

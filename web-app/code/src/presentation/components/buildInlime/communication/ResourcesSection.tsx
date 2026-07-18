@@ -135,7 +135,7 @@ export function ResourcesSection({
             <SyncedResourceRow
               key={r.id}
               resource={r}
-              canDelete={canDelete(r.createdby_id as string)}
+              canDelete={canDelete(r.createdby_id)}
               onDelete={(id) => deleteResourceAction({ id })}
             />
           ))}

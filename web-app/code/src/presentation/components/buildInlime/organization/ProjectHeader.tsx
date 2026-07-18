@@ -1,7 +1,7 @@
 import { Boxes } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-interface ProjectHeaderProps {
+export interface ProjectHeaderProps {
   title: string;
   description: string;
   icon?: LucideIcon;

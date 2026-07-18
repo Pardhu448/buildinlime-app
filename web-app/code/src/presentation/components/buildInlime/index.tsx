@@ -59,7 +59,8 @@ export { Header } from "./Header";
 export { Hero } from "./Hero";
 export { LoginCard } from "./LoginCard";
 export { LoginDecorativeImage } from "./LoginDecorativeImage";
-export { LoginForm, type LoginFormProps } from "./LoginForm";
+// LoginForm takes no props — it reads its mode from the route search.
+export { LoginForm } from "./LoginForm";
 export { LoginHeader } from "./LoginHeader";
 export { LoginTerms } from "./LoginTerms";
 export { NavButton } from "./NavButton";
