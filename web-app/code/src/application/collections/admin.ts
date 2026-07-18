@@ -1,3 +1,4 @@
+import type { TeamRow, UserRow } from "@buildinlime/contracts"
 import { teamRowSchema } from "@buildinlime/contracts"
 import { usersSpec } from "@buildinlime/sync-core"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
@@ -14,7 +15,7 @@ import { defineCollection, NEVER_GC } from "./_shared"
 function _makeUsersCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
 ) {
-  return defineCollection({ ...usersSpec(), persistence })
+  return defineCollection<UserRow>({ ...usersSpec(), persistence })
 }
 
 // Deferred export — initialized by initializeUsersCollection() in
@@ -32,7 +33,7 @@ export async function initializeUsersCollection() {
 function _makeTeamsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
 ) {
-  return defineCollection({
+  return defineCollection<TeamRow>({
     id: `teams`,
     path: `/api/teams`,
     schema: teamRowSchema,

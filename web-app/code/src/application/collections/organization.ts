@@ -1,3 +1,4 @@
+import type { BuildUnitRow, ChannelRow, MembershipRow, ProjectRow } from "@buildinlime/contracts"
 import {
   projectsSpec,
   buildUnitsSpec,
@@ -17,7 +18,7 @@ import { defineCollection, retryOnMembershipsError } from "./_shared"
 function _makeMembershipsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
 ) {
-  return defineCollection({
+  return defineCollection<MembershipRow>({
     ...membershipsSpec(),
     persistence,
     // Reports the error before retrying, so the bootstrap can tell a clean empty
@@ -53,7 +54,7 @@ function _makeChannelMembersCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   channelIds: string[],
 ) {
-  return defineCollection({ ...channelMembersSpec(channelIds), persistence })
+  return defineCollection<MembershipRow>({ ...channelMembersSpec(channelIds), persistence })
 }
 
 // Deferred export — initialized by initializeChannelMembersCollection().
@@ -77,7 +78,7 @@ function _makeProjectsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberProjectIds: string[],
 ) {
-  return defineCollection({
+  return defineCollection<ProjectRow>({
     ...projectsSpec(memberProjectIds),
     persistence,
     handlers: {
@@ -133,7 +134,7 @@ function _makeBuildUnitsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberBuildunitIds: string[],
 ) {
-  return defineCollection({
+  return defineCollection<BuildUnitRow>({
     ...buildUnitsSpec(memberBuildunitIds),
     persistence,
     handlers: {
@@ -197,7 +198,7 @@ function _makeChannelsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({
+  return defineCollection<ChannelRow>({
     ...channelsSpec(memberChannelIds),
     persistence,
     handlers: {

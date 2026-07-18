@@ -1,3 +1,4 @@
+import type { MessageRow, PropertyRow, ResourceRow, SeenStateRow, TaskRow } from "@buildinlime/contracts"
 import {
   tasksSpec,
   messagesSpec,
@@ -33,14 +34,14 @@ function _makeTasksCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({ ...tasksSpec(memberChannelIds), persistence })
+  return defineCollection<TaskRow>({ ...tasksSpec(memberChannelIds), persistence })
 }
 
 function _makeResourcesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({ ...resourcesSpec(memberChannelIds), persistence })
+  return defineCollection<ResourceRow>({ ...resourcesSpec(memberChannelIds), persistence })
 }
 
 function _makePropertiesCollection(
@@ -51,34 +52,34 @@ function _makePropertiesCollection(
     memberChannelIds: string[]
   },
 ) {
-  return defineCollection({ ...propertiesSpec(params), persistence })
+  return defineCollection<PropertyRow>({ ...propertiesSpec(params), persistence })
 }
 
 function _makeMessagesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({ ...messagesSpec(memberChannelIds), persistence })
+  return defineCollection<MessageRow>({ ...messagesSpec(memberChannelIds), persistence })
 }
 
 function _makeSeenStateCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
 ) {
-  return defineCollection({ ...seenStateSpec(), persistence })
+  return defineCollection<SeenStateRow>({ ...seenStateSpec(), persistence })
 }
 
 function _makeInboxMentionsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({ ...inboxMentionsSpec(memberChannelIds), persistence })
+  return defineCollection<MessageRow>({ ...inboxMentionsSpec(memberChannelIds), persistence })
 }
 
 function _makeMyTasksCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({ ...myTasksSpec(memberChannelIds), persistence })
+  return defineCollection<TaskRow>({ ...myTasksSpec(memberChannelIds), persistence })
 }
 
 // ---------------------------------------------------------------------------

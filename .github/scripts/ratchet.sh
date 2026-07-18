@@ -35,31 +35,38 @@ count_errors() {
   fi
 }
 
-check() { # $1 pnpm filter, $2 check-name (== npm script name)
-  local filter="$1" name="$2" out count base status
+# NOTE ON FILTERS: pass a PATH (./web-app/code), never a package name.
+# The root workspace package is itself named `buildinlime`, the same as
+# web-app/code, and the root's own `typecheck` script is
+# `pnpm --filter buildinlime typecheck && ...`. So `--filter buildinlime` matches
+# BOTH packages, the root re-runs the web check nested inside its own output, and
+# every error gets counted twice — the count came out at exactly 2x the real one.
+# A path filter names exactly one package and cannot collide.
+check() { # $1 pnpm filter (a path), $2 check-name (== npm script name), $3 baseline key
+  local filter="$1" name="$2" key="${3:-$1}" out count base status
   out="$(pnpm --filter "$filter" "$name" 2>&1 || true)"
   count="$(count_errors "$name" "$out")"
   count="${count:-0}"
-  base="$(jq -r --arg f "$filter" --arg n "$name" '.[$f][$n]' "$BASELINE")"
+  base="$(jq -r --arg f "$key" --arg n "$name" '.[$f][$n]' "$BASELINE")"
 
   if [ "$count" -gt "$base" ]; then
     status="❌ regression (+$((count - base)))"
     fail=1
-    echo "::error::${filter} ${name}: ${count} errors exceeds baseline ${base}"
+    echo "::error::${key} ${name}: ${count} errors exceeds baseline ${base}"
     printf '%s\n' "$out" | grep -E 'error( TS)?' | head -30
   elif [ "$count" -lt "$base" ]; then
     status="⬇️ improved (−$((base - count))) — lower the baseline"
   else
     status="✅ at baseline"
   fi
-  echo "| ${filter} | ${name} | ${base} | ${count} | ${status} |" >> "$SUMMARY"
-  echo "${filter} ${name}: current=${count} baseline=${base} → ${status}"
+  echo "| ${key} | ${name} | ${base} | ${count} | ${status} |" >> "$SUMMARY"
+  echo "${key} ${name}: current=${count} baseline=${base} → ${status}"
 }
 
-check buildinlime typecheck
-check buildinlime lint
-check buildinlimemobile typecheck
-check buildinlimemobile lint
+check ./web-app/code typecheck buildinlime
+check ./web-app/code lint      buildinlime
+check ./mobile-app  typecheck buildinlimemobile
+check ./mobile-app  lint      buildinlimemobile
 # Shared packages were born clean → baseline 0, i.e. a hard typecheck gate.
 # (No lint entries: the packages have no eslint config yet.)
 check "@buildinlime/contracts" typecheck
