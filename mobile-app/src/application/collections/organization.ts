@@ -5,7 +5,12 @@ import {
   membershipRowSchema,
 } from "@buildinlime/contracts"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
-import { defineCollection, NEVER_GC, safeCleanup } from "./_shared"
+import {
+  defineCollection,
+  retryOnMembershipsError,
+  NEVER_GC,
+  safeCleanup,
+} from "./_shared"
 
 // Row schemas come from @buildinlime/contracts — one copy, shared with web and
 // asserted against the drizzle tables server-side. See ARCHITECTURE.md §10.
@@ -95,14 +100,48 @@ function _makeChannelMembersCollection(
   })
 }
 
+/**
+ * The current user's SELF membership stream — scoped `user_id = me` server-side,
+ * so it takes no id parameters and never rebuilds on scope change.
+ *
+ * This is the collection every other scoped shape derives its id sets from, which
+ * is why it loads first and why its errors are tracked: see loadMembershipsCollection
+ * in ./init and retryOnMembershipsError in ./_shared.
+ */
+function _makeMembershipsCollection(
+  persistence: ReturnType<typeof getPersistence>["persistence"],
+) {
+  return defineCollection({
+    id: `memberships`,
+    path: `/api/memberships`,
+    schema: membershipRowSchema,
+    getKey: (item: { id: string }) => item.id,
+    gcTime: NEVER_GC,
+    persistence,
+    // Reports the error before retrying, so the bootstrap can tell a clean empty
+    // sync apart from a shape that failed and was marked ready anyway — see
+    // retryOnMembershipsError.
+    onError: retryOnMembershipsError,
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Deferred exports — initialized by initializeOrganizationCollections()
 // after memberships preload.
 // ---------------------------------------------------------------------------
+export let membershipsCollection: ReturnType<typeof _makeMembershipsCollection> = null!
 export let projectsCollection: ReturnType<typeof _makeProjectsCollection> = null!
 export let buildUnitsCollection: ReturnType<typeof _makeBuildUnitsCollection> = null!
 export let channelsCollection: ReturnType<typeof _makeChannelsCollection> = null!
 export let channelMembersCollection: ReturnType<typeof _makeChannelMembersCollection> = null!
+
+// Memberships loads FIRST in bootstrap — every other scoped collection derives
+// its shape ids from it. See initBootstrapCollections in ./init.
+export function initializeMembershipsCollection() {
+  const { persistence } = getPersistence()
+  safeCleanup(membershipsCollection)
+  membershipsCollection = _makeMembershipsCollection(persistence)
+}
 
 // Standalone init for the projects collection — called during bootstrap
 // (before a project is selected) so the picker can render all user projects.
@@ -173,10 +212,12 @@ export function reinitializeScopedOrganizationCollections(params: {
 
 export function resetOrganizationCollections() {
   // Stop sync before dropping the references (GC won't do it — it's disabled).
+  safeCleanup(membershipsCollection)
   safeCleanup(projectsCollection)
   safeCleanup(buildUnitsCollection)
   safeCleanup(channelsCollection)
   safeCleanup(channelMembersCollection)
+  membershipsCollection = null!
   projectsCollection = null!
   buildUnitsCollection = null!
   channelsCollection = null!

@@ -1,19 +1,17 @@
 import {
-  initializeMembershipsCollection,
   initializeUsersCollection,
-  initializeSeenStateCollection,
   resetAdminCollections,
-  membershipsCollection,
   usersCollection,
-  seenStateCollection,
 } from "./admin"
 import {
+  initializeMembershipsCollection,
   initializeProjectsCollection,
   initializeOrganizationCollections,
   initializeChannelMembersCollection,
   reinitializeProjectsCollection,
   reinitializeScopedOrganizationCollections,
   resetOrganizationCollections,
+  membershipsCollection,
   projectsCollection,
   buildUnitsCollection,
   channelsCollection,
@@ -22,7 +20,9 @@ import {
 import {
   initializeCommunicationCollections,
   initializePropertiesCollection,
+  initializeSeenStateCollection,
   resetCommunicationCollections,
+  seenStateCollection,
   tasksCollection,
   messagesCollection,
   resourcesCollection,

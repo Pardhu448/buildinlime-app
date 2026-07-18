@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react"
 import { useLiveQuery } from "@tanstack/react-db"
-import { seenStateCollection } from "@/src/application/collections/admin"
+import { seenStateCollection } from "@/src/application/collections/communication"
 import { markSeenAction } from "@/src/application/actions/seen"
 import { useSession } from "@/src/infrastructure/auth/client"
 

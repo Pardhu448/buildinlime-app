@@ -9,7 +9,7 @@ import {
   membershipSetsChanged,
   resyncProjectCollections,
 } from "@/src/application/collections/init"
-import { membershipsCollection } from "@/src/application/collections/admin"
+import { membershipsCollection } from "@/src/application/collections/organization"
 import { waitForLiveQueryRelease } from "@/src/application/collections/live-query-release"
 import { initOfflineExecutor } from "@/src/infrastructure/offline/executor"
 import { initUploadManager } from "@/src/infrastructure/offline/upload-manager"

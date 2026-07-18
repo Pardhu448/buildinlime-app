@@ -5,8 +5,8 @@ import {
   messagesCollection,
   resourcesCollection,
   propertiesCollection,
+  seenStateCollection,
 } from "../../application/collections/communication"
-import { seenStateCollection } from "../../application/collections/admin"
 import { mutationFns } from "./mutation-fns"
 import { sqliteStorageAdapter } from "./storage"
 import { getOnlineDetector } from "./online-detector"

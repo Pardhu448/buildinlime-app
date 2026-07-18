@@ -3,6 +3,7 @@ import {
   messageRowSchema,
   resourceRowSchema,
   propertyRowSchema,
+  seenStateRowSchema,
 } from "@buildinlime/contracts"
 import { trpc } from "../../infrastructure/trpc/client"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
@@ -198,16 +199,52 @@ function _makeMyTasksCollection(
   })
 }
 
+/**
+ * The current user's "last seen" markers — the timestamp successor to the reads
+ * collection. Shape scoped `user_id = me` server-side (web-app
+ * routes/api/seen-state.ts) with no query parameter able to widen it — so it
+ * takes no membership ids and never rebuilds on scope change, exactly like reads.
+ *
+ * Key is composite: one row per (user, scope, scope_id). NEVER_GC because the
+ * always-mounted DrawerContent badges subscribe to it, so it never idles.
+ */
+export const seenKey = (userId: string, scope: string, scopeId: string) =>
+  `${userId}:${scope}:${scopeId}`
+
+function _makeSeenStateCollection(
+  persistence: ReturnType<typeof getPersistence>["persistence"],
+) {
+  return defineCollection({
+    id: `seen-state`,
+    path: `/api/seen-state`,
+    schema: seenStateRowSchema,
+    getKey: (item: { user_id: string; scope: string; scope_id: string }) =>
+      seenKey(item.user_id, item.scope, item.scope_id),
+    gcTime: NEVER_GC,
+    persistence,
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Deferred exports — initialized by initializeCommunicationCollections()
 // and initializePropertiesCollection() after memberships and tasks preload.
 // ---------------------------------------------------------------------------
+export let seenStateCollection: ReturnType<typeof _makeSeenStateCollection> = null!
 export let tasksCollection: ReturnType<typeof _makeTasksCollection> = null!
 export let messagesCollection: ReturnType<typeof _makeMessagesCollection> = null!
 export let resourcesCollection: ReturnType<typeof _makeResourcesCollection> = null!
 export let propertiesCollection: ReturnType<typeof _makePropertiesCollection> = null!
 export let inboxMentionsCollection: ReturnType<typeof _makeInboxMentionsCollection> = null!
 export let myTasksCollection: ReturnType<typeof _makeMyTasksCollection> = null!
+
+// Seen state is scoped `user_id = me` server-side, not by membership, so it is
+// initialized during BOOTSTRAP alongside users — not with the channel-scoped
+// collections below, and it never rebuilds on a scope change.
+export function initializeSeenStateCollection() {
+  const { persistence } = getPersistence()
+  safeCleanup(seenStateCollection)
+  seenStateCollection = _makeSeenStateCollection(persistence)
+}
 
 export function initializeCommunicationCollections(params: {
   memberChannelIds: string[]
@@ -242,6 +279,8 @@ export function initializePropertiesCollection(params: {
 
 export function resetCommunicationCollections() {
   // Stop sync before dropping the references (GC won't do it — it's disabled).
+  safeCleanup(seenStateCollection)
+  seenStateCollection = null!
   safeCleanup(tasksCollection)
   safeCleanup(messagesCollection)
   safeCleanup(resourcesCollection)
