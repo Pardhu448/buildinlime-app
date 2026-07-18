@@ -39,7 +39,8 @@ function ProjectsRoute() {
   })
 
   const onProjectClick = (project: { id: string; name: string }) => {
-    navigate({ to: '/projects/$projectId', params: { projectId: project.id }, state: { projectName: project.name } })
+    // `state: { projectName }` removed — never read; see use-project-build-units.
+    navigate({ to: '/projects/$projectId', params: { projectId: project.id } })
   }
 
 return (

@@ -93,10 +93,12 @@ export function useProjectBuildUnits(projectId: string) {
   const buildUnits = [...dbBuildUnits, ...ghostRows]
 
   const onBuildUnitClick = (buildUnit: { id: string; name: string; desc: string }) => {
+    // No `state` payload: nothing in the app reads router/history state, and
+    // these three keys were never consumed anywhere. The destination re-derives
+    // what it needs from the URL params and its own live queries.
     navigate({
       to: "/projects/$projectId/$buildUnitName",
       params: { projectId, buildUnitName: buildUnit.name },
-      state: { buildUnitId: buildUnit.id, unitDescription: buildUnit.desc, projectName },
     })
   }
 

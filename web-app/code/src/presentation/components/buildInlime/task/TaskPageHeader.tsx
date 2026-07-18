@@ -41,14 +41,16 @@ export function TaskPageHeader({
           </Link>
           <ChevronRight className="w-4 h-4" />
           <Link
-            href={`/projects/${projectId}/${buildUnitName}`}
+            to="/projects/$projectId/$buildUnitName"
+            params={{ projectId, buildUnitName }}
             className="hover:text-foreground transition-colors"
           >
             {buildUnitName}
           </Link>
           <ChevronRight className="w-4 h-4" />
           <Link
-            href={`/projects/${projectId}/${buildUnitName}/${channelName}`}
+            to="/projects/$projectId/$buildUnitName/$channelName"
+            params={{ projectId, buildUnitName, channelName }}
             className="hover:text-foreground transition-colors"
           >
             {channelName}
