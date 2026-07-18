@@ -28,7 +28,6 @@ export interface PendingResource {
   buildunitId: string
   projectId: string
   createdbyId: string
-  memberIds: string[]
   errorMessage?: string
 }
 
@@ -41,7 +40,6 @@ export interface AddPendingOptions {
   buildunitId: string
   projectId: string
   createdbyId: string
-  memberIds: string[]
 }
 
 export function usePendingResources(filterChannelId: string | null, filterTaskId?: string | null) {
@@ -160,7 +158,9 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
     if (resource.messageId) formData.append("messageId", resource.messageId)
     formData.append("buildunitId", resource.buildunitId)
     formData.append("projectId", resource.projectId)
-    formData.append("memberIds", JSON.stringify(resource.memberIds))
+    // No memberIds: the upload handler never read it, and resources no longer
+    // carry a member_ids column at all — access is resolved through the
+    // channel's memberships instead (see fileStorage.ts serveResourceFile).
 
     try {
       const res = await fetch("/api/resources/upload", {
@@ -233,7 +233,6 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
       buildunitId: opts.buildunitId,
       projectId: opts.projectId,
       createdbyId: opts.createdbyId,
-      memberIds: opts.memberIds,
     }
     // Update ref synchronously so doUpload can find the resource even when
     // scheduleUpload is called immediately after addPending in the same loop

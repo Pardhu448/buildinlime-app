@@ -21,9 +21,11 @@ export interface StoredResource {
   buildunitId: string
   projectId: string
   createdbyId: string
-  memberIds: string[]
   errorMessage?: string
 }
+// Rows written before memberIds was dropped still carry the key in IndexedDB.
+// That is harmless — it is read back as an untyped extra property and never
+// sent — so no migration is needed.
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
