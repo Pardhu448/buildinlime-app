@@ -2,11 +2,7 @@ import { useState } from "react"
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   ScrollView,
-  Modal,
-  Pressable,
   ActivityIndicator,
   StyleSheet,
   Keyboard,
@@ -17,7 +13,6 @@ import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLiveQuery, eq } from "@tanstack/react-db"
 import * as Crypto from "expo-crypto"
-import { CheckCircle2, Circle, UserPlus, X, Trash2 } from "lucide-react-native"
 import {
   tasksCollection,
   messagesCollection,
@@ -30,10 +25,14 @@ import {
 import { updateTaskAction, deleteTaskAction } from "@/src/application/actions/tasks"
 import { createMessageAction } from "@/src/application/actions/messages"
 import { usePropertiesByEntity } from "@/src/presentation/properties/hooks/useProperties"
-import { PropertyPill } from "@/src/presentation/properties/components/PropertyPill"
 import { ResourcesSheet } from "@/src/presentation/resources/components/ResourcesSheet"
+import { BackHeader } from "@/src/presentation/shared/components/BackHeader"
+import { TaskStatusControl } from "@/src/presentation/tasks/components/TaskStatusControl"
+import { TaskDetailsFields } from "@/src/presentation/tasks/components/TaskDetailsFields"
+import { TaskStatusHistory } from "@/src/presentation/tasks/components/TaskStatusHistory"
+import { AssigneePickerModal } from "@/src/presentation/tasks/components/AssigneePickerModal"
+import { buildStatusNoteText } from "@/src/presentation/tasks/lib/status-note"
 import { useUsers } from "@/src/presentation/shared/hooks/useUsers"
-import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { colors } from "@/src/presentation/shared/colors"
 import type { Message, Property, Task } from "@buildinlime/domain-types"
@@ -127,11 +126,10 @@ export default function TaskScreen() {
     ? taskStatus.task_status_value === "completed"
     : task.completed
 
-  // Only the creator may assign. The server enforces this (tasks.update returns
-  // FORBIDDEN otherwise) — hiding the button is courtesy, not the control.
+  // Only the creator may assign or delete. The server enforces this (tasks.update
+  // and tasks.delete return FORBIDDEN otherwise) — hiding the buttons is courtesy,
+  // not the control.
   const canAssign = !!task.createdby_id && task.createdby_id === currentUserId
-  // Creator only. The server enforces it (tasks.delete returns FORBIDDEN otherwise);
-  // hiding the button is courtesy, not the control.
   const canDelete = canAssign
 
   function confirmDelete() {
@@ -175,33 +173,16 @@ export default function TaskScreen() {
     })
   }
 
-  /**
-   * A status change must be explained. The note is posted as an ordinary channel
-   * message — tasks have no notes table, and messages carry no task_id, so this
-   * is a record in the channel rather than a history on the task. That is the
-   * accepted trade: zero schema change, and the team sees the reason in context.
-   *
-   * The note is REQUIRED: Confirm stays disabled until it is non-empty.
-   */
+  /** A status change must be explained — see buildStatusNoteText. */
   function confirmStatusChange() {
     const trimmed = note.trim()
     if (!trimmed || !currentUserId || submitting) return
     const next: "open" | "completed" = completed ? "open" : "completed"
     setSubmitting(true)
     try {
-      // messages.text is varchar(500). The note is the part worth keeping, so the
-      // task name is what gets truncated if the two together would overflow.
-      const label = next === "completed" ? `completed` : `reopened`
-      const prefix = `Task ${label}: `
-      const suffix = ` — ${trimmed}`
-      const room = 500 - prefix.length - suffix.length
-      const name =
-        task.name.length > room && room > 1
-          ? `${task.name.slice(0, room - 1)}…`
-          : task.name
       createMessageAction({
         id: Crypto.randomUUID(),
-        text: `${prefix}${name}${suffix}`.slice(0, 500),
+        text: buildStatusNoteText({ taskName: task.name, next, note: trimmed }),
         channel_id: channelId,
         buildunit_id: buildUnitId,
         project_id: projectId,
@@ -213,21 +194,22 @@ export default function TaskScreen() {
       // Status flips only after the note is recorded, so a task can never end up
       // completed with no explanation in the channel.
       applyStatus(next)
-      setNote("")
-      setNoteOpen(false)
-      Keyboard.dismiss()
+      closeNote()
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function closeNote() {
+    setNote("")
+    setNoteOpen(false)
+    Keyboard.dismiss()
   }
 
   function assignTo(userId: string | null) {
     updateTaskAction({ id: taskId, patch: { assignee_id: userId } })
     setAssignOpen(false)
   }
-
-  const assigneeName = task.assignee_id ? usersMap[task.assignee_id] : undefined
-  const creatorName = usersMap[task.createdby_id] ?? "Unknown"
 
   return (
     // "padding", not "height" — under edge-to-edge the window does not resize for
@@ -238,36 +220,20 @@ export default function TaskScreen() {
       behavior="padding"
       keyboardVerticalOffset={0}
     >
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          activeOpacity={0.6}
-        >
-          <Text style={styles.backArrow}>‹</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {task.name}
-        </Text>
-        {/* Attachments for THIS task — same sheet as the channel's, in task mode. */}
-        <ResourcesSheet
-          channelId={channelId}
-          buildUnitId={buildUnitId}
-          projectId={projectId}
-          taskId={taskId}
-        />
-        {canDelete && (
-          <TouchableOpacity
-            onPress={confirmDelete}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            activeOpacity={0.6}
-            style={styles.headerAction}
-          >
-            <Trash2 size={18} color={colors.mutedForeground} strokeWidth={2} />
-          </TouchableOpacity>
-        )}
-      </View>
+      <BackHeader
+        title={task.name}
+        onBack={() => router.back()}
+        onDelete={canDelete ? confirmDelete : undefined}
+        // Attachments for THIS task — same sheet as the channel's, in task mode.
+        actions={
+          <ResourcesSheet
+            channelId={channelId}
+            buildUnitId={buildUnitId}
+            projectId={projectId}
+            taskId={taskId}
+          />
+        }
+      />
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
@@ -278,184 +244,37 @@ export default function TaskScreen() {
           <Text style={styles.description}>{task.description}</Text>
         ) : null}
 
-        {/* Status — the one interactive control on this screen. It no longer flips
-            on tap: it opens the note step below, and the note is what commits it. */}
-        <TouchableOpacity
-          style={[styles.statusBtn, completed && styles.statusBtnDone]}
-          onPress={() => setNoteOpen((v) => !v)}
-          activeOpacity={0.75}
-        >
-          {completed ? (
-            <CheckCircle2 size={18} color="#166534" strokeWidth={2} />
-          ) : (
-            <Circle size={18} color={colors.primary} strokeWidth={2} />
-          )}
-          <Text style={[styles.statusText, completed && styles.statusTextDone]}>
-            {completed ? "Completed" : "Open"}
-          </Text>
-          <Text style={styles.statusHint}>
-            {completed ? "Tap to reopen" : "Tap to complete"}
-          </Text>
-        </TouchableOpacity>
+        <TaskStatusControl
+          completed={completed}
+          noteOpen={noteOpen}
+          onToggleNote={() => setNoteOpen((v) => !v)}
+          note={note}
+          onNoteChange={setNote}
+          submitting={submitting}
+          onCancel={closeNote}
+          onConfirm={confirmStatusChange}
+        />
 
-        {noteOpen && (
-          <View style={styles.noteSection}>
-            <Text style={styles.noteTitle}>
-              {completed ? "Why are you reopening this?" : "What was done?"}
-            </Text>
-            <Text style={styles.noteHint}>
-              Required. Posted to the channel so the team sees the reason.
-            </Text>
-            <TextInput
-              style={styles.noteInput}
-              value={note}
-              onChangeText={setNote}
-              placeholder={
-                completed
-                  ? "e.g. Rebar spacing is off, needs redoing"
-                  : "e.g. Slab poured, cured 48h"
-              }
-              placeholderTextColor={colors.mutedForeground}
-              multiline
-              numberOfLines={3}
-              maxLength={400}
-              autoFocus
-              textAlignVertical="top"
-            />
-            <View style={styles.noteActions}>
-              <TouchableOpacity
-                onPress={() => {
-                  setNote("")
-                  setNoteOpen(false)
-                  Keyboard.dismiss()
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.noteCancel}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.noteSubmit,
-                  (!note.trim() || submitting) && styles.noteSubmitDisabled,
-                ]}
-                onPress={confirmStatusChange}
-                disabled={!note.trim() || submitting}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.noteSubmitText}>
-                  {completed ? "Reopen Task" : "Mark Completed"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+        <TaskDetailsFields
+          creatorName={usersMap[task.createdby_id] ?? "Unknown"}
+          openedAt={task.opened_at}
+          assigneeName={task.assignee_id ? usersMap[task.assignee_id] : undefined}
+          canAssign={canAssign}
+          onAssignPress={() => setAssignOpen(true)}
+          properties={properties}
+        />
 
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Created By</Text>
-          <Text style={styles.fieldValue}>
-            {creatorName} · {formatDateTime(task.opened_at)}
-          </Text>
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Assigned To</Text>
-          <View style={styles.assignRow}>
-            <Text style={styles.fieldValue}>{assigneeName ?? "Unassigned"}</Text>
-            {canAssign && (
-              <TouchableOpacity
-                style={styles.assignBtn}
-                onPress={() => setAssignOpen(true)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                activeOpacity={0.7}
-              >
-                <UserPlus size={14} color={colors.primary} strokeWidth={2} />
-                <Text style={styles.assignBtnText}>Assign</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          {!canAssign && (
-            <Text style={styles.fieldHint}>Only the task's creator can assign it.</Text>
-          )}
-        </View>
-
-        {properties.length > 0 && (
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Properties</Text>
-            <View style={styles.pillRow}>
-              {properties.map((p: Property) => (
-                <PropertyPill key={p.id} property={p} />
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Status history — the notes posted with each status change, newest first.
-            The message text is shown verbatim: it is the same message the channel
-            shows, and re-parsing our own wording back apart would be a data model
-            made of prose. */}
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Status History</Text>
-          {history.length === 0 ? (
-            <Text style={styles.fieldHint}>
-              No status changes yet. Notes appear here when the status is changed.
-            </Text>
-          ) : (
-            history.map((m) => (
-              <View key={m.id} style={styles.historyRow}>
-                <Text style={styles.historyText}>{m.text}</Text>
-                <Text style={styles.historyMeta}>
-                  {usersMap[m.createdby_id] ?? "Unknown"} ·{" "}
-                  {formatDateTime(m.created_at)}
-                </Text>
-              </View>
-            ))
-          )}
-        </View>
+        <TaskStatusHistory history={history} usersMap={usersMap} />
       </ScrollView>
 
-      {/* Assignee picker */}
-      <Modal
+      <AssigneePickerModal
         visible={assignOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setAssignOpen(false)}
-      >
-        <Pressable style={styles.backdrop} onPress={() => setAssignOpen(false)} />
-        <View style={styles.sheet}>
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Assign To</Text>
-            <TouchableOpacity
-              onPress={() => setAssignOpen(false)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              activeOpacity={0.6}
-            >
-              <X size={18} color={colors.mutedForeground} strokeWidth={2} />
-            </TouchableOpacity>
-          </View>
-          <ScrollView style={styles.sheetScroll}>
-            <TouchableOpacity
-              style={styles.memberRow}
-              onPress={() => assignTo(null)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.memberName}>Unassigned</Text>
-            </TouchableOpacity>
-            {memberIds.map((id) => (
-              <TouchableOpacity
-                key={id}
-                style={styles.memberRow}
-                onPress={() => assignTo(id)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.memberName}>{usersMap[id] ?? "Unknown"}</Text>
-                {task.assignee_id === id && (
-                  <CheckCircle2 size={16} color={colors.primary} strokeWidth={2} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      </Modal>
+        onClose={() => setAssignOpen(false)}
+        memberIds={memberIds}
+        assigneeId={task.assignee_id ?? null}
+        usersMap={usersMap}
+        onAssign={assignTo}
+      />
     </KeyboardAvoidingView>
   )
 }
@@ -465,121 +284,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  headerAction: {
-    padding: 6,
-  },
-  historyRow: {
-    gap: 3,
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: colors.cardSurface,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderRadius: 10,
-  },
-  historyText: {
-    fontSize: 13,
-    fontFamily: "InstrumentSans_400Regular",
-    color: colors.foreground,
-    lineHeight: 18,
-  },
-  historyMeta: {
-    fontSize: 11,
-    fontFamily: "InstrumentSans_400Regular",
-    color: colors.mutedForeground,
-  },
-  noteSection: {
-    gap: 6,
-    marginTop: 10,
-    padding: 12,
-    backgroundColor: colors.cardSurface,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderRadius: 12,
-  },
-  noteTitle: {
-    fontSize: 14,
-    fontFamily: "InstrumentSans_600SemiBold",
-    color: colors.foreground,
-  },
-  noteHint: {
-    fontSize: 11,
-    fontFamily: "InstrumentSans_400Regular",
-    color: colors.mutedForeground,
-  },
-  noteInput: {
-    minHeight: 72,
-    marginTop: 4,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 13,
-    fontFamily: "InstrumentSans_400Regular",
-    color: colors.foreground,
-  },
-  noteActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 14,
-    marginTop: 4,
-  },
-  noteCancel: {
-    fontSize: 13,
-    fontFamily: "InstrumentSans_500Medium",
-    color: colors.mutedForeground,
-  },
-  noteSubmit: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  noteSubmitDisabled: {
-    opacity: 0.4,
-  },
-  noteSubmitText: {
-    fontSize: 13,
-    fontFamily: "InstrumentSans_600SemiBold",
-    color: colors.primaryForeground,
-  },
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    // paddingTop applied inline from useSafeAreaInsets().top (real device inset).
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: 8,
-  },
-  backButton: {
-    padding: 4,
-    marginRight: 4,
-  },
-  backArrow: {
-    fontSize: 32,
-    color: colors.primary,
-    fontFamily: "InstrumentSans_400Regular",
-    lineHeight: 32,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontFamily: "InstrumentSans_600SemiBold",
-    color: colors.foreground,
-    lineHeight: 22,
   },
   content: {
     paddingHorizontal: 16,
@@ -591,122 +300,5 @@ const styles = StyleSheet.create({
     fontFamily: "InstrumentSans_400Regular",
     color: colors.foreground,
     lineHeight: 20,
-  },
-  statusBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    backgroundColor: colors.cardSurface,
-  },
-  statusBtnDone: {
-    backgroundColor: "#16653411",
-    borderColor: "#16653455",
-  },
-  statusText: {
-    fontSize: 14,
-    fontFamily: "InstrumentSans_600SemiBold",
-    color: colors.foreground,
-  },
-  statusTextDone: {
-    color: "#166534",
-  },
-  statusHint: {
-    flex: 1,
-    textAlign: "right",
-    fontSize: 11,
-    fontFamily: "InstrumentSans_400Regular",
-    color: colors.mutedForeground,
-  },
-  field: {
-    gap: 4,
-  },
-  fieldLabel: {
-    fontSize: 11,
-    fontFamily: "InstrumentSans_500Medium",
-    color: colors.mutedForeground,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  fieldValue: {
-    fontSize: 14,
-    fontFamily: "InstrumentSans_500Medium",
-    color: colors.foreground,
-  },
-  fieldHint: {
-    fontSize: 11,
-    fontFamily: "InstrumentSans_400Regular",
-    color: colors.mutedForeground,
-  },
-  assignRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  assignBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  assignBtnText: {
-    fontSize: 12,
-    fontFamily: "InstrumentSans_600SemiBold",
-    color: colors.primary,
-  },
-  pillRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: colors.scrim,
-  },
-  sheet: {
-    position: "absolute",
-    left: 24,
-    right: 24,
-    top: "30%",
-    maxHeight: "45%",
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
-  },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBorder,
-  },
-  sheetTitle: {
-    fontSize: 15,
-    fontFamily: "InstrumentSans_600SemiBold",
-    color: colors.foreground,
-  },
-  sheetScroll: {
-    marginTop: 6,
-  },
-  memberRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-  },
-  memberName: {
-    fontSize: 14,
-    fontFamily: "InstrumentSans_500Medium",
-    color: colors.foreground,
   },
 })

@@ -1,5 +1,12 @@
 import * as FileSystem from "expo-file-system/legacy"
 import * as Crypto from "expo-crypto"
+import {
+  nextRetryDelay,
+  shouldAutoRetry,
+  statusForFailure,
+  isRetryableStatus,
+  scheduleDecision,
+} from "@buildinlime/sync-core"
 import { createCookieFetch } from "../auth/cookie-fetch"
 import { getOnlineDetector } from "./online-detector"
 import {
@@ -36,9 +43,8 @@ const UPLOAD_ENDPOINT = `${API_URL}/api/resources/upload`
 // bytes after an app restart.
 const UPLOAD_DIR = `${FileSystem.documentDirectory}pending-uploads/`
 
-const MAX_AUTO_RETRIES = 5
-const MAX_BACKOFF_MS = 30_000
-
+// Retry/backoff numbers and the status vocabulary are shared with web — see
+// @buildinlime/sync-core's upload-policy.
 export type { UploadStatus }
 
 export interface PendingUpload {
@@ -198,11 +204,7 @@ export async function initUploadManager(): Promise<void> {
   for (const upload of uploads.values()) {
     // `uploading` — interrupted mid-flight by an app kill: resume it.
     // `error` / `awaiting_network` — a previous attempt failed: retry it.
-    if (
-      upload.status === "uploading" ||
-      upload.status === "error" ||
-      upload.status === "awaiting_network"
-    ) {
+    if (upload.status === "uploading" || isRetryableStatus(upload.status)) {
       void doUpload(upload.id)
     } else if (upload.status === "scheduled" && upload.scheduledAt) {
       armScheduleTimer(upload.id, upload.scheduledAt)
@@ -217,7 +219,7 @@ export async function initUploadManager(): Promise<void> {
   onlineUnsub = detector.subscribe(() => {
     if (!detector.isOnline()) return
     for (const upload of uploads.values()) {
-      if (upload.status === "error" || upload.status === "awaiting_network") {
+      if (isRetryableStatus(upload.status)) {
         retryUpload(upload.id)
       }
     }
@@ -386,7 +388,7 @@ async function doUpload(id: string): Promise<void> {
     // Offline isn't really a failure — surface a calmer "awaiting network"
     // state instead of a red error for something we will auto-retry.
     const online = getOnlineDetector().isOnline()
-    const nextStatus: UploadStatus = online ? "error" : "awaiting_network"
+    const nextStatus = statusForFailure(online)
     setStatus(id, nextStatus, message)
     await updateStatus(id, nextStatus, message).catch(() => {})
 
@@ -395,8 +397,8 @@ async function doUpload(id: string): Promise<void> {
     // transient FK races where the parent message hasn't replayed yet).
     const attempt = (retryAttempts.get(id) ?? 0) + 1
     retryAttempts.set(id, attempt)
-    if (attempt <= MAX_AUTO_RETRIES && online) {
-      const delay = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** (attempt - 1))
+    if (shouldAutoRetry(attempt, online)) {
+      const delay = nextRetryDelay(attempt)
       const timer = setTimeout(() => {
         retryTimers.delete(id)
         void doUpload(id)
@@ -415,15 +417,15 @@ async function doUpload(id: string): Promise<void> {
 function armScheduleTimer(id: string, when: Date): void {
   const existing = scheduleTimers.get(id)
   if (existing) clearTimeout(existing)
-  const delay = when.getTime() - Date.now()
-  if (delay <= 0) {
+  const decision = scheduleDecision(when)
+  if (decision.kind === "now") {
     void doUpload(id)
     return
   }
   const timer = setTimeout(() => {
     scheduleTimers.delete(id)
     void doUpload(id)
-  }, delay)
+  }, decision.delayMs)
   scheduleTimers.set(id, timer)
 }
 
@@ -439,7 +441,9 @@ export async function scheduleUpload(
     clearTimeout(existing)
     scheduleTimers.delete(id)
   }
-  if (!when || when.getTime() <= Date.now()) {
+  // The `!when` arm is redundant with scheduleDecision(null), but it is what
+  // narrows `when` to a Date for the assignments below.
+  if (!when || scheduleDecision(when).kind === "now") {
     void doUpload(id)
     return
   }

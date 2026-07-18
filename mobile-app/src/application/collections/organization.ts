@@ -1,78 +1,50 @@
 import {
-  projectRowSchema,
-  buildUnitRowSchema,
-  channelRowSchema,
-  membershipRowSchema,
-} from "@buildinlime/contracts"
+  projectsSpec,
+  buildUnitsSpec,
+  channelsSpec,
+  channelMembersSpec,
+  membershipsSpec,
+} from "@buildinlime/sync-core"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
-import { defineCollection, NEVER_GC, safeCleanup } from "./_shared"
+import { defineCollection, retryOnMembershipsError, safeCleanup } from "./_shared"
 
-// Row schemas come from @buildinlime/contracts — one copy, shared with web and
-// asserted against the drizzle tables server-side. See ARCHITECTURE.md §10.
+// The descriptors (id, route, shape params, row schema, key, GC tier) live once
+// in @buildinlime/sync-core — see collection-specs.ts. This file supplies only
+// what is mobile's own: the persistence handle, and the memberships onError.
 
 // ---------------------------------------------------------------------------
 // Factory functions — collections are created AFTER memberships load so that
 // membership-derived IDs can be baked into the shape URLs. This eliminates
 // the per-poll membership table scan on the server side.
+//
+// None of these take handlers: the organization tables are read-only on mobile
+// (projects, build units and channels are managed on web), and a missing handler
+// makes a stray write fail loudly rather than silently no-op.
 // ---------------------------------------------------------------------------
 
 function _makeProjectsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberProjectIds: string[],
 ) {
-  return defineCollection({
-    id: `projects`,
-    path: `/api/projects`,
-    params: { member_ids: memberProjectIds },
-    schema: projectRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
-    persistence,
-    // No handlers — read-only on mobile; projects are managed on web.
-  })
+  return defineCollection({ ...projectsSpec(memberProjectIds), persistence })
 }
 
 function _makeBuildUnitsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberBuildunitIds: string[],
 ) {
-  return defineCollection({
-    id: `build-units`,
-    path: `/api/buildunits`,
-    params: { member_ids: memberBuildunitIds },
-    schema: buildUnitRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
-    persistence,
-    // No handlers — read-only on mobile; build units are managed on web.
-  })
+  return defineCollection({ ...buildUnitsSpec(memberBuildunitIds), persistence })
 }
 
 function _makeChannelsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({
-    id: `channels`,
-    path: `/api/channels`,
-    params: { member_ids: memberChannelIds },
-    schema: channelRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
-    persistence,
-    // No handlers — read-only on mobile; channels are managed on web.
-  })
+  return defineCollection({ ...channelsSpec(memberChannelIds), persistence })
 }
 
 /**
  * The ROSTER stream: every member of every channel this user can see.
- *
- * This is NOT membershipsCollection. That one is the SELF stream — the server
- * scopes it `user_id = me`, so it holds only your own rows and can never tell you
- * who else is in a channel. Anything that renders other people (the assignee
- * picker, member lists) needs this collection instead. Mirrors web's
- * channelMembersCollection; both hit the same `memberships` table with a wider
- * where clause, and both validate against the one shared membershipRowSchema.
  *
  * The channel ids are baked into the shape URL, so this must be rebuilt whenever
  * the visible channel set changes — same lifecycle as channelsCollection, which is
@@ -82,16 +54,19 @@ function _makeChannelMembersCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberChannelIds: string[],
 ) {
+  return defineCollection({ ...channelMembersSpec(memberChannelIds), persistence })
+}
+
+function _makeMembershipsCollection(
+  persistence: ReturnType<typeof getPersistence>["persistence"],
+) {
   return defineCollection({
-    id: `channel-members`,
-    path: `/api/channel-members`,
-    // Note the param name: this route takes `channel_ids`, not the `member_ids` the
-    // projects/buildunits/channels routes take.
-    params: { channel_ids: memberChannelIds },
-    schema: membershipRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
+    ...membershipsSpec(),
     persistence,
+    // Reports the error before retrying, so the bootstrap can tell a clean empty
+    // sync apart from a shape that failed and was marked ready anyway — see
+    // retryOnMembershipsError.
+    onError: retryOnMembershipsError,
   })
 }
 
@@ -99,10 +74,19 @@ function _makeChannelMembersCollection(
 // Deferred exports — initialized by initializeOrganizationCollections()
 // after memberships preload.
 // ---------------------------------------------------------------------------
+export let membershipsCollection: ReturnType<typeof _makeMembershipsCollection> = null!
 export let projectsCollection: ReturnType<typeof _makeProjectsCollection> = null!
 export let buildUnitsCollection: ReturnType<typeof _makeBuildUnitsCollection> = null!
 export let channelsCollection: ReturnType<typeof _makeChannelsCollection> = null!
 export let channelMembersCollection: ReturnType<typeof _makeChannelMembersCollection> = null!
+
+// Memberships loads FIRST in bootstrap — every other scoped collection derives
+// its shape ids from it. See initBootstrapCollections in ./init.
+export function initializeMembershipsCollection() {
+  const { persistence } = getPersistence()
+  safeCleanup(membershipsCollection)
+  membershipsCollection = _makeMembershipsCollection(persistence)
+}
 
 // Standalone init for the projects collection — called during bootstrap
 // (before a project is selected) so the picker can render all user projects.
@@ -122,8 +106,17 @@ export function initializeOrganizationCollections(params: {
   if (!projectsCollection) {
     projectsCollection = _makeProjectsCollection(persistence, params.memberProjectIds)
   }
-  // On a project switch these hold the previous project's collections; stop
-  // their sync before replacing (GC is disabled, so it won't happen for us).
+  // These two safeCleanup calls are currently NO-OPS, and deliberately kept.
+  //
+  // The only caller is initProjectCollections, which runs once per mount of
+  // (tabs)/_layout — there is no project SWITCH in the app any more (the drawer
+  // says "Sign out to switch project", and the picker is unreachable once a
+  // project is selected), so both refs are still null here every time.
+  //
+  // They stay because they are the correct cleanup if switching ever comes
+  // back: GC is disabled on these collections, so replacing a live instance
+  // without stopping its sync first leaks the previous project's Electric
+  // shape with nothing left to close it.
   safeCleanup(buildUnitsCollection)
   safeCleanup(channelsCollection)
   buildUnitsCollection = _makeBuildUnitsCollection(persistence, params.memberBuildunitIds)
@@ -173,10 +166,12 @@ export function reinitializeScopedOrganizationCollections(params: {
 
 export function resetOrganizationCollections() {
   // Stop sync before dropping the references (GC won't do it — it's disabled).
+  safeCleanup(membershipsCollection)
   safeCleanup(projectsCollection)
   safeCleanup(buildUnitsCollection)
   safeCleanup(channelsCollection)
   safeCleanup(channelMembersCollection)
+  membershipsCollection = null!
   projectsCollection = null!
   buildUnitsCollection = null!
   channelsCollection = null!

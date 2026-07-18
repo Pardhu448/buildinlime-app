@@ -1,5 +1,6 @@
 import { openDatabaseSync, deleteDatabaseAsync } from "expo-sqlite"
 import type { SQLiteDatabase } from "expo-sqlite"
+import type { UploadStatus } from "@buildinlime/sync-core"
 
 // SQLite CRUD over the `pending_attachments` table — attachment METADATA only
 // (the file bytes are kept as a binary file on disk; see upload-manager.ts).
@@ -14,12 +15,10 @@ import type { SQLiteDatabase } from "expo-sqlite"
 
 const UPLOADS_DB_NAME = "buildinlime-uploads.sqlite"
 
-export type UploadStatus =
-  | "awaiting_schedule"
-  | "scheduled"
-  | "uploading"
-  | "awaiting_network"
-  | "error"
+// The status vocabulary is shared with web — see @buildinlime/sync-core's
+// upload-policy. Re-exported here so this module stays the one import site for
+// everything the pending_attachments table deals in.
+export type { UploadStatus }
 
 export interface PendingAttachmentRow {
   resource_id: string

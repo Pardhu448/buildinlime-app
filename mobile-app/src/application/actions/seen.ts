@@ -1,5 +1,5 @@
 import { makeSeenActions } from "@buildinlime/sync-core"
-import { seenStateCollection, seenKey } from "../collections/admin"
+import { seenStateCollection, seenKey } from "../collections/communication"
 import { getOfflineExecutor } from "../../infrastructure/offline/executor"
 
 const { markSeenAction, resetSeenActions } = makeSeenActions({

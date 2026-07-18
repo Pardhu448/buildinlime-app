@@ -160,7 +160,6 @@ export function TaskPage({
               buildunitId={buildUnitId}
               projectId={projectId}
               createdbyId={currentUserId}
-              memberIds={channelMemberIds.length > 0 ? channelMemberIds : [currentUserId]}
             />
           </div>
 

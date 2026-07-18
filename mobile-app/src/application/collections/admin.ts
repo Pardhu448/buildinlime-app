@@ -1,70 +1,22 @@
-import {
-  userRowSchema,
-  membershipRowSchema,
-  seenStateRowSchema,
-} from "@buildinlime/contracts"
+import { usersSpec } from "@buildinlime/sync-core"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
-import { defineCollection, retryOnMembershipsError, NEVER_GC, safeCleanup } from "./_shared"
+import { defineCollection, safeCleanup } from "./_shared"
 
-// Row schemas come from @buildinlime/contracts — one copy, shared with web and
-// asserted against the drizzle tables server-side. See ARCHITECTURE.md §10.
+// The descriptors live once in @buildinlime/sync-core — see collection-specs.ts.
+// This file supplies only mobile's persistence handle.
+//
+// This file holds the collections that belong to no single domain — users.
+// memberships and seen_state used to live here too, which put them in a
+// different module than web keeps them in. They now sit where their tables do
+// (organization-tables.ts / communication-tables.ts) and where web already had
+// them: memberships in ./organization, seen_state in ./communication.
 
 // --- Factories ---
 
 function _makeUsersCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
 ) {
-  return defineCollection({
-    id: `users`,
-    path: `/api/users`,
-    schema: userRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
-    persistence,
-  })
-}
-
-/**
- * The current user's "last seen" markers — the timestamp successor to the reads
- * collection. Shape scoped `user_id = me` server-side (web-app
- * routes/api/seen-state.ts) with no query parameter able to widen it — so it
- * takes no membership ids and never rebuilds on scope change, exactly like reads.
- *
- * Key is composite: one row per (user, scope, scope_id). NEVER_GC because the
- * always-mounted DrawerContent badges subscribe to it, so it never idles.
- */
-export const seenKey = (userId: string, scope: string, scopeId: string) =>
-  `${userId}:${scope}:${scopeId}`
-
-function _makeSeenStateCollection(
-  persistence: ReturnType<typeof getPersistence>["persistence"],
-) {
-  return defineCollection({
-    id: `seen-state`,
-    path: `/api/seen-state`,
-    schema: seenStateRowSchema,
-    getKey: (item: { user_id: string; scope: string; scope_id: string }) =>
-      seenKey(item.user_id, item.scope, item.scope_id),
-    gcTime: NEVER_GC,
-    persistence,
-  })
-}
-
-function _makeMembershipsCollection(
-  persistence: ReturnType<typeof getPersistence>["persistence"],
-) {
-  return defineCollection({
-    id: `memberships`,
-    path: `/api/memberships`,
-    schema: membershipRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
-    persistence,
-    // Reports the error before retrying, so the bootstrap can tell a clean empty
-    // sync apart from a shape that failed and was marked ready anyway — see
-    // retryOnMembershipsError.
-    onError: retryOnMembershipsError,
-  })
+  return defineCollection({ ...usersSpec(), persistence })
 }
 
 // ---------------------------------------------------------------------------
@@ -72,8 +24,6 @@ function _makeMembershipsCollection(
 // ES-module live bindings ensure importers always read the current value.
 // ---------------------------------------------------------------------------
 export let usersCollection: ReturnType<typeof _makeUsersCollection> = null!
-export let membershipsCollection: ReturnType<typeof _makeMembershipsCollection> = null!
-export let seenStateCollection: ReturnType<typeof _makeSeenStateCollection> = null!
 
 export function initializeUsersCollection() {
   const { persistence } = getPersistence()
@@ -81,24 +31,8 @@ export function initializeUsersCollection() {
   usersCollection = _makeUsersCollection(persistence)
 }
 
-export function initializeSeenStateCollection() {
-  const { persistence } = getPersistence()
-  safeCleanup(seenStateCollection)
-  seenStateCollection = _makeSeenStateCollection(persistence)
-}
-
-export function initializeMembershipsCollection() {
-  const { persistence } = getPersistence()
-  safeCleanup(membershipsCollection)
-  membershipsCollection = _makeMembershipsCollection(persistence)
-}
-
 export function resetAdminCollections() {
   // Stop sync before dropping the references (GC won't do it — it's disabled).
   safeCleanup(usersCollection)
-  safeCleanup(membershipsCollection)
-  safeCleanup(seenStateCollection)
   usersCollection = null!
-  membershipsCollection = null!
-  seenStateCollection = null!
 }

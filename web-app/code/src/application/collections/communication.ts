@@ -1,15 +1,28 @@
 import {
-  taskRowSchema,
-  messageRowSchema,
-  resourceRowSchema,
-  propertyRowSchema,
-  seenStateRowSchema,
-} from "@buildinlime/contracts"
+  tasksSpec,
+  messagesSpec,
+  resourcesSpec,
+  propertiesSpec,
+  seenStateSpec,
+  inboxMentionsSpec,
+  myTasksSpec,
+  seenKey,
+} from "@buildinlime/sync-core"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
-import { defineCollection, NEVER_GC, IDLE_GC_MS } from "./_shared"
+import { defineCollection } from "./_shared"
 
-// Row schemas come from @buildinlime/contracts — one copy, shared with mobile and
-// asserted against the drizzle tables server-side. See ARCHITECTURE.md §10.
+// The descriptors (id, route, shape params, row schema, key, GC tier) live once
+// in @buildinlime/sync-core — see collection-specs.ts, which also carries the
+// reasoning for each GC tier. This file supplies only web's persistence handle;
+// none of these collections take handlers (writes go through
+// @tanstack/offline-transactions — see application/actions/*).
+
+/**
+ * The seen_state collection's key. Re-exported because the optimistic upsert in
+ * actions/seen.ts must look up an existing row before deciding insert-vs-update,
+ * and a key built differently there would silently miss.
+ */
+export { seenKey }
 
 // ---------------------------------------------------------------------------
 // Factory functions — collections are created AFTER memberships load so that
@@ -20,50 +33,14 @@ function _makeTasksCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({
-    id: `tasks`,
-    path: `/api/tasks`,
-    params: { member_channel_ids: memberChannelIds },
-    schema: taskRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    // Idle-GC: the always-mounted Sidebar "My Tasks" badge reads the
-    // user-scoped myTasksCollection slice, and useSeen reads only seen_state
-    // — so nothing always-mounted holds this full collection. Its only
-    // subscribers are the channel/task views, so it idles (and closes its
-    // shape stream) on the project list, Inbox and My-Tasks screens,
-    // resurrecting + resuming from OPFS on the next visit.
-    gcTime: IDLE_GC_MS,
-    persistence,
-    // No handlers — task writes go through @tanstack/offline-transactions (see
-    // application/actions/tasks.ts). Direct collection.insert/update/delete calls
-    // outside an offline transaction fail with "no handler", which is the intended
-    // loud failure mode.
-  })
+  return defineCollection({ ...tasksSpec(memberChannelIds), persistence })
 }
 
 function _makeResourcesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({
-    id: `resources`,
-    path: `/api/resources`,
-    params: { member_channel_ids: memberChannelIds },
-    schema: resourceRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    // Idle-GC (not NEVER_GC): resources is subscribed ONLY by the channel
-    // Resources view and the message/task attachment sections — nothing
-    // always-mounted holds it (the Sidebar and badges never touch it). The
-    // shape carries metadata only; file bytes/thumbnails load from the
-    // separate /api/resources/:id/file route, so GC'ing this collection
-    // never affects a rendered thumbnail. Persisted, so the next Resources
-    // visit resurrects it and resumes from the OPFS offset rather than
-    // refetching. See IDLE_GC_MS.
-    gcTime: IDLE_GC_MS,
-    persistence,
-    // No handlers — resource deletes go through @tanstack/offline-transactions
-    // (see application/actions/resources.ts).
-  })
+  return defineCollection({ ...resourcesSpec(memberChannelIds), persistence })
 }
 
 function _makePropertiesCollection(
@@ -74,130 +51,34 @@ function _makePropertiesCollection(
     memberChannelIds: string[]
   },
 ) {
-  return defineCollection({
-    id: `properties`,
-    path: `/api/properties`,
-    params: {
-      member_project_ids: params.memberProjectIds,
-      member_buildunit_ids: params.memberBuildunitIds,
-      member_channel_ids: params.memberChannelIds,
-    },
-    schema: propertyRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    // Idle-GC (not NEVER_GC): properties is subscribed ONLY by the channel /
-    // build-unit / task routes — nothing always-mounted holds it (verified:
-    // the Sidebar and unread badges never touch it). So it idles on the
-    // project list, Inbox and My-Tasks screens, and GC closes its shape
-    // stream there. Persisted, so the next channel/task visit resurrects it
-    // and resumes from the OPFS offset rather than refetching. See IDLE_GC_MS.
-    gcTime: IDLE_GC_MS,
-    persistence,
-    // No handlers — property writes go through @tanstack/offline-transactions
-    // (see application/actions/properties.ts: create / update / delete).
-  })
+  return defineCollection({ ...propertiesSpec(params), persistence })
 }
 
 function _makeMessagesCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({
-    id: `messages`,
-    path: `/api/messages`,
-    params: { member_channel_ids: memberChannelIds },
-    schema: messageRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    // Idle-GC: with the Sidebar's per-channel unread pills removed, the
-    // always-mounted inbox badge reading the inbox-mentions slice, and
-    // useSeen reading only seen_state, nothing always-mounted holds this full
-    // collection. It idles (and closes its shape stream) on the project list
-    // / My-Tasks / Inbox screens, and resurrects + resumes from OPFS when a
-    // channel or the Inbox view opens.
-    gcTime: IDLE_GC_MS,
-    persistence,
-    // No handlers — message writes go through @tanstack/offline-transactions
-    // (see application/actions/messages.ts). Delete is not currently used by UI;
-    // add a mutationFn + action when needed.
-  })
+  return defineCollection({ ...messagesSpec(memberChannelIds), persistence })
 }
 
-/**
- * The seen_state collection's key. Exported because the optimistic upsert in
- * actions/seen.ts must look up an existing row before deciding insert-vs-update,
- * and a key built differently there would silently miss.
- */
-export const seenKey = (userId: string, scope: string, scopeId: string) =>
-  `${userId}:${scope}:${scopeId}`
-
-/**
- * The current user's "last seen" markers — the timestamp successor to the reads
- * collection (web has cut over; the reads TABLE stays for mobile). Shape scoped
- * `user_id = me` server-side (see routes/api/seen-state.ts) — no id set to pass,
- * so it needs no membership params and never rebuilds on scope change.
- *
- * Key is composite: one row per (user, scope, scope_id). NEVER_GC because the
- * always-mounted inbox / my-tasks badges subscribe to it, so it never idles.
- */
 function _makeSeenStateCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
 ) {
-  return defineCollection({
-    id: `seen-state`,
-    path: `/api/seen-state`,
-    schema: seenStateRowSchema,
-    getKey: (item: { user_id: string; scope: string; scope_id: string }) =>
-      seenKey(item.user_id, item.scope, item.scope_id),
-    gcTime: NEVER_GC,
-    persistence,
-    // No handlers — seen markers are written through @tanstack/offline-transactions
-    // (see application/actions/seen.ts).
-  })
+  return defineCollection({ ...seenStateSpec(), persistence })
 }
-
-// ---------------------------------------------------------------------------
-// Badge slices — user-scoped subsets that exist so the ALWAYS-MOUNTED Sidebar
-// inbox / my-tasks badges don't have to hold the full channel-scoped messages /
-// tasks collections open for the whole session just to count the few rows that
-// concern the current user. The server does the mention / assignee filter (see
-// routes/api/inbox-mentions.ts and api/my-tasks.ts); the badge subscribes to
-// these tiny shapes, and the full collections are freed to garbage-collect.
-//
-// gcTime: NEVER_GC — these ARE the always-mounted subscription, so they never
-// idle; a finite gcTime would be moot. Persisted like the rest, so the badge count
-// paints from OPFS on reload before Electric reconnects. Channel-scoped, so they
-// rebuild with the other channel-scoped collections on a membership resync (see
-// initializeCommunicationCollections callers). Read-only: no mutation handlers —
-// messages/tasks are written via their full collections.
-// ---------------------------------------------------------------------------
 
 function _makeInboxMentionsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({
-    id: `inbox-mentions`,
-    path: `/api/inbox-mentions`,
-    params: { member_channel_ids: memberChannelIds },
-    schema: messageRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
-    persistence,
-  })
+  return defineCollection({ ...inboxMentionsSpec(memberChannelIds), persistence })
 }
 
 function _makeMyTasksCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({
-    id: `my-tasks`,
-    path: `/api/my-tasks`,
-    params: { member_channel_ids: memberChannelIds },
-    schema: taskRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
-    persistence,
-  })
+  return defineCollection({ ...myTasksSpec(memberChannelIds), persistence })
 }
 
 // ---------------------------------------------------------------------------

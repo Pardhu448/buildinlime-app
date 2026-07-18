@@ -14,7 +14,6 @@ export interface ResourcesSectionProps {
   buildunitId: string
   projectId: string
   createdbyId: string
-  memberIds: string[]
 }
 
 export function ResourcesSection({
@@ -23,7 +22,6 @@ export function ResourcesSection({
   buildunitId,
   projectId,
   createdbyId,
-  memberIds,
 }: ResourcesSectionProps) {
   const [formOpen, setFormOpen] = useState(false)
 
@@ -83,7 +81,6 @@ export function ResourcesSection({
       buildunitId,
       projectId,
       createdbyId,
-      memberIds,
     })
     setFormOpen(false)
   }

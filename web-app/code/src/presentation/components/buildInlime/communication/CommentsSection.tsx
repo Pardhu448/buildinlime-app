@@ -85,7 +85,6 @@ export function CommentsSection({
         buildunitId,
         projectId,
         createdbyId: currentUserId,
-        memberIds,
       })
       scheduleUpload(id, null) // null = upload immediately
     }

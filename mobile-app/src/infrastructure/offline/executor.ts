@@ -5,8 +5,8 @@ import {
   messagesCollection,
   resourcesCollection,
   propertiesCollection,
+  seenStateCollection,
 } from "../../application/collections/communication"
-import { seenStateCollection } from "../../application/collections/admin"
 import { mutationFns } from "./mutation-fns"
 import { sqliteStorageAdapter } from "./storage"
 import { getOnlineDetector } from "./online-detector"
@@ -20,9 +20,13 @@ import { getOnlineDetector } from "./online-detector"
 let _executor: OfflineExecutor | null = null
 
 // Start (or restart) the offline executor with the currently-initialized
-// collections. Mobile collections are project-scoped and re-initialized on
-// project switch, so this must be called AFTER initProjectCollections() and
-// re-called whenever the project context changes.
+// collections. It captures collection instances BY VALUE, so it must be called
+// AFTER initProjectCollections() and re-called whenever those instances are
+// rebuilt.
+//
+// In practice that means once at startup, and again after a membership RESYNC
+// (see resyncProjectCollections + its caller in (tabs)/_layout). Not on a
+// project switch — there isn't one; switching projects means signing out.
 export async function initOfflineExecutor(): Promise<OfflineExecutor> {
   if (_executor) {
     _executor.dispose()

@@ -1,25 +1,24 @@
 import {
-  projectRowSchema,
-  buildUnitRowSchema,
-  channelRowSchema,
-  membershipRowSchema,
-} from "@buildinlime/contracts"
+  projectsSpec,
+  buildUnitsSpec,
+  channelsSpec,
+  channelMembersSpec,
+  membershipsSpec,
+} from "@buildinlime/sync-core"
 import { trpc } from "%/infrastructure/trpc/lib/trpc-client"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
-import { defineCollection, retryOnMembershipsError, NEVER_GC } from "./_shared"
+import { defineCollection, retryOnMembershipsError } from "./_shared"
 
-// Row schemas come from @buildinlime/contracts — one copy, shared with mobile and
-// asserted against the drizzle tables server-side. See ARCHITECTURE.md §10.
+// The descriptors (id, route, shape params, row schema, key, GC tier) live once
+// in @buildinlime/sync-core — see collection-specs.ts. This file supplies what is
+// web's own: the persistence handle, the memberships onError, and the tRPC write
+// handlers below (mobile is read-only for these tables).
 
 function _makeMembershipsCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
 ) {
   return defineCollection({
-    id: `memberships`,
-    path: `/api/memberships`,
-    schema: membershipRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
+    ...membershipsSpec(),
     persistence,
     // Reports the error before retrying, so the bootstrap can tell a clean empty
     // sync apart from a shape that failed and was marked ready anyway — see
@@ -54,17 +53,7 @@ function _makeChannelMembersCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
   channelIds: string[],
 ) {
-  return defineCollection({
-    id: `channel-members`,
-    path: `/api/channel-members`,
-    // Note the param name: this route takes `channel_ids`, not the `member_ids` the
-    // projects/buildunits/channels routes take.
-    params: { channel_ids: channelIds },
-    schema: membershipRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
-    persistence,
-  })
+  return defineCollection({ ...channelMembersSpec(channelIds), persistence })
 }
 
 // Deferred export — initialized by initializeChannelMembersCollection().
@@ -89,12 +78,7 @@ function _makeProjectsCollection(
   memberProjectIds: string[],
 ) {
   return defineCollection({
-    id: `projects`,
-    path: `/api/projects`,
-    params: { member_ids: memberProjectIds },
-    schema: projectRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
+    ...projectsSpec(memberProjectIds),
     persistence,
     handlers: {
       onInsert: async ({ transaction }: { transaction: { mutations: { modified: { id: string; name: string; description?: string | null; owner_id: string } }[] } }) => {
@@ -150,12 +134,7 @@ function _makeBuildUnitsCollection(
   memberBuildunitIds: string[],
 ) {
   return defineCollection({
-    id: `build-units`,
-    path: `/api/buildunits`,
-    params: { member_ids: memberBuildunitIds },
-    schema: buildUnitRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
+    ...buildUnitsSpec(memberBuildunitIds),
     persistence,
     handlers: {
       onInsert: async ({ transaction }: { transaction: { mutations: { modified: { id: string; name: string; description?: string | null; project_id: string; owner_id: string } }[] } }) => {
@@ -219,12 +198,7 @@ function _makeChannelsCollection(
   memberChannelIds: string[],
 ) {
   return defineCollection({
-    id: `channels`,
-    path: `/api/channels`,
-    params: { member_ids: memberChannelIds },
-    schema: channelRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
+    ...channelsSpec(memberChannelIds),
     persistence,
     handlers: {
       onInsert: async ({ transaction }: { transaction: { mutations: { modified: { id: string; name: never; description?: string | null; buildunit_id: string; owner_id: string } }[] } }) => {

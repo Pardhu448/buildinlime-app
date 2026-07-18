@@ -1,87 +1,26 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "expo-router"
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Alert,
-  Keyboard,
-  KeyboardAvoidingView,
-  useWindowDimensions,
-} from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { ListTodo, Plus, X, CheckCircle2, Circle } from "lucide-react-native"
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native"
+import { ListTodo } from "lucide-react-native"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useChannelTasks } from "@/src/presentation/tasks/hooks/useChannelTasks"
 import { useSeen } from "@/src/presentation/shared/hooks/useSeen"
 import { useLookups } from "@/src/presentation/shared/hooks/useLookups"
 import { createTaskAction } from "@/src/application/actions/tasks"
-import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
+import { ChannelTaskRow } from "@/src/presentation/tasks/components/ChannelTaskRow"
+import {
+  BottomSheet,
+  SheetTrigger,
+  SheetActionButton,
+  SheetScroll,
+  SheetEmpty,
+} from "@/src/presentation/shared/components/BottomSheet"
 import { colors } from "@/src/presentation/shared/colors"
-import type { Task } from "@buildinlime/domain-types"
 
 interface TasksSheetProps {
   channelId: string
   buildUnitId: string
   projectId: string
-}
-
-function TaskRow({
-  task,
-  unread,
-  assigneeName,
-  onPress,
-}: {
-  task: Task
-  unread: boolean
-  assigneeName?: string
-  onPress: () => void
-}) {
-  return (
-    <TouchableOpacity
-      style={[styles.row, unread && styles.rowUnread]}
-      onPress={onPress}
-      activeOpacity={0.75}
-    >
-      {task.completed ? (
-        <CheckCircle2 size={18} color="#166534" strokeWidth={2} />
-      ) : (
-        <Circle
-          size={18}
-          color={unread ? colors.primary : colors.mutedForeground}
-          strokeWidth={2}
-          {...(unread ? { fill: colors.primary } : {})}
-        />
-      )}
-
-      <View style={styles.rowBody}>
-        <Text
-          style={[
-            styles.taskName,
-            unread && styles.taskNameUnread,
-            task.completed && styles.taskNameCompleted,
-          ]}
-          numberOfLines={2}
-        >
-          {task.name}
-        </Text>
-        {task.description ? (
-          <Text style={styles.taskDescription} numberOfLines={2}>
-            {task.description}
-          </Text>
-        ) : null}
-        <Text style={styles.taskMeta} numberOfLines={1}>
-          {assigneeName ? `${assigneeName} · ` : "Unassigned · "}
-          {formatDateTime(task.opened_at)}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  )
 }
 
 /**
@@ -100,24 +39,7 @@ export function TasksSheet({ channelId, buildUnitId, projectId }: TasksSheetProp
   const [description, setDescription] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
-  const insets = useSafeAreaInsets()
-  const { height } = useWindowDimensions()
   const { data: session } = useSession()
-
-  // Same rule as MessageInput: the nav-bar inset must not be applied while the
-  // keyboard is up. The KeyboardAvoidingView already lifts the sheet clear of the
-  // keyboard, and the nav bar is behind the keyboard at that point — adding its
-  // height on top pushes the sheet a nav-bar's worth too high.
-  const [keyboardUp, setKeyboardUp] = useState(false)
-  useEffect(() => {
-    const show = Keyboard.addListener("keyboardDidShow", () => setKeyboardUp(true))
-    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardUp(false))
-    return () => {
-      show.remove()
-      hide.remove()
-    }
-  }, [])
-
   const { tasks } = useChannelTasks(channelId)
   const { isTaskUnseen } = useSeen()
   const { getUserName } = useLookups()
@@ -174,229 +96,89 @@ export function TasksSheet({ channelId, buildUnitId, projectId }: TasksSheetProp
 
   return (
     <>
-      <TouchableOpacity
-        style={styles.trigger}
-        onPress={() => setOpen(true)}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        activeOpacity={0.7}
-      >
-        <ListTodo size={20} color={colors.primary} strokeWidth={2} />
-        {unopenedCount > 0 ? (
-          <View style={styles.countBadge}>
-            {/* numberOfLines={1}: a constrained badge would otherwise WRAP a
-                two-digit count and show only the first digit. */}
-            <Text style={styles.countText} numberOfLines={1}>
-              {unopenedCount > 99 ? "99+" : unopenedCount}
-            </Text>
-          </View>
-        ) : null}
-      </TouchableOpacity>
+      <SheetTrigger icon={ListTodo} count={unopenedCount} onPress={() => setOpen(true)} />
 
-      <Modal
+      <BottomSheet
         visible={open}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setOpen(false)}
+        onClose={() => setOpen(false)}
+        title="Tasks"
+        headerAction={
+          <SheetActionButton label="Add" onPress={() => setAddOpen((v) => !v)} />
+        }
+        // The add form below holds a text input, and the sheet sits in the bottom
+        // half of the screen where the keyboard opens.
+        keyboardAware
       >
-        {/* The sheet is pinned to the bottom half of the screen — exactly where the
-            keyboard opens — so the add form is covered unless something lifts it.
-            "padding" on both platforms, NOT "height": under edge-to-edge the window
-            does not resize for the keyboard, and "height" lifts by shrinking and
-            does not fully unwind on dismiss. Same choice as the channel screen. */}
-        <KeyboardAvoidingView
-          style={styles.modalBody}
-          behavior="padding"
-          keyboardVerticalOffset={0}
-        >
-          <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
-
-          <View
-            style={[
-              styles.sheet,
-              { height: height * 0.5, paddingBottom: keyboardUp ? 0 : insets.bottom },
-            ]}
-          >
-            <View style={styles.grabber} />
-
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Tasks</Text>
-              <TouchableOpacity
-                style={styles.addBtn}
-                onPress={() => setAddOpen((v) => !v)}
-                activeOpacity={0.7}
-              >
-                <Plus size={14} color={colors.primaryForeground} strokeWidth={2.5} />
-                <Text style={styles.addText}>Add</Text>
+        {addOpen && (
+          <View style={styles.addForm}>
+            <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="Task name"
+              placeholderTextColor={colors.mutedForeground}
+              autoFocus
+            />
+            <TextInput
+              style={styles.input}
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Description (optional)"
+              placeholderTextColor={colors.mutedForeground}
+            />
+            {nameTaken && (
+              <Text style={styles.nameTaken}>
+                A task with this name already exists in this channel.
+              </Text>
+            )}
+            <View style={styles.addActions}>
+              <TouchableOpacity onPress={resetForm} activeOpacity={0.7}>
+                <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => setOpen(false)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                activeOpacity={0.6}
+                style={[
+                  styles.submitBtn,
+                  (!name.trim() || nameTaken) && styles.submitBtnDisabled,
+                ]}
+                onPress={handleAdd}
+                disabled={!name.trim() || nameTaken || submitting}
+                activeOpacity={0.8}
               >
-                <X size={18} color={colors.mutedForeground} strokeWidth={2} />
+                <Text style={styles.submitText}>
+                  {submitting ? "Adding…" : "Add Task"}
+                </Text>
               </TouchableOpacity>
             </View>
-
-            {addOpen && (
-              <View style={styles.addForm}>
-                <TextInput
-                  style={styles.input}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Task name"
-                  placeholderTextColor={colors.mutedForeground}
-                  autoFocus
-                />
-                <TextInput
-                  style={styles.input}
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="Description (optional)"
-                  placeholderTextColor={colors.mutedForeground}
-                />
-                {nameTaken && (
-                  <Text style={styles.nameTaken}>
-                    A task with this name already exists in this channel.
-                  </Text>
-                )}
-                <View style={styles.addActions}>
-                  <TouchableOpacity onPress={resetForm} activeOpacity={0.7}>
-                    <Text style={styles.cancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.submitBtn,
-                      (!name.trim() || nameTaken) && styles.submitBtnDisabled,
-                    ]}
-                    onPress={handleAdd}
-                    disabled={!name.trim() || nameTaken || submitting}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.submitText}>
-                      {submitting ? "Adding…" : "Add Task"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            <ScrollView
-              style={styles.scroll}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator
-              keyboardShouldPersistTaps="handled"
-            >
-              {sorted.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  unread={isTaskUnseen(task)}
-                  assigneeName={
-                    task.assignee_id ? getUserName(task.assignee_id) : undefined
-                  }
-                  // The task screen marks it read on open — doing it here too would
-                  // be a second place to keep in step.
-                  onPress={() => {
-                    setOpen(false)
-                    router.push(
-                      `/(tabs)/project/${projectId}/${buildUnitId}/${channelId}/${task.id}` as any
-                    )
-                  }}
-                />
-              ))}
-              {sorted.length === 0 && (
-                <Text style={styles.empty}>No tasks yet. Tap Add to create one.</Text>
-              )}
-            </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        )}
+
+        <SheetScroll persistTaps>
+          {sorted.map((task) => (
+            <ChannelTaskRow
+              key={task.id}
+              task={task}
+              unread={isTaskUnseen(task)}
+              assigneeName={task.assignee_id ? getUserName(task.assignee_id) : undefined}
+              // The task screen marks it read on open — doing it here too would
+              // be a second place to keep in step.
+              onPress={() => {
+                setOpen(false)
+                router.push(
+                  `/(tabs)/project/${projectId}/${buildUnitId}/${channelId}/${task.id}` as any
+                )
+              }}
+            />
+          ))}
+          {sorted.length === 0 && (
+            <SheetEmpty>No tasks yet. Tap Add to create one.</SheetEmpty>
+          )}
+        </SheetScroll>
+      </BottomSheet>
     </>
   )
 }
 
 const styles = StyleSheet.create({
-  // The badge sits INSIDE the trigger's box — see the note in ResourcesSheet. It
-  // was pinned outside (top: -2, right: -4), where Android clips it: a two-digit
-  // count grows the badge past the edge and the last digit is lost. The resources
-  // badge hit this first, but a channel with 10+ tasks would have hit it here too.
-  trigger: {
-    paddingTop: 9,
-    paddingRight: 12,
-    paddingBottom: 6,
-    paddingLeft: 6,
-  },
-  countBadge: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    minWidth: 17,
-    height: 17,
-    paddingHorizontal: 4,
-    borderRadius: 9,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  countText: {
-    fontSize: 10,
-    lineHeight: 13,
-    fontFamily: "InstrumentSans_600SemiBold",
-    color: colors.primaryForeground,
-  },
-  modalBody: {
-    flex: 1,
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: colors.scrim,
-  },
-  sheet: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    // The height is fixed at half the screen, but a keyboard taller than that
-    // would leave no room for it — shrink instead of running off the bottom.
-    flexShrink: 1,
-  },
-  grabber: {
-    alignSelf: "center",
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.cardBorder,
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBorder,
-  },
-  sheetTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontFamily: "InstrumentSans_600SemiBold",
-    color: colors.foreground,
-  },
-  addBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  addText: {
-    fontSize: 12,
-    fontFamily: "InstrumentSans_600SemiBold",
-    color: colors.primaryForeground,
-  },
   addForm: {
     gap: 8,
     paddingVertical: 10,
@@ -443,62 +225,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "InstrumentSans_600SemiBold",
     color: colors.primaryForeground,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingVertical: 10,
-    gap: 8,
-  },
-  empty: {
-    fontSize: 13,
-    fontFamily: "InstrumentSans_400Regular",
-    color: colors.mutedForeground,
-    textAlign: "center",
-    paddingVertical: 24,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderRadius: 10,
-  },
-  rowUnread: {
-    backgroundColor: colors.cardSurface,
-    borderColor: colors.secondary,
-  },
-  rowBody: {
-    flex: 1,
-    gap: 2,
-  },
-  taskName: {
-    fontSize: 13,
-    fontFamily: "InstrumentSans_500Medium",
-    color: colors.foreground,
-    lineHeight: 18,
-  },
-  taskNameUnread: {
-    fontFamily: "InstrumentSans_600SemiBold",
-  },
-  taskNameCompleted: {
-    color: colors.mutedForeground,
-    textDecorationLine: "line-through",
-  },
-  taskDescription: {
-    fontSize: 12,
-    fontFamily: "InstrumentSans_400Regular",
-    color: colors.mutedForeground,
-  },
-  taskMeta: {
-    fontSize: 11,
-    fontFamily: "InstrumentSans_400Regular",
-    color: colors.mutedForeground,
-    marginTop: 2,
   },
 })

@@ -69,8 +69,9 @@ function createOnlineDetector(): InternalDetector {
       return online
     },
     // No-op: the detector is a shared singleton, so a consumer disposing
-    // (e.g. the executor being torn down and rebuilt on project switch) must
-    // NOT kill the connectivity source the other consumer still depends on.
+    // (e.g. the executor being torn down and rebuilt after a membership
+    // resync) must NOT kill the connectivity source the other consumer still
+    // depends on.
     // Real teardown happens via disposeOnlineDetector() at sign-out.
     dispose() {},
     _teardown() {
