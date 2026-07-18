@@ -1,3 +1,4 @@
+import type { BuildUnitRow, ChannelRow, MembershipRow, ProjectRow } from "@buildinlime/contracts"
 import {
   projectsSpec,
   buildUnitsSpec,
@@ -26,21 +27,21 @@ function _makeProjectsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberProjectIds: string[],
 ) {
-  return defineCollection({ ...projectsSpec(memberProjectIds), persistence })
+  return defineCollection<ProjectRow>({ ...projectsSpec(memberProjectIds), persistence })
 }
 
 function _makeBuildUnitsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberBuildunitIds: string[],
 ) {
-  return defineCollection({ ...buildUnitsSpec(memberBuildunitIds), persistence })
+  return defineCollection<BuildUnitRow>({ ...buildUnitsSpec(memberBuildunitIds), persistence })
 }
 
 function _makeChannelsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({ ...channelsSpec(memberChannelIds), persistence })
+  return defineCollection<ChannelRow>({ ...channelsSpec(memberChannelIds), persistence })
 }
 
 /**
@@ -54,13 +55,13 @@ function _makeChannelMembersCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({ ...channelMembersSpec(memberChannelIds), persistence })
+  return defineCollection<MembershipRow>({ ...channelMembersSpec(memberChannelIds), persistence })
 }
 
 function _makeMembershipsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
 ) {
-  return defineCollection({
+  return defineCollection<MembershipRow>({
     ...membershipsSpec(),
     persistence,
     // Reports the error before retrying, so the bootstrap can tell a clean empty

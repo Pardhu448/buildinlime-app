@@ -1,3 +1,4 @@
+import type { MessageRow, PropertyRow, ResourceRow, SeenStateRow, TaskRow } from "@buildinlime/contracts"
 import {
   tasksSpec,
   messagesSpec,
@@ -31,7 +32,7 @@ function _makeTasksCollection(
 ) {
   // No handlers — writes routed through @tanstack/offline-transactions
   // (see application/actions/tasks.ts).
-  return defineCollection({ ...tasksSpec(memberChannelIds), persistence })
+  return defineCollection<TaskRow>({ ...tasksSpec(memberChannelIds), persistence })
 }
 
 function _makeMessagesCollection(
@@ -44,7 +45,7 @@ function _makeMessagesCollection(
   // (the row survives so its replies keep a parent) — see deleteMessageAction. A
   // delete handler here would let messagesCollection.delete() drop the row
   // optimistically and orphan the thread. With none it fails loudly instead.
-  return defineCollection({ ...messagesSpec(memberChannelIds), persistence })
+  return defineCollection<MessageRow>({ ...messagesSpec(memberChannelIds), persistence })
 }
 
 function _makeResourcesCollection(
@@ -53,7 +54,7 @@ function _makeResourcesCollection(
 ) {
   // No handlers — onDelete routed through @tanstack/offline-transactions
   // (see application/actions/resources.ts → deleteResourceAction).
-  return defineCollection({ ...resourcesSpec(memberChannelIds), persistence })
+  return defineCollection<ResourceRow>({ ...resourcesSpec(memberChannelIds), persistence })
 }
 
 function _makePropertiesCollection(
@@ -64,7 +65,7 @@ function _makePropertiesCollection(
     memberChannelIds: string[]
   },
 ) {
-  return defineCollection({
+  return defineCollection<PropertyRow>({
     ...propertiesSpec(params),
     persistence,
     handlers: {
@@ -120,20 +121,20 @@ function _makeInboxMentionsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({ ...inboxMentionsSpec(memberChannelIds), persistence })
+  return defineCollection<MessageRow>({ ...inboxMentionsSpec(memberChannelIds), persistence })
 }
 
 function _makeMyTasksCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({ ...myTasksSpec(memberChannelIds), persistence })
+  return defineCollection<TaskRow>({ ...myTasksSpec(memberChannelIds), persistence })
 }
 
 function _makeSeenStateCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
 ) {
-  return defineCollection({ ...seenStateSpec(), persistence })
+  return defineCollection<SeenStateRow>({ ...seenStateSpec(), persistence })
 }
 
 // ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+import type { UserRow } from "@buildinlime/contracts"
 import { usersSpec } from "@buildinlime/sync-core"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
 import { defineCollection, safeCleanup } from "./_shared"
@@ -16,7 +17,7 @@ import { defineCollection, safeCleanup } from "./_shared"
 function _makeUsersCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
 ) {
-  return defineCollection({ ...usersSpec(), persistence })
+  return defineCollection<UserRow>({ ...usersSpec(), persistence })
 }
 
 // ---------------------------------------------------------------------------

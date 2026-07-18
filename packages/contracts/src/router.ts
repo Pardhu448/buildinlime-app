@@ -1,4 +1,4 @@
-import { router, procedure, stub } from "./trpc"
+import { router, procedure, stub, stubOf } from "./trpc"
 import { createTaskInput, updateTaskInput, deleteTaskInput } from "./schemas/tasks"
 import {
   createProjectInput,
@@ -21,6 +21,7 @@ import {
   deletePropertyInput,
 } from "./schemas/communication"
 import { markSeenInput } from "./schemas/seen"
+import { checkEmailInput } from "./schemas/users"
 
 // The wire contract, expressed as a tRPC router so its `typeof` is a real
 // AppRouter the client can type its calls against. Procedure NAMES and namespaces
@@ -28,8 +29,10 @@ import { markSeenInput } from "./schemas/seen"
 // INPUT SCHEMAS are shared with the server, so those cannot drift.
 //
 // This covers the surface the MOBILE client calls (ARCHITECTURE.md §10). The web
-// client uses the server's own AppRouter directly, so web-only procedures
-// (channels.addMember/removeMember, users.*) are intentionally not mirrored here.
+// client uses the server's own AppRouter directly, so genuinely web-only
+// procedures (channels.addMember/removeMember, the rest of users.*) are not
+// mirrored here. `users.checkEmail` IS mirrored: mobile's login screen calls it,
+// and while it was excluded as "web-only" that call was untyped.
 export const contractRouter = router({
   tasks: router({
     create: procedure.input(createTaskInput).mutation(stub),
@@ -67,6 +70,9 @@ export const contractRouter = router({
     create: procedure.input(createPropertyInput).mutation(stub),
     update: procedure.input(updatePropertyInput).mutation(stub),
     delete: procedure.input(deletePropertyInput).mutation(stub),
+  }),
+  users: router({
+    checkEmail: procedure.input(checkEmailInput).query(stubOf<{ exists: boolean }>()),
   }),
   seen: router({
     markSeen: procedure.input(markSeenInput).mutation(stub),

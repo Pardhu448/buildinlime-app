@@ -3,6 +3,7 @@
 // the collection factory itself live once in @buildinlime/sync-core; this file
 // injects the mobile platform primitives and re-exports the result.
 import { createCollection } from "@tanstack/react-db"
+import type { Collection } from "@tanstack/react-db"
 import { electricCollectionOptions } from "@tanstack/electric-db-collection"
 import { persistedCollectionOptions } from "@tanstack/expo-db-sqlite-persistence"
 import { makeShapeRetry, makeCollectionOptionsBuilder } from "@buildinlime/sync-core"
@@ -77,9 +78,17 @@ const buildCollectionOptions = makeCollectionOptionsBuilder({
  * collection must share one, or the persistence adapter cache forks.
  *
  * The `as any` is the same one that used to sit at every collection site: the
- * builders' options types don't compose, and createCollection is what recovers a
- * properly typed Collection from it.
+ * builders' options types don't compose, so the row type has to be stated by the
+ * caller rather than inferred: sync-core types the injected tanstack builders as
+ * `(config: never) => object` on purpose (web and mobile inject different
+ * persistence packages), so buildCollectionOptions returns a bare `object` and
+ * there is nothing left to infer from. Note also that createCollection's FIRST
+ * type parameter is the schema, not the row — passing a row type there yields a
+ * garbage row type rather than an error. Mirrors web's _shared.ts.
+ *
+ * TRow must match the spec's schema; both come from @buildinlime/contracts, so
+ * they agree by construction, but the assertion does not verify it.
  */
-export const defineCollection = (spec: CollectionSpec) =>
+export const defineCollection = <TRow extends object>(spec: CollectionSpec) =>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createCollection(buildCollectionOptions(spec) as any)
+  createCollection(buildCollectionOptions(spec) as any) as unknown as Collection<TRow, string>
