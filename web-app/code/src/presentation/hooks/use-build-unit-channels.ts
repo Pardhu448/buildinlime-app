@@ -69,7 +69,7 @@ export function useBuildUnitChannels(buildUnitId: string, projectId: string, bui
       title: name,
       description: channel.description ?? '',
       icon: CHANNEL_ICONS[name] ?? ClipboardCheck,
-      to: `/projects/${projectId}/${buildUnitName}/${name}`,
+      linkParams: { projectId, buildUnitName, channelName: name },
       properties: channelPropsByEntity.get(channel.id as string) ?? [],
     }
   })
@@ -83,7 +83,7 @@ export function useBuildUnitChannels(buildUnitId: string, projectId: string, bui
       title: p.name as typeof CHANNEL_NAMES[number],
       description: p.description ?? '',
       icon: CHANNEL_ICONS[p.name as typeof CHANNEL_NAMES[number]] ?? ClipboardCheck,
-      to: undefined,
+      linkParams: undefined,
       properties: [],
     }))
 

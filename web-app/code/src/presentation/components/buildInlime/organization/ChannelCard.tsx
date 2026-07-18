@@ -7,7 +7,20 @@ interface ChannelCardProps {
   icon: LucideIcon;
   title: string;
   description: string;
-  to?: string;
+  /**
+   * Route params for the channel this card opens. Absent for a pending (ghost)
+   * channel, which has no route to point at yet.
+   *
+   * These are the router's own params rather than a pre-built URL string: the
+   * card used to take `to: string` and render `<Link href={to}>`, which is not a
+   * prop TanStack's Link accepts — it computes `href` from `to`/`params` and
+   * overwrites whatever was passed, so the interpolated URL was discarded.
+   */
+  linkParams?: {
+    projectId: string;
+    buildUnitName: string;
+    channelName: string;
+  };
   onClick?: () => void;
   isPending?: boolean;
   properties?: Property[];
@@ -17,7 +30,7 @@ export function ChannelCard({
   icon: Icon,
   title,
   description,
-  to,
+  linkParams,
   onClick,
   isPending,
   properties,
@@ -56,10 +69,11 @@ export function ChannelCard({
     </>
   );
 
-  if (to && !isPending) {
+  if (linkParams && !isPending) {
     return (
       <Link
-        href={to}
+        to="/projects/$projectId/$buildUnitName/$channelName"
+        params={linkParams}
         className="bg-card-surface border border-card-border rounded-lg p-4 hover:bg-icon-chip transition-colors cursor-pointer block"
       >
         {content}

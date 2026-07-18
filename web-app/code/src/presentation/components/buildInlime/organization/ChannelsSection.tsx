@@ -10,7 +10,8 @@ export interface Channel {
   title: string;
   description: string;
   isPending?: boolean;
-  to?: string;
+  /** Route params for the channel page; absent while the channel is pending. */
+  linkParams?: { projectId: string; buildUnitName: string; channelName: string };
   onClick?: () => void;
   properties?: Property[];
 }
@@ -47,7 +48,7 @@ export function ChannelsSection({ channels, buildUnitId, pendingIds, addPending,
             icon={channel.icon}
             title={channel.title}
             description={channel.description}
-            to={channel.to}
+            linkParams={channel.linkParams}
             onClick={channel.onClick}
             isPending={pendingIds.has(channel.id)}
             properties={channel.properties}

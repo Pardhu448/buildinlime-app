@@ -13,12 +13,20 @@ export function Header() {
 
       {/* CTA Buttons */}
       <div className="flex items-center gap-[16px]">
-        <Link to="/login" className={HEADER_LINK_CLASS} style={HEADER_LINK_STYLE}>
+        {/* /login's validateSearch returns both fields, so Link requires both —
+            it defaults them at runtime, and the validated URL carries them
+            either way, so stating them here changes nothing but the types. */}
+        <Link
+          to="/login"
+          search={{ returnTo: "/", mode: "login" }}
+          className={HEADER_LINK_CLASS}
+          style={HEADER_LINK_STYLE}
+        >
           Login
         </Link>
         <Link
           to="/login"
-          search={{ mode: "signup" }}
+          search={{ returnTo: "/", mode: "signup" }}
           className="bg-primary hover:bg-primary-hover text-white px-[24px] py-[12px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] transition-colors"
           style={HEADER_LINK_STYLE}
         >
