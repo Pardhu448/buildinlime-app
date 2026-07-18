@@ -26,7 +26,7 @@ import { updateTaskAction, deleteTaskAction } from "@/src/application/actions/ta
 import { createMessageAction } from "@/src/application/actions/messages"
 import { usePropertiesByEntity } from "@/src/presentation/properties/hooks/useProperties"
 import { ResourcesSheet } from "@/src/presentation/resources/components/ResourcesSheet"
-import { TaskScreenHeader } from "@/src/presentation/tasks/components/TaskScreenHeader"
+import { BackHeader } from "@/src/presentation/shared/components/BackHeader"
 import { TaskStatusControl } from "@/src/presentation/tasks/components/TaskStatusControl"
 import { TaskDetailsFields } from "@/src/presentation/tasks/components/TaskDetailsFields"
 import { TaskStatusHistory } from "@/src/presentation/tasks/components/TaskStatusHistory"
@@ -220,7 +220,7 @@ export default function TaskScreen() {
       behavior="padding"
       keyboardVerticalOffset={0}
     >
-      <TaskScreenHeader
+      <BackHeader
         title={task.name}
         onBack={() => router.back()}
         onDelete={canDelete ? confirmDelete : undefined}

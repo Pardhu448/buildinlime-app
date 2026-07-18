@@ -4,28 +4,27 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Trash2 } from "lucide-react-native"
 import { colors } from "@/src/presentation/shared/colors"
 
-interface TaskScreenHeaderProps {
+interface BackHeaderProps {
   title: string
   onBack: () => void
-  /** Rendered to the left of the delete button — the task's attachments sheet. */
+  /** Trailing content before the delete button — sheet triggers, for instance. */
   actions?: ReactNode
-  /** Omitted when the viewer may not delete, which hides the button entirely. */
+  /**
+   * Omitted when the viewer may not delete, which hides the button entirely.
+   * Screens with no delete affordance simply never pass it.
+   */
   onDelete?: () => void
 }
 
 /**
- * The task screen's top bar: back arrow, task name, then the action slot and
- * delete.
+ * The top bar for a PUSHED route: back arrow, title, then actions and delete.
  *
- * Not shared/ScreenHeader — that one opens the drawer from a hamburger, and this
- * screen is a pushed route that needs a back arrow.
+ * Not shared/ScreenHeader — that one opens the drawer from a hamburger and is
+ * for the tab-level screens. This is for anything you navigated INTO and back
+ * out of: the channel and the task screen, which had the same four styles
+ * character-for-character.
  */
-export function TaskScreenHeader({
-  title,
-  onBack,
-  actions,
-  onDelete,
-}: TaskScreenHeaderProps) {
+export function BackHeader({ title, onBack, actions, onDelete }: BackHeaderProps) {
   const insets = useSafeAreaInsets()
 
   return (

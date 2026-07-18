@@ -1,18 +1,11 @@
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  StyleSheet,
-  ActivityIndicator,
-} from "react-native"
+import { View, KeyboardAvoidingView, StyleSheet, ActivityIndicator } from "react-native"
 import { useCallback, useState } from "react"
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useMessages } from "@/src/presentation/messages/hooks/useMessages"
 import { MessageList } from "@/src/presentation/messages/components/MessageList"
 import { MessageInput } from "@/src/presentation/messages/components/MessageInput"
 import { ResourcesSheet } from "@/src/presentation/resources/components/ResourcesSheet"
+import { BackHeader } from "@/src/presentation/shared/components/BackHeader"
 import { useUsers } from "@/src/presentation/shared/hooks/useUsers"
 import { useSeen } from "@/src/presentation/shared/hooks/useSeen"
 import { TasksSheet } from "@/src/presentation/tasks/components/TasksSheet"
@@ -32,7 +25,6 @@ export default function ChannelScreen() {
   }>()
   const router = useRouter()
   const { data: session } = useSession()
-  const insets = useSafeAreaInsets()
 
   // Look up channel name from channelsCollection
   const { data: channelsData } = useLiveQuery(
@@ -82,32 +74,26 @@ export default function ChannelScreen() {
       behavior="padding"
       keyboardVerticalOffset={0}
     >
-      {/* Inline header with back button */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          activeOpacity={0.6}
-        >
-          <Text style={styles.backArrow}>‹</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {channel?.name ?? "Channel"}
-        </Text>
-        {/* Tasks and Resources both live behind header buttons — half-screen
-            sheets, so neither competes with the message list for vertical space. */}
-        <TasksSheet
-          channelId={channelId}
-          buildUnitId={buildUnitId}
-          projectId={projectId}
-        />
-        <ResourcesSheet
-          channelId={channelId}
-          buildUnitId={buildUnitId}
-          projectId={projectId}
-        />
-      </View>
+      <BackHeader
+        title={channel?.name ?? "Channel"}
+        onBack={() => router.back()}
+        // Tasks and Resources both live behind header buttons — half-screen
+        // sheets, so neither competes with the message list for vertical space.
+        actions={
+          <>
+            <TasksSheet
+              channelId={channelId}
+              buildUnitId={buildUnitId}
+              projectId={projectId}
+            />
+            <ResourcesSheet
+              channelId={channelId}
+              buildUnitId={buildUnitId}
+              projectId={projectId}
+            />
+          </>
+        }
+      />
 
       {/* Messages */}
       {isLoading ? (
@@ -143,34 +129,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    // paddingTop applied inline from useSafeAreaInsets().top (real device inset).
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: 8,
-  },
-  backButton: {
-    padding: 4,
-    marginRight: 4,
-  },
-  backArrow: {
-    fontSize: 32,
-    color: colors.primary,
-    fontFamily: "InstrumentSans_400Regular",
-    lineHeight: 32,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontFamily: "InstrumentSans_600SemiBold",
-    color: colors.foreground,
-    lineHeight: 22,
-  },
+  // Deliberately NOT shared/ScreenStates' LoadingState: that one carries
+  // paddingHorizontal + gap for its icon/title/message stack, and is scoped to the
+  // Inbox and My Tasks screens. This is a bare centred spinner.
   centered: {
     flex: 1,
     alignItems: "center",
