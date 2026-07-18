@@ -237,7 +237,13 @@ The explicit `cleanup()` + rebuild on resync (above) is unchanged and orthogonal
 | Adapter | `@tanstack/browser-db-sqlite-persistence` | `@tanstack/expo-db-sqlite-persistence` |
 | File | `buildinlime.sqlite` | `buildinlime.sqlite` (WAL, `busy_timeout=5000`) |
 
-The local database is **wiped on sign-out** on both platforms, so the next user on the same device never sees the previous user's cached rows on first paint.
+The local database is **wiped on sign-out** on both platforms, so the next user on the same device never sees the previous user's cached rows on first paint. That wipe is best-effort on both — it can race in-flight Electric sync writes, and its failure is swallowed — so on its own it is not a correctness guarantee.
+
+**A failed wipe is not a cosmetic problem, and only mobile is protected from it.** When the delete does not fully clear, the next session inherits the store *and its Electric sync offsets*. A stale offset makes Electric report "up-to-date" and never re-deliver, so every membership-scoped shape returns empty for the whole session — while projects still render through the `owner_id = me` escape hatch, which is why this shows up as "my build units vanished" rather than as an obviously broken app. Nothing self-heals it: no rows arrive, so the resync backstop never fires.
+
+Mobile closes this on the way **in**. `ensureCleanPersistenceForUser` runs at the very top of bootstrap, before any collection opens the database, and wipes unless a marker in SecureStore matches `${userId}:${sessionId}`. Keying on the session id — not the user id alone — is what makes a re-login that never went through sign-out (app kill, expired session) still wipe, while a genuine session restore after an app restart matches and keeps the cache. Its branches are pinned in `mobile-app/tests/persistence-owner.test.ts`; the bug has now returned three times, each time through a path the previous fix did not cover.
+
+**Web has no equivalent, and reproduces the original bug.** `browser-persistence.ts` has no owner marker and no wipe-on-sign-in: `_authenticated.tsx` calls `initializeMembershipsCollection()` straight into whatever OPFS file is there. So a raced sign-out on web strands the session in exactly the state described above, with nothing to recover it short of clearing OPFS by hand. Porting `ensureCleanPersistenceForUser` (localStorage in place of SecureStore, called before the first collection init in the `_authenticated` loader) is outstanding work.
 
 Two sharp edges are documented in the code and worth repeating:
 
