@@ -56,18 +56,19 @@ export function SheetTrigger({ icon: Icon, count, onPress }: SheetTriggerProps) 
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       activeOpacity={0.7}
     >
-      {/* 20px so the two triggers sitting next to each other match. */}
-      <Icon size={20} color={colors.primary} strokeWidth={2} />
-      {count > 0 ? (
-        <View style={styles.countBadge}>
-          {/* numberOfLines={1}: a constrained badge would otherwise WRAP a
-              two-digit count and show only the first digit, the 17px height
-              hiding the rest. */}
-          <Text style={styles.countText} numberOfLines={1}>
-            {count > 99 ? "99+" : count}
-          </Text>
-        </View>
-      ) : null}
+      {/* The icon and badge share an explicitly-sized box — see styles.iconBox
+          for why the badge cannot simply be absolute inside the padded button. */}
+      <View style={styles.iconBox}>
+        {/* 20px so the two triggers sitting next to each other match. */}
+        <Icon size={20} color={colors.primary} strokeWidth={2} />
+        {count > 0 ? (
+          <View style={styles.countBadge}>
+            <Text style={styles.countText} numberOfLines={1}>
+              {count > 99 ? "99+" : count}
+            </Text>
+          </View>
+        ) : null}
+      </View>
     </TouchableOpacity>
   )
 }
@@ -205,26 +206,39 @@ export function SheetEmpty({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  // The badge sits INSIDE the trigger's box. It used to be pinned outside it
-  // (top: -2, right: -4); Android clips a child that overflows its parent, so once
-  // the count went two-digit the badge grew wider, ran past the edge and lost its
-  // right half — "18" rendered as "1". The padding here is what reserves that
-  // room, so the badge has somewhere to grow (up to "99+") without leaving the
-  // bounds. The resources badge hit this first; a channel with 10+ tasks would
-  // have hit it on the tasks trigger too.
   trigger: {
-    paddingTop: 9,
-    paddingRight: 12,
-    paddingBottom: 6,
-    paddingLeft: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
+  // The box the badge is positioned against, sized EXPLICITLY — this is the fix
+  // for the two-digit count that kept rendering as "1".
+  //
+  // Yoga measures an absolutely-positioned child against its parent's CONTENT
+  // box. With the badge absolute inside the button itself, that box was just the
+  // icon — 20px — so a one-digit badge (17px minWidth) fitted and a two-digit one
+  // needed ~21px, got clamped to 20, and the text was squeezed out. It was never
+  // wrapping, which is why numberOfLines={1} did not help; and the earlier
+  // attempt to "reserve room" with paddingRight made the content box NARROWER,
+  // not wider.
+  //
+  // 30px is sized for the widest badge ("99+", ~27px). The icon sits at the
+  // bottom-left and the badge overlaps its top-right corner, as before.
+  iconBox: {
+    width: 30,
+    height: 26,
+    justifyContent: "flex-end",
+    alignItems: "flex-start",
+  },
+  // No fixed height, and no lineHeight override — matching DrawerContent's
+  // UnreadBadge, which renders two- and three-digit counts correctly because it
+  // lets its content size it.
   countBadge: {
     position: "absolute",
     top: 0,
     right: 0,
-    minWidth: 17,
-    height: 17,
-    paddingHorizontal: 4,
+    minWidth: 18,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
     borderRadius: 9,
     backgroundColor: colors.primary,
     alignItems: "center",
@@ -232,7 +246,6 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontSize: 10,
-    lineHeight: 13,
     fontFamily: "InstrumentSans_600SemiBold",
     color: colors.primaryForeground,
   },
