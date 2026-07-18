@@ -68,18 +68,18 @@ const TYPE_ICON: Record<typeof PROPERTY_TYPES[number], LucideIcon> = {
   taskStatus:       CheckCircle2,
 }
 
-type PillStyle = { bg: string; border: string; text: string }
+export type PillStyle = { bg: string; border: string; text: string }
 
-const DEFAULT_PILL: PillStyle = { bg: "bg-icon-chip", border: "border-card-border", text: "text-foreground" }
+export const DEFAULT_PILL: PillStyle = { bg: "bg-icon-chip", border: "border-card-border", text: "text-foreground" }
 
-const STATUS_PILL_STYLES: Record<string, PillStyle> = {
+export const STATUS_PILL_STYLES: Record<string, PillStyle> = {
   critical: { bg: "bg-red-100",    border: "border-red-200",    text: "text-red-700"    },
   high:     { bg: "bg-orange-100", border: "border-orange-200", text: "text-orange-700" },
   medium:   { bg: "bg-yellow-100", border: "border-yellow-200", text: "text-yellow-700" },
   low:      { bg: "bg-green-100",  border: "border-green-200",  text: "text-green-700"  },
 }
 
-const PRIORITY_PILL_STYLES: Record<string, PillStyle> = {
+export const PRIORITY_PILL_STYLES: Record<string, PillStyle> = {
   notStarted:  { bg: "bg-gray-100",   border: "border-gray-200",   text: "text-gray-600"   },
   inProgress:  { bg: "bg-blue-100",   border: "border-blue-200",   text: "text-blue-700"   },
   onTrack:     { bg: "bg-green-100",  border: "border-green-200",  text: "text-green-700"  },
@@ -91,7 +91,7 @@ const PRIORITY_PILL_STYLES: Record<string, PillStyle> = {
   cancelled:   { bg: "bg-gray-100",   border: "border-gray-200",   text: "text-gray-400"   },
 }
 
-const TASK_STATUS_PILL_STYLES: Record<string, PillStyle> = {
+export const TASK_STATUS_PILL_STYLES: Record<string, PillStyle> = {
   open:      { bg: "bg-blue-100",  border: "border-blue-200",  text: "text-blue-700"  },
   completed: { bg: "bg-green-100", border: "border-green-300", text: "text-green-800" },
 }

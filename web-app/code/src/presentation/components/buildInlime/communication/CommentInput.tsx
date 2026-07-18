@@ -1,16 +1,15 @@
-import { useState, useRef } from "react"
+import { useState } from "react"
 import { Send } from "lucide-react"
+import { useMentions, type MentionUser } from "./use-mentions"
+import { MentionDropdown } from "./MentionDropdown"
 import {
   MessageAttachmentPicker,
   PendingAttachmentChips,
   type PendingAttachment,
 } from "./MessageResourceSection"
 
-export type MentionUser = { id: string; name?: string | null; email?: string | null }
-
-export function mentionDisplayName(u: MentionUser) {
-  return u.name?.trim() || u.email?.trim() || "Unknown"
-}
+// Re-exported for the call sites that still import the mention helpers from here.
+export { mentionDisplayName, type MentionUser } from "./use-mentions"
 
 export interface CommentInputProps {
   placeholder?: string
@@ -25,82 +24,31 @@ export function CommentInput({
   users = [],
   onSend,
 }: CommentInputProps) {
-  const [text, setText] = useState("")
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null)
-  const [mentionIds, setMentionIds] = useState<string[]>([])
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const mentions = useMentions(users)
 
-  const canSend = !!text.trim() || pendingFiles.length > 0
-
-  const filteredUsers =
-    mentionQuery !== null
-      ? users.filter((u) =>
-          mentionDisplayName(u).toLowerCase().includes(mentionQuery.toLowerCase())
-        )
-      : []
-
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newText = e.target.value
-    setText(newText)
-    const cursorPos = e.target.selectionStart ?? newText.length
-    const textBeforeCursor = newText.slice(0, cursorPos)
-    const match = textBeforeCursor.match(/@(\w*)$/)
-    setMentionQuery(match ? match[1] : null)
-  }
-
-  const handleSelectMention = (user: MentionUser) => {
-    const name = mentionDisplayName(user)
-    const cursorPos = textareaRef.current?.selectionStart ?? text.length
-    const before = text.slice(0, cursorPos).replace(/@\w*$/, `@${name} `)
-    setText(before + text.slice(cursorPos))
-    setMentionIds((prev) => (prev.includes(user.id) ? prev : [...prev, user.id]))
-    setMentionQuery(null)
-    setTimeout(() => textareaRef.current?.focus(), 0)
-  }
+  const canSend = !!mentions.text.trim() || pendingFiles.length > 0
 
   const handleSend = () => {
     if (!canSend || !onSend) return
-    onSend(text.trim(), pendingFiles, mentionIds)
-    setText("")
+    onSend(mentions.text.trim(), pendingFiles, mentions.mentionIds)
+    mentions.reset()
     setPendingFiles([])
-    setMentionIds([])
-    setMentionQuery(null)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (mentionQuery !== null && e.key === "Escape") {
-      e.preventDefault()
-      setMentionQuery(null)
-      return
-    }
+    if (mentions.handleMentionEscape(e)) return
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSend()
   }
 
   return (
     <div className="bg-card-surface border border-card-border rounded-lg p-4 relative">
-      {/* Mention dropdown */}
-      {mentionQuery !== null && filteredUsers.length > 0 && (
-        <div className="absolute bottom-full left-0 mb-1 w-full bg-white border border-card-border rounded-lg shadow-lg max-h-40 overflow-y-auto z-10">
-          {filteredUsers.map((u) => (
-            <button
-              key={u.id}
-              onMouseDown={(e) => { e.preventDefault(); handleSelectMention(u) }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-card-surface transition-colors"
-            >
-              <div className="w-6 h-6 rounded-full bg-card-border flex items-center justify-center text-primary text-xs font-medium flex-shrink-0">
-                {mentionDisplayName(u)[0].toUpperCase()}
-              </div>
-              <span className="truncate">{mentionDisplayName(u)}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      <MentionDropdown users={mentions.filteredUsers} onSelect={mentions.selectMention} size="sm" />
 
       <textarea
-        ref={textareaRef}
-        value={text}
-        onChange={handleChange}
+        ref={mentions.textareaRef}
+        value={mentions.text}
+        onChange={mentions.handleTextChange}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className="w-full bg-transparent text-foreground placeholder-secondary resize-none outline-none mb-3"
@@ -114,9 +62,7 @@ export function CommentInput({
 
       <div className="flex items-center justify-between">
         <MessageAttachmentPicker
-          onAdd={(attachments) =>
-            setPendingFiles((prev) => [...prev, ...attachments])
-          }
+          onAdd={(attachments) => setPendingFiles((prev) => [...prev, ...attachments])}
         />
         <button
           onClick={handleSend}

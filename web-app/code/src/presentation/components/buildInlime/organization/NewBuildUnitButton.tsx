@@ -1,4 +1,3 @@
-import { Plus } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useParams } from "@tanstack/react-router";
@@ -7,13 +6,14 @@ import { useSession } from "%/infrastructure/auth/client";
 import { projectsCollection, buildUnitsCollection, registerBuildUnitInsertCallback } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 import { Modal } from "../shared/Modal";
 import { Input, Textarea, Label } from "../shared/FormField";
+import { CreateEntityButton } from "./CreateEntityButton";
+import { OfflineCreateNotice } from "./OfflineCreateNotice";
+import type { PendingBuildUnit } from "%/presentation/hooks/use-pending-build-units";
 
 interface NewBuildUnitFormData {
   name: string;
   description: string;
 }
-
-import type { PendingBuildUnit } from "%/presentation/hooks/use-pending-build-units";
 
 interface NewBuildUnitButtonProps {
   addPending: (item: PendingBuildUnit) => void;
@@ -103,22 +103,14 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
 
   return (
     <>
-      <button
+      <CreateEntityButton
+        label="New BuildUnit"
         onClick={() => {
           setDuplicateError(false);
           setOfflineError(false);
           setIsPopupOpen(true);
         }}
-        className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-      >
-        <Plus className="w-4 h-4" />
-        <span
-          className="font-['Instrument_Sans',sans-serif] font-medium text-[14px]"
-          style={{ fontVariationSettings: "'wdth' 100" }}
-        >
-          New BuildUnit
-        </span>
-      </button>
+      />
 
       <Modal
         open={isPopupOpen}
@@ -169,12 +161,7 @@ export function NewBuildUnitButton({ addPending, removePending, onTrpcComplete }
           </div>
 
           {/* Offline notice */}
-          {offlineError && (
-            <p className="text-sm text-red-600">
-              Build units can&apos;t be created while offline. Reconnect to the
-              internet and try again.
-            </p>
-          )}
+          {offlineError && <OfflineCreateNotice noun="Build units" />}
 
           {/* Submit Button */}
           <button

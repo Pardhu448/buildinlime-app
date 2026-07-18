@@ -1,4 +1,3 @@
-import { Plus } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useLiveQuery, eq } from "@tanstack/react-db";
@@ -6,6 +5,8 @@ import { useSession } from "%/infrastructure/auth/client";
 import { buildUnitsCollection, channelsCollection, projectsCollection, registerChannelInsertCallback } from "%/infrastructure/database/tanstack-db-electric/admincollections";
 import { Modal } from "../shared/Modal";
 import { Select, Textarea, Label } from "../shared/FormField";
+import { CreateEntityButton } from "./CreateEntityButton";
+import { OfflineCreateNotice } from "./OfflineCreateNotice";
 import type { PendingItem } from "%/presentation/hooks/use-pending-items";
 
 interface NewChannelFormData {
@@ -117,22 +118,14 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
 
   return (
     <>
-      <button
+      <CreateEntityButton
+        label="New Channel"
         onClick={() => {
           setDuplicateError(false);
           setOfflineError(false);
           setIsPopupOpen(true);
         }}
-        className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-      >
-        <Plus className="w-4 h-4" />
-        <span
-          className="font-['Instrument_Sans',sans-serif] font-medium text-[14px]"
-          style={{ fontVariationSettings: "'wdth' 100" }}
-        >
-          New Channel
-        </span>
-      </button>
+      />
 
       <Modal
         open={isPopupOpen}
@@ -187,12 +180,7 @@ export function NewChannelButton({ buildUnitId, addPending, removePending, onTrp
           </div>
 
           {/* Offline notice */}
-          {offlineError && (
-            <p className="text-sm text-red-600">
-              Channels can&apos;t be created while offline. Reconnect to the
-              internet and try again.
-            </p>
-          )}
+          {offlineError && <OfflineCreateNotice noun="Channels" />}
 
           {/* Submit Button */}
           <button
