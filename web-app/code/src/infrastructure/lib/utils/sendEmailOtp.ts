@@ -26,7 +26,7 @@ export async function sendVerificationOtp({
   type,
 }: SendVerificationOtpOptions): Promise<{ success: boolean; error?: string }> {
   try {
-    const { data, error } = await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || "BuildInLime <contact@buildinlime.com>",
       to: email,
       subject: `Your verification code to access BuildInLime`,

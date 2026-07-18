@@ -18,11 +18,12 @@ const PERSISTENCE_OWNER_KEY = "buildinlime.persistence_owner"
 
 const ownerMarker = (userId: string, sessionId: string) => `${userId}:${sessionId}`
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PersistenceTrio = {
   database: BrowserWASQLiteDatabase
   coordinator: BrowserCollectionCoordinator
-  persistence: PersistedCollectionPersistence<any, any>
+  // Not generic — the `<any, any>` this used to carry was an error, and the
+  // eslint-disable that came with it had been dead ever since.
+  persistence: PersistedCollectionPersistence
 }
 
 let _trio: Promise<PersistenceTrio> | null = null
