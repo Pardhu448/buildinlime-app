@@ -6,6 +6,7 @@ import { resourcesCollection, tasksCollection } from "%/infrastructure/database/
 import { deleteResourceAction } from "%/application/actions/resources"
 import { formatDateTime } from "%/presentation/lib/datetime"
 import { ResourceThumbnail } from "./ResourceThumbnail"
+import { toDate } from "@buildinlime/contracts"
 
 export interface ResourceDisplayProps {
   channelId: string | null
@@ -166,7 +167,7 @@ export function ResourceDisplay({ channelId, buildunitId }: ResourceDisplayProps
   const visible = ((rawResources as ResourceRow[] | undefined) ?? [])
     .filter((r) => !hiddenIds.has(r.id))
     .sort(
-      (a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()
+      (a, b) => toDate(b.uploaded_at).getTime() - toDate(a.uploaded_at).getTime()
     )
 
   // Split by where the file came from. Standalone rows (neither a message nor a task)

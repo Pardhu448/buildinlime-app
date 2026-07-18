@@ -1,10 +1,11 @@
+import type { WireTimestamp } from "./shared"
 import type { ChannelName, MembershipRole } from "./shared"
 
 export type Project = {
   id: string
   name: string
   description?: string | null
-  created_at: Date
+  created_at?: WireTimestamp
   priority?: "High" | "Mid" | "Low" | null
   target_date?: string | null
   owner_id: string
@@ -35,7 +36,7 @@ export type BuildUnit = {
   status_percent?: string | null
   project_id: string
   owner_id: string
-  created_at: Date
+  created_at?: WireTimestamp
 }
 
 export type UpdateBuildUnit = {
@@ -60,7 +61,7 @@ export type Channel = {
   description?: string | null
   buildunit_id: string
   owner_id: string
-  created_at: Date
+  created_at?: WireTimestamp
 }
 
 export type UpdateChannel = {
@@ -80,5 +81,5 @@ export type Membership = {
   project_id: string
   member_flag: boolean
   role: MembershipRole
-  created_at: Date
+  created_at?: WireTimestamp
 }

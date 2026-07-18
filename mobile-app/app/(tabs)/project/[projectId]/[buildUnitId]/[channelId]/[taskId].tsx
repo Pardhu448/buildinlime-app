@@ -36,6 +36,7 @@ import { useUsers } from "@/src/presentation/shared/hooks/useUsers"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { colors } from "@/src/presentation/shared/colors"
 import type { Message, Property, Task } from "@buildinlime/domain-types"
+import { toDate } from "@buildinlime/contracts"
 
 export default function TaskScreen() {
   const { projectId, buildUnitId, channelId, taskId } = useLocalSearchParams<{
@@ -99,7 +100,7 @@ export default function TaskScreen() {
   const history = ((historyRows ?? []) as Message[])
     .slice()
     .sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      (a, b) => toDate(b.created_at).getTime() - toDate(a.created_at).getTime()
     )
 
   if (!task) {

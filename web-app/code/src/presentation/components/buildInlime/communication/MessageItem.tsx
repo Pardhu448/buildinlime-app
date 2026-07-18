@@ -12,7 +12,8 @@ import {
   type PendingAttachment,
 } from "./MessageResourceSection"
 import { formatDateTime } from "%/presentation/lib/datetime"
-import type { Message } from "%/domain/communication/types"
+import type { MessageRow } from "@buildinlime/contracts"
+import { toDate } from "@buildinlime/contracts"
 
 function displayName(user: MentionUser | undefined) {
   if (!user) return "Unknown"
@@ -24,8 +25,9 @@ function avatarInitial(user: MentionUser | undefined) {
 }
 
 export interface MessageItemProps {
-  message: Message
-  allMessages: Message[]
+  // Wire rows, not the domain `Message`: these come straight from a live query.
+  message: MessageRow
+  allMessages: MessageRow[]
   messagePending: PendingResource[]
   users: MentionUser[]
   onReply: (parentId: string, text: string, files: PendingAttachment[], mentionIds: string[]) => void
@@ -66,7 +68,7 @@ export function MessageItem({
 
   const replies = allMessages
     .filter((m) => m.parent_id === message.id)
-    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .sort((a, b) => toDate(a.created_at).getTime() - toDate(b.created_at).getTime())
 
   const author = users.find((u) => u.id === message.createdby_id)
 

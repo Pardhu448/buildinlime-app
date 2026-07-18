@@ -4,12 +4,13 @@ import { TaskField, FieldValue, FieldHint } from "./TaskField"
 import { PropertyPill } from "@/src/presentation/properties/components/PropertyPill"
 import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
 import { colors } from "@/src/presentation/shared/colors"
-import type { Property } from "@buildinlime/domain-types"
+import type { Property, WireTimestamp } from "@buildinlime/domain-types"
 
 interface TaskDetailsFieldsProps {
   creatorName: string
   /** Passed through to formatDateTime, which takes either form. */
-  openedAt: Date | string
+  // WireTimestamp: a synced row's timestamp may be a Date, a string, or absent.
+  openedAt: WireTimestamp
   assigneeName?: string
   /**
    * Creator-only. The server enforces it (tasks.update returns FORBIDDEN

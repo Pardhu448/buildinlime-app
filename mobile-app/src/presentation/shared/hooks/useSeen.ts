@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react"
 import { useLiveQuery } from "@tanstack/react-db"
 import { seenStateCollection } from "@/src/application/collections/communication"
 import { markSeenAction } from "@/src/application/actions/seen"
+import { toDate } from "@buildinlime/contracts"
 import { useSession } from "@/src/infrastructure/auth/client"
 
 /**
@@ -19,7 +20,6 @@ import { useSession } from "@/src/infrastructure/auth/client"
  * always-loaded collection. Mirrors web's use-seen.ts; keep the two in step.
  */
 const EPOCH = new Date(0)
-const toDate = (v: unknown): Date => (v instanceof Date ? v : new Date(v as string))
 
 export function useSeen() {
   const { data: session } = useSession()
@@ -42,13 +42,15 @@ export function useSeen() {
 
   /** An inbox mention is unseen if it arrived after you last opened the Inbox. */
   const isMessageUnseen = useCallback(
-    (createdAt: Date | string) => toDate(createdAt) > inboxSeenAt,
+    (createdAt: Date | string | null | undefined) => toDate(createdAt) > inboxSeenAt,
     [inboxSeenAt]
   )
 
   /** A task is unseen if it was created after you last opened its channel. */
   const isTaskUnseen = useCallback(
-    (task: { opened_at: Date | string; channel_id: string }) =>
+    // `opened_at?` (optional), not `| undefined` (required-but-maybe-undefined):
+    // the row schema marks it optional, and the two are distinct to TypeScript.
+    (task: { opened_at?: Date | string | null; channel_id: string }) =>
       toDate(task.opened_at) > channelSeenAt(task.channel_id),
     [channelSeenAt]
   )

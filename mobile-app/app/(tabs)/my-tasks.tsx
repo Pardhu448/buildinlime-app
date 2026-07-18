@@ -12,6 +12,7 @@ import { useSeen } from "@/src/presentation/shared/hooks/useSeen"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { colors } from "@/src/presentation/shared/colors"
+import { toDate } from "@buildinlime/contracts"
 
 function MyTasksContent() {
   const router = useRouter()
@@ -34,7 +35,7 @@ function MyTasksContent() {
   // Open tasks first, newest first within each group.
   const sorted = [...tasks].sort((a, b) => {
     if (a.completed !== b.completed) return a.completed ? 1 : -1
-    return new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
+    return toDate(b.opened_at).getTime() - toDate(a.opened_at).getTime()
   })
 
   if (isLoading) return <LoadingState />

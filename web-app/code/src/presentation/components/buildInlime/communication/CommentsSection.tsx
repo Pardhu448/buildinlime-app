@@ -9,6 +9,7 @@ import { usePendingResources } from "%/application/hooks/use-pending-resources"
 import { CommentInput } from "./CommentInput"
 import { MessageItem } from "./MessageItem"
 import type { PendingAttachment } from "./MessageResourceSection"
+import { toDate } from "@buildinlime/contracts"
 
 export interface CommentsSectionProps {
   channelId: string
@@ -37,7 +38,7 @@ export function CommentsSection({
 
   const topLevelMessages = (allMessages ?? [])
     .filter((m) => m.channel_id === channelId && !m.parent_id)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .sort((a, b) => toDate(b.created_at).getTime() - toDate(a.created_at).getTime())
 
   // Scroll the deep-linked message into view once it has actually rendered.
   // Depends on allMessages: on a cold load the collection is still syncing when

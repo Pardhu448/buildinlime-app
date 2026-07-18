@@ -55,7 +55,15 @@ check() { # $1 pnpm filter (a path), $2 check-name (== npm script name), $3 base
     echo "::error::${key} ${name}: ${count} errors exceeds baseline ${base}"
     printf '%s\n' "$out" | grep -E 'error( TS)?' | head -30
   elif [ "$count" -lt "$base" ]; then
-    status="⬇️ improved (−$((base - count))) — lower the baseline"
+    # FAILS, deliberately. A baseline left above the real count is tolerated
+    # slack: the gap is exactly how many new errors a later PR could add without
+    # this gate noticing. It has happened twice — once stale by 87, once when a
+    # merge restored an older copy of this file and quietly gave mobile 30 back.
+    # Making an improvement fail until the number is committed is what keeps the
+    # ratchet monotonic.
+    status="⬇️ improved (−$((base - count))) — LOWER THE BASELINE"
+    fail=1
+    echo "::error::${key} ${name}: ${count} is below baseline ${base} — update .github/quality-baseline.json to ${count} to lock the gain in"
   else
     status="✅ at baseline"
   fi
@@ -75,6 +83,6 @@ check "@buildinlime/domain-types" typecheck
 
 if [ "$fail" -ne 0 ]; then
   echo "" >> "$SUMMARY"
-  echo "**A count exceeded its baseline. Fix the new errors, or if intentional, update .github/quality-baseline.json.**" >> "$SUMMARY"
+  echo "**A count is off its baseline. If it went UP, fix the new errors. If it went DOWN, lower the number in .github/quality-baseline.json so the gain cannot be given back.**" >> "$SUMMARY"
 fi
 exit "$fail"

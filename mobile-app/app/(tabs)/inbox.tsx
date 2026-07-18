@@ -14,6 +14,7 @@ import { useProjectContext } from "@/src/application/context/ProjectContext"
 import { messagesCollection } from "@/src/application/collections/communication"
 import { colors } from "@/src/presentation/shared/colors"
 import type { Message } from "@buildinlime/domain-types"
+import { toDate } from "@buildinlime/contracts"
 
 function InboxContent() {
   const router = useRouter()
@@ -47,7 +48,7 @@ function InboxContent() {
         Array.isArray(m.mention_ids) &&
         m.mention_ids.includes(currentUserId)
     )
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .sort((a, b) => toDate(b.created_at).getTime() - toDate(a.created_at).getTime())
 
   if (isLoading) return <LoadingState />
 

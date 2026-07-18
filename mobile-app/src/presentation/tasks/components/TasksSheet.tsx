@@ -16,6 +16,7 @@ import {
   SheetEmpty,
 } from "@/src/presentation/shared/components/BottomSheet"
 import { colors } from "@/src/presentation/shared/colors"
+import { toDate } from "@buildinlime/contracts"
 
 interface TasksSheetProps {
   channelId: string
@@ -53,7 +54,7 @@ export function TasksSheet({ channelId, buildUnitId, projectId }: TasksSheetProp
   // Open tasks first, newest first within each group — same order as My Tasks.
   const sorted = [...tasks].sort((a, b) => {
     if (a.completed !== b.completed) return a.completed ? 1 : -1
-    return new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
+    return toDate(b.opened_at).getTime() - toDate(a.opened_at).getTime()
   })
 
   function resetForm() {
