@@ -11,10 +11,22 @@ export { persistedCollectionOptions }
 
 const DATABASE_NAME = "buildinlime.sqlite"
 
-// Records which user the local database currently holds data for. Lets a new
-// sign-in detect that the DB belongs to someone else and wipe it — see
-// ensureCleanPersistenceForUser.
+// Records which user AND WHICH SESSION the local database currently holds data
+// for, as `${userId}:${sessionId}`. Lets a new sign-in detect that the DB
+// belongs to someone else — or to an older login of the same person — and wipe
+// it. See ensureCleanPersistenceForUser.
+//
+// The sessionId half is what makes a SAME-USER re-login wipe. The marker used to
+// be the user id alone, which was cleared on sign-out so that path was covered;
+// but a sign-out is not the only way to end up back at the login screen. An app
+// kill or an expired session drops you there with the marker still intact and
+// still matching, so the wipe was skipped and a stale Electric offset survived
+// the re-login. A fresh login always mints a new session row, so keying on it
+// closes that path while leaving genuine session-restore (same session, app
+// restart) a no-op that preserves the offline cache.
 const PERSISTENCE_OWNER_KEY = "buildinlime.persistence_owner"
+
+const ownerMarker = (userId: string, sessionId: string) => `${userId}:${sessionId}`
 
 type PersistenceTrio = {
   database: SQLiteDatabase
@@ -23,33 +35,45 @@ type PersistenceTrio = {
 
 let _trio: PersistenceTrio | null = null
 
-// Guarantee the local database belongs to `userId` BEFORE any collection opens
+// Guarantee the local database belongs to THIS login BEFORE any collection opens
 // it (call at the very start of bootstrap). If the recorded owner differs, wipe
 // the database first.
 //
 // This is the self-healing counterpart to disposePersistence(): sign-out tries to
 // delete the DB, but that delete can race in-flight Electric sync writes and its
-// failure is swallowed. If it doesn't fully clear, the NEXT user's collections
-// restore the previous user's rows AND resume from the previous user's Electric
-// sync offsets — and a stale offset makes Electric report "up-to-date" and never
-// re-deliver the new user's rows. That surfaced as missing build units (and other
-// membership-scoped data) at random after signing in as a different user: empty
-// membership ids → the owner-escape shapes return nothing for a non-owner.
+// failure is swallowed. If it doesn't fully clear, the next session's collections
+// restore the previous rows AND resume from the previous Electric sync offsets —
+// and a stale offset makes Electric report "up-to-date" and never re-deliver the
+// rows. That surfaced as missing build units (and other membership-scoped data):
+// empty membership ids → the owner-escape shapes return nothing for a non-owner.
 //
-// Wiping on the way IN cannot be skipped by a crash or a raced sign-out. Same user
-// (app restart / session restore) is a no-op, so the offline cache is preserved.
-export async function ensureCleanPersistenceForUser(userId: string): Promise<void> {
+// Wiping on the way IN cannot be skipped by a crash or a raced sign-out, and
+// keying on the session id (not just the user id) means it cannot be skipped by
+// a re-login that never went through sign-out either. Session RESTORE — the same
+// session after an app restart — still matches and is a no-op, so the offline
+// cache survives a restart, which is the whole point of persisting it.
+export async function ensureCleanPersistenceForUser(
+  userId: string,
+  sessionId: string,
+): Promise<void> {
+  // No session id → we cannot tell this login apart from the last one, so the
+  // safe reading is "unknown login": wipe, and store nothing that a later launch
+  // could match against. Costs a redundant re-sync; never silently reuses a
+  // possibly-stale store. (`${userId}:` must NOT be written here — it would
+  // match on the next launch and reinstate exactly the hole this closes.)
+  const expected = sessionId ? ownerMarker(userId, sessionId) : null
+
   let owner: string | null = null
   try {
     owner = await SecureStore.getItemAsync(PERSISTENCE_OWNER_KEY)
   } catch {
     // Unreadable marker → treat as unknown owner and wipe to be safe.
   }
-  if (owner === userId) return
+  if (expected !== null && owner === expected) return
 
   if (__DEV__) {
     console.log(
-      `[SQLite] Persistence owner (${owner ?? `none`}) != current user — wiping for a clean slate`,
+      `[SQLite] Persistence owner (${owner ?? `none`}) != current login (${expected ?? `unknown — no session id`}) — wiping for a clean slate`,
     )
   }
 
@@ -68,7 +92,13 @@ export async function ensureCleanPersistenceForUser(userId: string): Promise<voi
     // No existing file (e.g. already deleted on sign-out) — fine.
   }
   try {
-    await SecureStore.setItemAsync(PERSISTENCE_OWNER_KEY, userId)
+    if (expected === null) {
+      // Unknown login — leave no marker, so the next launch wipes again rather
+      // than trusting a store whose provenance we could not establish.
+      await SecureStore.deleteItemAsync(PERSISTENCE_OWNER_KEY)
+    } else {
+      await SecureStore.setItemAsync(PERSISTENCE_OWNER_KEY, expected)
+    }
   } catch {
     // If we can't record the owner the worst case is a redundant wipe next login.
     if (__DEV__) console.warn(`[SQLite] Failed to record persistence owner`)

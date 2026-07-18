@@ -34,11 +34,18 @@ export default function DrawerLayout() {
   const [dataVersion, setDataVersion] = useState(0)
 
   // Phase 1: Bootstrap collections (memberships + projects + users)
+  //
+  // The session ID keys the persistence owner marker (see
+  // ensureCleanPersistenceForUser). It is deliberately NOT part of the start
+  // condition: gating on it would mean a session shape that ever lacked one
+  // leaves bootstrap unstarted and the app on its spinner forever. Passing an
+  // empty string instead degrades to "unknown login", which the marker treats as
+  // a mismatch and wipes — a redundant re-sync at worst, never a hang.
   useEffect(() => {
     if (!session?.user?.id || bootstrapStarted.current) return
     bootstrapStarted.current = true
     if (__DEV__) console.log("[layout] Starting bootstrap collections")
-    initBootstrapCollections(session.user.id)
+    initBootstrapCollections(session.user.id, session.session?.id ?? "")
       .then(() => {
         if (__DEV__) console.log("[layout] Bootstrap ready")
         setBootstrapReady(true)
@@ -47,7 +54,9 @@ export default function DrawerLayout() {
         console.error("[layout] Bootstrap failed:", err)
         setBootstrapReady(true)
       })
-  }, [session?.user?.id])
+    // session id is a dependency in name only — bootstrapStarted makes any
+    // re-entry a no-op — but it is read in the body, so it belongs here.
+  }, [session?.user?.id, session?.session?.id])
 
   // Phase 2: Once bootstrap is ready and we know the selected project,
   // init scoped collections and navigate to the project view.
