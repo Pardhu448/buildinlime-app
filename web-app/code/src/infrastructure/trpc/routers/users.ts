@@ -37,7 +37,7 @@ export const usersRouter = router({
           updatedAt: now,
         })
         .returning({ id: users.id })
-      return { userId: created!.id }
+      return { userId: created.id }
     }),
 
   create: authedProcedure.input(z.any()).mutation(async () => {

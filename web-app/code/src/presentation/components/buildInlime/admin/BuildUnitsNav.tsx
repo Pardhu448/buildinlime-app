@@ -80,7 +80,7 @@ export function BuildUnitsNav({
                           return (
                             <Link
                               key={ch.id}
-                              to="/projects/$projectId/$buildUnitName/$channelName/"
+                              to="/projects/$projectId/$buildUnitName/$channelName"
                               params={{ projectId, buildUnitName: bu.name, channelName }}
                               className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-icon-chip rounded transition-colors"
                             >

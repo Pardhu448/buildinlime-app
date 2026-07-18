@@ -61,10 +61,10 @@ export function useProjectBuildUnits(projectId: string) {
   const dbBuildUnits = (buildUnitsFromDB ?? []).map((bu) => ({
     id: bu.id,
     name: bu.name,
-    description: bu.descritption,
-    properties: propertiesByEntity.get(bu.id as string) ?? [],
-    health: (bu.health ?? "On track") as "On track" | "At risk" | "Off track",
-    priority: (bu.priority ?? "Low") as "High" | "Mid" | "Low",
+    description: bu.description,
+    properties: propertiesByEntity.get(bu.id) ?? [],
+    health: (bu.health ?? "On track"),
+    priority: (bu.priority ?? "Low"),
     waitingOnTask: {
       name: bu.task_name ?? "—",
       assignee: bu.task_assignee ?? "—",
@@ -92,7 +92,10 @@ export function useProjectBuildUnits(projectId: string) {
 
   const buildUnits = [...dbBuildUnits, ...ghostRows]
 
-  const onBuildUnitClick = (buildUnit: { id: string; name: string; desc: string }) => {
+  // Takes only what it reads. It previously declared `desc`, a field the build
+  // unit rows do not have (they carry `description`), so no caller's object was
+  // ever assignable — invisible while the rows were untyped.
+  const onBuildUnitClick = (buildUnit: { name: string }) => {
     // No `state` payload: nothing in the app reads router/history state, and
     // these three keys were never consumed anywhere. The destination re-derives
     // what it needs from the URL params and its own live queries.

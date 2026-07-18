@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef } from 'react'
 import { useLiveQuery, eq, inArray } from "@tanstack/react-db"
 import { ClipboardCheck } from 'lucide-react'
 import { channelsCollection, propertiesCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
-import { CHANNEL_NAMES } from '%/domain/shared/types'
+import type { CHANNEL_NAMES } from '%/domain/shared/types'
 import { CHANNEL_ICONS } from '%/presentation/lib/channelIcons'
 import { unwrapJsonb, mapPropertyRow } from '%/presentation/lib/utils'
 import { usePendingItems } from './use-pending-items'
@@ -63,14 +63,16 @@ export function useBuildUnitChannels(buildUnitId: string, projectId: string, bui
   }
 
   const dbChannelList: Channel[] = (dbChannels ?? []).map((channel) => {
-    const name = unwrapJsonb(channel.name as unknown as string) as typeof CHANNEL_NAMES[number]
+    // Type argument rather than a trailing cast: CHANNEL_ICONS is keyed by the
+    // channel-name union, so `string` cannot index it.
+    const name = unwrapJsonb<typeof CHANNEL_NAMES[number]>(channel.name)
     return {
       id: channel.id,
       title: name,
       description: channel.description ?? '',
       icon: CHANNEL_ICONS[name] ?? ClipboardCheck,
       linkParams: { projectId, buildUnitName, channelName: name },
-      properties: channelPropsByEntity.get(channel.id as string) ?? [],
+      properties: channelPropsByEntity.get(channel.id) ?? [],
     }
   })
 

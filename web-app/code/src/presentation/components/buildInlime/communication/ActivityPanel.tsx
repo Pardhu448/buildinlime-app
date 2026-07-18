@@ -8,7 +8,7 @@ export interface ActivityItem {
   date: string;
 }
 
-interface ActivityPanelProps {
+export interface ActivityPanelProps {
   activities: ActivityItem[];
   onSeeAll?: () => void;
 }

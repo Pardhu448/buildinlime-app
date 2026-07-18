@@ -1,6 +1,6 @@
 import { CalendarClock, UserPlus } from "lucide-react";
 
-interface AddTaskButtonProps {
+export interface AddTaskButtonProps {
   onClick?: () => void;
   onAddPeople?: () => void;
 }

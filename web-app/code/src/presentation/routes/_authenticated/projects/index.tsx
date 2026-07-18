@@ -1,11 +1,9 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Sidebar } from "../../../components/buildInlime";
-import { NewProjectButton } from "../../../components/buildInlime";
-//import { DisplayButton } from "../../../components/buildInlime";
-//import { FilterButton } from "../../../components/buildInlime";
+import { Sidebar, NewProjectButton , RoutePendingComponent  } from "../../../components/buildInlime";
+// import { DisplayButton } from "../../../components/buildInlime";
+// import { FilterButton } from "../../../components/buildInlime";
 import { ProjectsTable } from "../../../components/buildInlime";
 import { projectsCollection, usersCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
-import { RoutePendingComponent } from "../../../components/buildInlime";
 
 import { useLiveQuery } from "@tanstack/react-db"
 
@@ -34,7 +32,7 @@ function ProjectsRoute() {
       id: p.id,
       name: p.name,
       createdBy: creator?.name || creator?.email || "Unknown",
-      createdAt: p.created_at ? new Date(p.created_at as string | Date).toLocaleDateString() : "—",
+      createdAt: p.created_at ? new Date(p.created_at).toLocaleDateString() : "—",
     }
   })
 

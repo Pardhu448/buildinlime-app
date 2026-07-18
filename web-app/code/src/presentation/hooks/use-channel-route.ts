@@ -19,10 +19,10 @@ export function useChannelRoute(buildUnitId: string, channelId: string) {
   const mapProperties = (rawList: typeof dbChannelProperties): Property[] =>
     (rawList ?? []).map((p) => ({
       ...p,
-      type: unwrapJsonb(p.type) as Property['type'],
-      entity: unwrapJsonb(p.entity) as Property['entity'],
-      status_value: unwrapJsonb(p.status_value) as Property['status_value'],
-      priority_value: unwrapJsonb(p.priority_value) as Property['priority_value'],
+      type: unwrapJsonb(p.type),
+      entity: unwrapJsonb(p.entity),
+      status_value: unwrapJsonb(p.status_value),
+      priority_value: unwrapJsonb(p.priority_value),
     }))
 
   return {
