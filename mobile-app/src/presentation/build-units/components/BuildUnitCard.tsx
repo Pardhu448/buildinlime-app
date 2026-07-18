@@ -1,5 +1,8 @@
 import { TouchableOpacity, View, Text, StyleSheet } from "react-native"
-import { Boxes } from "lucide-react-native"
+// Package (a single box), NOT Boxes (a stack) — matching web, which uses Package
+// for build units everywhere (BuildUnitCard, BuildUnitsNav, BuildUnitsTable,
+// BuildUnitsTeamNav, BuildUnitPage) and reserves Boxes for PROJECTS.
+import { Package } from "lucide-react-native"
 import { colors } from "@/src/presentation/shared/colors"
 import { PropertyPill } from "@/src/presentation/properties/components/PropertyPill"
 import type { BuildUnit, Property } from "@buildinlime/domain-types"
@@ -20,7 +23,7 @@ export function BuildUnitCard({ buildUnit, properties, onPress }: BuildUnitCardP
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
       <View style={styles.header}>
         <View style={styles.iconChip}>
-          <Boxes size={20} color={colors.primary} strokeWidth={2} />
+          <Package size={20} color={colors.primary} strokeWidth={2} />
         </View>
         <View style={styles.headerText}>
           <Text style={styles.name} numberOfLines={1}>
