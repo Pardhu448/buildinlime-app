@@ -13,7 +13,7 @@ export const projectsRouter = router({
     .input(createProjectInput)
     .mutation(async ({ ctx, input }) =>
       {
-      //if (input.owner_id !== ctx.session.user.id) {
+      // if (input.owner_id !== ctx.session.user.id) {
       //  throw new TRPCError({
       //    code: `FORBIDDEN`,
       //    message: `You can only create projects `,

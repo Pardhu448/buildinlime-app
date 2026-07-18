@@ -1,5 +1,6 @@
-import { spawn, spawnSync, type ChildProcess } from "child_process"
-import { writeFileSync } from "fs"
+import { spawn, spawnSync  } from "node:child_process"
+import type {ChildProcess} from "node:child_process";
+import { writeFileSync } from "node:fs"
 import type { Plugin } from "vite"
 
 interface CaddyPluginOptions {

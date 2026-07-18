@@ -4,7 +4,8 @@ import { Plus, MoreHorizontal } from "lucide-react"
 import { Modal } from "../shared/Modal"
 import { Select, Label } from "../shared/FormField"
 import type { Property } from "%/domain/communication/types"
-import { PROPERTY_TYPES, ENTITY_TYPES } from "%/domain/shared/types"
+import type { ENTITY_TYPES } from "%/domain/shared/types";
+import { PROPERTY_TYPES } from "%/domain/shared/types"
 import { createPropertyAction, updatePropertyAction } from "%/application/actions/properties"
 import { useSession } from "%/infrastructure/auth/client"
 import { PropertyPill } from "./PropertyPill"
@@ -13,9 +14,10 @@ import {
   DEFAULT_VALUE_STATE,
   valueStateFrom,
   buildPropertyValues,
-  PropertyValueInput,
-  type ValueState,
+  PropertyValueInput
+  
 } from "./property-form"
+import type {ValueState} from "./property-form";
 
 export interface PropertiesInlineProps {
   properties: Property[];

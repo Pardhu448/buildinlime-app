@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Circle, Flag, Target, CalendarDays, AlertCircle, Percent, Tag, CheckCircle2 } from "lucide-react";
 import type { Property } from "%/domain/communication/types";
-import { PROPERTY_TYPES, TASK_STATUS_VALUES } from "%/domain/shared/types";
+import type { PROPERTY_TYPES, TASK_STATUS_VALUES } from "%/domain/shared/types";
 
 // Short labels shown inside inline pills
 export const PILL_LABELS: Record<typeof PROPERTY_TYPES[number], string> = {

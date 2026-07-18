@@ -1,8 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Sidebar, NewProjectButton , RoutePendingComponent  } from "../../../components/buildInlime";
+import { Sidebar, NewProjectButton, RoutePendingComponent, ProjectsTable } from "../../../components/buildInlime";
 // import { DisplayButton } from "../../../components/buildInlime";
 // import { FilterButton } from "../../../components/buildInlime";
-import { ProjectsTable } from "../../../components/buildInlime";
 import { projectsCollection, usersCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
 
 import { useLiveQuery } from "@tanstack/react-db"

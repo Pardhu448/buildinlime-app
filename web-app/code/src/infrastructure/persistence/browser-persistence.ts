@@ -55,7 +55,7 @@ export function getPersistence(): Promise<PersistenceTrio> {
  * is why every caller can simply check the result instead of repeating it.
  */
 async function opfsRoot(): Promise<FileSystemDirectoryHandle | undefined> {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+   
   return await navigator.storage?.getDirectory?.()
 }
 

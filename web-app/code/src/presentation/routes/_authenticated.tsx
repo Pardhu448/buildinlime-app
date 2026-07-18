@@ -318,7 +318,7 @@ function AuthenticatedLayout() {
     // writes a marker that a later login cannot distinguish from its own. The
     // empty-string fallback degrades to "unknown login" (wipe) rather than
     // trusting a shape we did not actually verify at runtime.
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+     
     initCollections(session.user.id, session.session?.id ?? ``)
       .then(() => setCollectionsReady(true))
       .catch((err) => {

@@ -1,4 +1,5 @@
-import { userInitial, type ChannelUser } from "./types"
+import { userInitial  } from "./types"
+import type {ChannelUser} from "./types";
 
 /** The small circular avatar with a user's initial, used across the channel panels. */
 export function MemberAvatar({ user }: { user: ChannelUser }) {

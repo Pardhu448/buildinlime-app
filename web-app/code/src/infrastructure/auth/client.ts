@@ -13,7 +13,7 @@ import { resetAllOfflineActions } from "../../application/actions"
 export const authClient = createAuthClient({
   // Base URL where the better-auth API is mounted
   // This should match BETTER_AUTH_URL or your API endpoint
-  //baseURL: import.meta.env.VITE_BETTER_AUTH_URL || "http://localhost:5173",
+  // baseURL: import.meta.env.VITE_BETTER_AUTH_URL || "http://localhost:5173",
   
   // Base path for auth endpoints (default: "/api/auth")
   basePath: "/api/auth",

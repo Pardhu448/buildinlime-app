@@ -2,8 +2,8 @@ import { defineConfig } from 'vite'
 import type { Plugin } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
-import fs from 'fs'
-import path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 

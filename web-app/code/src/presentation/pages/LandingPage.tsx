@@ -1,5 +1,4 @@
-import { Header, Hero, FeaturesCarousel, Footer } from "../components/buildInlime";
-import { HeaderLoggedIn } from "../components/buildInlime";
+import { Header, Hero, FeaturesCarousel, Footer, HeaderLoggedIn  } from "../components/buildInlime";
 import { signOutAndDispose, useRequireAuth } from "../../infrastructure/auth/client";
 
 export default function LandingPage() {

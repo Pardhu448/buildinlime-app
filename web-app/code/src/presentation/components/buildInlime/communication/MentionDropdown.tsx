@@ -1,4 +1,5 @@
-import { mentionDisplayName, type MentionUser } from "./use-mentions"
+import { mentionDisplayName  } from "./use-mentions"
+import type {MentionUser} from "./use-mentions";
 
 const SIZES = {
   sm: { menu: "max-h-40", item: "px-3 py-2 text-sm", avatar: "w-6 h-6" },

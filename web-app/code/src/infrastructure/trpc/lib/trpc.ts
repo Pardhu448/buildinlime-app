@@ -1,6 +1,6 @@
 import { initTRPC, TRPCError } from "@trpc/server"
-import { getSession } from "../../auth"
-import { db } from "../../database/connection"
+import type { getSession } from "../../auth"
+import type { db } from "../../database/connection"
 import { sql } from "drizzle-orm"
 
 export type Context = {
@@ -30,10 +30,7 @@ export const authedProcedure = procedure.use(isAuthed)
 
 // Helper function to generate transaction ID for Electric sync
 export async function generateTxId(
-  tx: Parameters<
-    // eslint-disable-next-line quotes
-    Parameters<typeof import("../../database/connection").db.transaction>[0]
-  >[0]
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0]
 ): Promise<number> {
   // The ::xid cast strips off the epoch, giving you the raw 32-bit value
   // that matches what PostgreSQL sends in logical replication streams

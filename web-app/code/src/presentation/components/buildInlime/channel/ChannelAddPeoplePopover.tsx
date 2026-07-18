@@ -1,5 +1,6 @@
 import { MemberAvatar } from "./MemberAvatar"
-import { userLabel, type ChannelUser } from "./types"
+import { userLabel  } from "./types"
+import type {ChannelUser} from "./types";
 
 export interface ChannelAddPeoplePopoverProps {
   open: boolean
