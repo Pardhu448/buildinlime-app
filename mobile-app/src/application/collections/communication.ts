@@ -1,21 +1,24 @@
 import {
-  taskRowSchema,
-  messageRowSchema,
-  resourceRowSchema,
-  propertyRowSchema,
-  seenStateRowSchema,
-} from "@buildinlime/contracts"
+  tasksSpec,
+  messagesSpec,
+  resourcesSpec,
+  propertiesSpec,
+  seenStateSpec,
+  inboxMentionsSpec,
+  myTasksSpec,
+  seenKey,
+} from "@buildinlime/sync-core"
 import { trpc } from "../../infrastructure/trpc/client"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
-import { defineCollection, NEVER_GC, IDLE_GC_MS, safeCleanup } from "./_shared"
+import { defineCollection, safeCleanup } from "./_shared"
 
-// Row schemas come from @buildinlime/contracts — one copy, shared with web and
-// asserted against the drizzle tables server-side. See ARCHITECTURE.md §10.
-//
-// Zod strips unknown keys, so a column missing from a row schema is DROPPED from
-// the synced row rather than merely untyped. That is why the schemas are no longer
-// maintained here by hand: this file had already lost properties.channel_id and
-// properties.createdby_id that way.
+// The descriptors (id, route, shape params, row schema, key, GC tier) live once
+// in @buildinlime/sync-core — see collection-specs.ts, which also carries the
+// reasoning for each GC tier. This file supplies only what is mobile's own: the
+// persistence handle, and the properties onUpdate handler.
+
+// seenKey is re-exported because application/actions/seen.ts imports it from here.
+export { seenKey }
 
 // ---------------------------------------------------------------------------
 // Factory functions — collections are created AFTER memberships load so that
@@ -26,68 +29,31 @@ function _makeTasksCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({
-    id: `tasks`,
-    path: `/api/tasks`,
-    params: { member_channel_ids: memberChannelIds },
-    schema: taskRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    // Idle-GC: with the DrawerContent My-Tasks badge now reading the tiny
-    // my-tasks slice (not scanning this full collection), nothing
-    // always-mounted holds tasks. It idles on the drawer / home / inbox
-    // screens and resurrects + resumes from the SQLite offset when a channel /
-    // My-Tasks view opens. See IDLE_GC_MS.
-    gcTime: IDLE_GC_MS,
-    persistence,
-    // No handlers — writes routed through @tanstack/offline-transactions
-    // (see application/actions/tasks.ts).
-  })
+  // No handlers — writes routed through @tanstack/offline-transactions
+  // (see application/actions/tasks.ts).
+  return defineCollection({ ...tasksSpec(memberChannelIds), persistence })
 }
 
 function _makeMessagesCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({
-    id: `messages`,
-    path: `/api/messages`,
-    params: { member_channel_ids: memberChannelIds },
-    schema: messageRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    // Idle-GC: with the DrawerContent inbox badge now reading the tiny
-    // inbox-mentions slice (not scanning this full collection), nothing
-    // always-mounted holds messages. It idles off the channel / inbox screens
-    // and resurrects + resumes from the SQLite offset on return. See IDLE_GC_MS.
-    gcTime: IDLE_GC_MS,
-    persistence,
-    // No handlers. onInsert is routed through @tanstack/offline-transactions
-    // (see application/actions/messages.ts → createMessageAction), and onDelete is
-    // omitted DELIBERATELY: deleting a message is a soft delete, which is an UPDATE
-    // (the row survives so its replies keep a parent) — see deleteMessageAction. A
-    // delete handler here would let messagesCollection.delete() drop the row
-    // optimistically and orphan the thread. With none it fails loudly instead.
-  })
+  // No handlers. onInsert is routed through @tanstack/offline-transactions
+  // (see application/actions/messages.ts → createMessageAction), and onDelete is
+  // omitted DELIBERATELY: deleting a message is a soft delete, which is an UPDATE
+  // (the row survives so its replies keep a parent) — see deleteMessageAction. A
+  // delete handler here would let messagesCollection.delete() drop the row
+  // optimistically and orphan the thread. With none it fails loudly instead.
+  return defineCollection({ ...messagesSpec(memberChannelIds), persistence })
 }
 
 function _makeResourcesCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({
-    id: `resources`,
-    path: `/api/resources`,
-    params: { member_channel_ids: memberChannelIds },
-    schema: resourceRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    // Idle-GC: resources has NO always-mounted subscriber (only the
-    // ResourcesSheet and in-message attachment views, both mounted on
-    // demand), so it idles off-screen. Persisted, so resurrection resumes from
-    // the SQLite offset rather than refetching. See IDLE_GC_MS.
-    gcTime: IDLE_GC_MS,
-    persistence,
-    // No handlers — onDelete routed through @tanstack/offline-transactions
-    // (see application/actions/resources.ts → deleteResourceAction).
-  })
+  // No handlers — onDelete routed through @tanstack/offline-transactions
+  // (see application/actions/resources.ts → deleteResourceAction).
+  return defineCollection({ ...resourcesSpec(memberChannelIds), persistence })
 }
 
 function _makePropertiesCollection(
@@ -99,26 +65,7 @@ function _makePropertiesCollection(
   },
 ) {
   return defineCollection({
-    id: `properties`,
-    path: `/api/properties`,
-    // The /api/properties shape OR's two scopes: project/build-unit properties by
-    // entity_id (member_project_ids ∪ member_buildunit_ids), and channel + TASK
-    // properties by the denormalized channel_id (member_channel_ids). Task
-    // properties therefore ride the same channel scope as tasks/messages — a new
-    // task's properties in a visible channel sync with no rebuild, so no
-    // member_task_ids snapshot is needed (server ignores it).
-    params: {
-      member_project_ids: params.memberProjectIds,
-      member_buildunit_ids: params.memberBuildunitIds,
-      member_channel_ids: params.memberChannelIds,
-    },
-    schema: propertyRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    // Idle-GC: properties is subscribed ONLY by the channel / build-unit /
-    // task screens — nothing always-mounted holds it (the Drawer badges scan
-    // messages/tasks/seen_state, never properties). Persisted, so the next visit
-    // resurrects it and resumes from the SQLite offset. See IDLE_GC_MS.
-    gcTime: IDLE_GC_MS,
+    ...propertiesSpec(params),
     persistence,
     handlers: {
       // onInsert/onDelete omitted — routed through @tanstack/offline-transactions
@@ -173,56 +120,20 @@ function _makeInboxMentionsCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({
-    id: `inbox-mentions`,
-    path: `/api/inbox-mentions`,
-    params: { member_channel_ids: memberChannelIds },
-    schema: messageRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
-    persistence,
-  })
+  return defineCollection({ ...inboxMentionsSpec(memberChannelIds), persistence })
 }
 
 function _makeMyTasksCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
   memberChannelIds: string[],
 ) {
-  return defineCollection({
-    id: `my-tasks`,
-    path: `/api/my-tasks`,
-    params: { member_channel_ids: memberChannelIds },
-    schema: taskRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
-    persistence,
-  })
+  return defineCollection({ ...myTasksSpec(memberChannelIds), persistence })
 }
-
-/**
- * The current user's "last seen" markers — the timestamp successor to the reads
- * collection. Shape scoped `user_id = me` server-side (web-app
- * routes/api/seen-state.ts) with no query parameter able to widen it — so it
- * takes no membership ids and never rebuilds on scope change, exactly like reads.
- *
- * Key is composite: one row per (user, scope, scope_id). NEVER_GC because the
- * always-mounted DrawerContent badges subscribe to it, so it never idles.
- */
-export const seenKey = (userId: string, scope: string, scopeId: string) =>
-  `${userId}:${scope}:${scopeId}`
 
 function _makeSeenStateCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
 ) {
-  return defineCollection({
-    id: `seen-state`,
-    path: `/api/seen-state`,
-    schema: seenStateRowSchema,
-    getKey: (item: { user_id: string; scope: string; scope_id: string }) =>
-      seenKey(item.user_id, item.scope, item.scope_id),
-    gcTime: NEVER_GC,
-    persistence,
-  })
+  return defineCollection({ ...seenStateSpec(), persistence })
 }
 
 // ---------------------------------------------------------------------------

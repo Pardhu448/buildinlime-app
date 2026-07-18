@@ -1,9 +1,9 @@
-import { userRowSchema } from "@buildinlime/contracts"
+import { usersSpec } from "@buildinlime/sync-core"
 import { getPersistence } from "../../infrastructure/persistence/expo-persistence"
-import { defineCollection, NEVER_GC, safeCleanup } from "./_shared"
+import { defineCollection, safeCleanup } from "./_shared"
 
-// Row schemas come from @buildinlime/contracts — one copy, shared with web and
-// asserted against the drizzle tables server-side. See ARCHITECTURE.md §10.
+// The descriptors live once in @buildinlime/sync-core — see collection-specs.ts.
+// This file supplies only mobile's persistence handle.
 //
 // This file holds the collections that belong to no single domain — users.
 // memberships and seen_state used to live here too, which put them in a
@@ -16,14 +16,7 @@ import { defineCollection, NEVER_GC, safeCleanup } from "./_shared"
 function _makeUsersCollection(
   persistence: ReturnType<typeof getPersistence>["persistence"],
 ) {
-  return defineCollection({
-    id: `users`,
-    path: `/api/users`,
-    schema: userRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
-    persistence,
-  })
+  return defineCollection({ ...usersSpec(), persistence })
 }
 
 // ---------------------------------------------------------------------------

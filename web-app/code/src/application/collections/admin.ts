@@ -1,23 +1,20 @@
-import { userRowSchema, teamRowSchema } from "@buildinlime/contracts"
+import { teamRowSchema } from "@buildinlime/contracts"
+import { usersSpec } from "@buildinlime/sync-core"
 import { getPersistence } from "../../infrastructure/persistence/browser-persistence"
 import { defineCollection, NEVER_GC } from "./_shared"
 
-// Row schemas come from @buildinlime/contracts — one copy, shared with mobile and
-// asserted against the drizzle tables server-side. See ARCHITECTURE.md §10.
+// The descriptors live once in @buildinlime/sync-core — see collection-specs.ts.
+// This file supplies only web's persistence handle.
+//
+// `teams` keeps its spec here: it is web-only, so a shared descriptor would be a
+// second home for a single call site.
 
 // usersCollection is wrapped with SQLite persistence (OPFS) so the user list
 // hydrates instantly from local cache on reload, even with the server offline.
 function _makeUsersCollection(
   persistence: Awaited<ReturnType<typeof getPersistence>>["persistence"],
 ) {
-  return defineCollection({
-    id: `users`,
-    path: `/api/users`,
-    schema: userRowSchema,
-    getKey: (item: { id: string }) => item.id,
-    gcTime: NEVER_GC,
-    persistence,
-  })
+  return defineCollection({ ...usersSpec(), persistence })
 }
 
 // Deferred export — initialized by initializeUsersCollection() in
