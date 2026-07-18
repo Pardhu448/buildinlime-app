@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 
-interface ChannelHeaderProps {
+export interface ChannelHeaderProps {
   icon: LucideIcon;
   title: string;
   description: string;

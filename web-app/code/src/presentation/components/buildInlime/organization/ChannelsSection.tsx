@@ -16,7 +16,7 @@ export interface Channel {
   properties?: Property[];
 }
 
-interface ChannelsSectionProps {
+export interface ChannelsSectionProps {
   channels: Channel[];
   buildUnitId: string;
   pendingIds: Set<string>;

@@ -183,15 +183,15 @@ export function TaskStatusSection({
           ) : (
             history.map((m) => (
               <div
-                key={m.id as string}
+                key={m.id}
                 className="border border-gray-200 rounded px-3 py-2"
               >
                 {/* Shown verbatim: it is the same message the channel shows, and
                     re-parsing our own wording back apart would be a data model
                     made of prose. */}
-                <p className="text-sm text-foreground">{m.text as string}</p>
+                <p className="text-sm text-foreground">{m.text}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {authorName(m.createdby_id as string)} ·{" "}
+                  {authorName(m.createdby_id)} ·{" "}
                   {formatDateTime(m.created_at as string)}
                 </p>
               </div>

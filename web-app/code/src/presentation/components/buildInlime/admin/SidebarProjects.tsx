@@ -1,5 +1,3 @@
-import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
 import { UserInfo } from "./UserInfo";
 import { InboxNav } from "./InboxNav";
 import { MyTasksNav } from "./MyTasksNav";
@@ -11,7 +9,10 @@ export interface SidebarProjectsProps {
   buildUnitsNavActive?: boolean;
 }
 
-export function SidebarProjects({ buildUnitsNavTo, buildUnitsNavActive }: SidebarProjectsProps) {
+// NOTE: nothing renders this today — it is only re-exported from the barrel.
+// Props are declared but unused; kept rather than deleted because removing a UI
+// component is a product call, not a typecheck one.
+export function SidebarProjects(_props: SidebarProjectsProps) {
   return (
     <aside className="w-60 bg-card-surface border-r border-card-border flex flex-col">
       {/* User info */}

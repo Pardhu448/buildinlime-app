@@ -57,11 +57,11 @@ export function useTaskRoute(channelId: string, taskName: string) {
 
   const properties: Property[] = (dbTaskProperties ?? []).map((p) => ({
     ...p,
-    type: unwrapJsonb(p.type) as Property['type'],
-    entity: unwrapJsonb(p.entity) as Property['entity'],
-    status_value: unwrapJsonb(p.status_value) as Property['status_value'],
-    priority_value: unwrapJsonb(p.priority_value) as Property['priority_value'],
-    task_status_value: unwrapJsonb(p.task_status_value) as Property['task_status_value'],
+    type: unwrapJsonb(p.type),
+    entity: unwrapJsonb(p.entity),
+    status_value: unwrapJsonb(p.status_value),
+    priority_value: unwrapJsonb(p.priority_value),
+    task_status_value: unwrapJsonb(p.task_status_value),
   }))
 
   return {
@@ -77,7 +77,7 @@ export function useTaskRoute(channelId: string, taskName: string) {
     currentAssigneeId,
     currentUserId,
     createdByName,
-    createdAt: task.opened_at as Date | string | undefined,
+    createdAt: task.opened_at,
     // Only the creator may assign — mirrored by a FORBIDDEN check in tasks.update.
     canAssign: !!createdById && createdById === currentUserId,
   }
