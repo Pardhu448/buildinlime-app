@@ -17,12 +17,30 @@ import type { teamsTable } from "./admin-tables"
 // Holds the Electric ROW CONTRACT (@buildinlime/contracts schemas/rows) to the
 // tables it claims to describe.
 //
-// Both clients validate every synced row against those shared schemas, and zod
-// STRIPS unknown keys — so a column added to a table here but forgotten there is
-// not merely untyped on the clients, it is silently DROPPED from the row and reads
-// back `undefined` at every call site. That is not hypothetical: mobile's old
-// hand-written copy had already lost properties.channel_id and
-// properties.createdby_id exactly this way.
+// The clients validate CLIENT MUTATIONS against those shared schemas — not rows
+// arriving from sync. `validateData` lives in @tanstack/db's collection/mutations
+// module and is called from the insert/update paths; collection/sync.js, which
+// writes what Electric delivers, never calls it. (Confirm by reading those two
+// files, not by trusting this comment: an earlier version of it asserted the
+// opposite and was wrong for a long time.)
+//
+// That still makes coverage load-bearing, for two reasons:
+//
+//   1. Zod STRIPS unknown keys, and mutations DO go through it. A column missing
+//      here is therefore dropped from your own OPTIMISTIC row and reads back
+//      `undefined` until the server's version syncs over the top — a flicker of
+//      missing data on the writer's screen only, which is exactly the kind of bug
+//      that gets dismissed as a rendering glitch.
+//   2. A missing column is untyped everywhere. It is present at runtime on synced
+//      rows, but invisible to every call site, so features quietly never use it.
+//      Mobile's old hand-written copy lost properties.channel_id and
+//      properties.createdby_id that way.
+//
+// The corollary is worth stating because it is easy to get backwards: a row
+// schema is NOT a runtime guarantee about synced data. Its preprocess steps
+// (coerceBool, unwrapJsonb) run as part of validation, so they do not run on sync
+// either. Any coercion a synced row does get comes from ELECTRIC's parser, which
+// is a different mechanism — see ARCHITECTURE.md §10.
 //
 // This file has no runtime output. Its only job is to fail `pnpm typecheck` when a
 // migration adds a synced column and rows.ts was not updated to match, naming the

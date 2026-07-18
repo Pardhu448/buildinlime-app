@@ -21,11 +21,13 @@ export function useMyTasksBadge() {
     [],
   )
 
-  // coerceBool: Electric delivers boolean columns as the STRING "false"/"true"
-  // on SYNCED rows (the schema's coerceBool preprocess only runs on optimistic
-  // client writes, not on sync — there is no boolean parser). A bare `!t.completed`
-  // would read the non-empty string "false" as truthy and drop every open task,
-  // pinning the badge at 0.
+  // coerceBool: a boolean can arrive as the STRING "false"/"true" on a SYNCED
+  // row. The schema's coerceBool preprocess does not help — preprocess runs as
+  // part of validation, and validation runs on client mutations, not on sync
+  // (see row-contract-assertions.ts). Electric's own parser does handle `bool`,
+  // but only where the shape response carries column-type metadata, so it cannot
+  // be relied on. A bare `!t.completed` would read the non-empty string "false"
+  // as truthy and drop every open task, pinning the badge at 0.
   const myUnopenedTaskCount = useMemo(
     () =>
       (myTasks ?? []).filter(
