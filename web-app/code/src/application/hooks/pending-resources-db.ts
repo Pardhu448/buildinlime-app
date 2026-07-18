@@ -1,3 +1,5 @@
+import type { UploadStatus } from "@buildinlime/sync-core"
+
 const DB_NAME = `buildinlime-pending`
 const STORE = `pending`
 const VERSION = 1
@@ -8,7 +10,10 @@ export interface StoredResource {
   name: string
   description: string
   file: File
-  status: `awaiting_schedule` | `scheduled` | `uploading` | `error`
+  // Was a hand-written union here that omitted `awaiting_network`, while
+  // doUpload persists exactly that value on an offline failure — so the stored
+  // shape had a status the type said was impossible. Shared with mobile now.
+  status: UploadStatus
   scheduledAt: Date | null
   channelId: string | null
   taskId: string | null

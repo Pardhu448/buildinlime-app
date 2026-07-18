@@ -1,12 +1,18 @@
 import { useState, useRef, useCallback, useEffect } from "react"
+import {
+  nextRetryDelay,
+  shouldAutoRetry,
+  statusForFailure,
+  isRetryableStatus,
+  scheduleDecision,
+} from "@buildinlime/sync-core"
+import type { UploadStatus } from "@buildinlime/sync-core"
 import { dbGetAll, dbPut, dbDelete, type StoredResource } from "./pending-resources-db"
 
-export type UploadStatus =
-  | "awaiting_schedule"
-  | "scheduled"
-  | "uploading"
-  | "awaiting_network"
-  | "error"
+// Retry/backoff numbers and the status vocabulary are shared with mobile — see
+// @buildinlime/sync-core's upload-policy. Re-exported because the schedule
+// popover imports the type from here.
+export type { UploadStatus }
 
 export interface PendingResource {
   id: string
@@ -68,7 +74,7 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
   useEffect(() => {
     const onOnline = () => {
       pendingRef.current.forEach((r) => {
-        if (r.status === "error" || r.status === "awaiting_network") {
+        if (isRetryableStatus(r.status)) {
           retryAttempts.current.set(r.id, 0)
           const t = retryTimers.current.get(r.id)
           if (t) {
@@ -104,22 +110,19 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
         // Errored / waiting-for-network uploads from a previous session: retry
         // once on mount if we think we're online; otherwise the `online`
         // listener will pick them up when connectivity returns.
-        if (
-          (r.status === "error" || r.status === "awaiting_network") &&
-          navigator.onLine
-        ) {
+        if (isRetryableStatus(r.status) && navigator.onLine) {
           doUploadRef.current(r.id)
         }
         // Re-schedule timers for items that were waiting for a future time
         if (r.status === "scheduled" && r.scheduledAt) {
-          const delay = r.scheduledAt.getTime() - Date.now()
-          if (delay <= 0) {
+          const decision = scheduleDecision(r.scheduledAt)
+          if (decision.kind === "now") {
             doUploadRef.current(r.id)
           } else {
             const timer = setTimeout(() => {
               timers.current.delete(r.id)
               doUploadRef.current(r.id)
-            }, delay)
+            }, decision.delayMs)
             timers.current.set(r.id, timer)
           }
         }
@@ -184,7 +187,7 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
       // While offline this isn't really a failure — surface it as a calmer
       // "waiting for network" state so the user doesn't see a red error for
       // an upload we're going to retry as soon as connectivity returns.
-      const nextStatus: UploadStatus = navigator.onLine ? "error" : "awaiting_network"
+      const nextStatus = statusForFailure(navigator.onLine)
       setPendingSync((prev) =>
         prev.map((r) =>
           r.id === id ? { ...r, status: nextStatus, errorMessage: message } : r
@@ -197,9 +200,8 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
       // the parent message/task hasn't replayed from the outbox yet).
       const attempt = (retryAttempts.current.get(id) ?? 0) + 1
       retryAttempts.current.set(id, attempt)
-      const MAX_AUTO_RETRIES = 5
-      if (attempt <= MAX_AUTO_RETRIES && navigator.onLine) {
-        const delay = Math.min(30000, 1000 * 2 ** (attempt - 1))
+      if (shouldAutoRetry(attempt, navigator.onLine)) {
+        const delay = nextRetryDelay(attempt)
         const timer = setTimeout(() => {
           retryTimers.current.delete(id)
           doUploadRef.current(id)
@@ -249,15 +251,11 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
       const existing = timers.current.get(id)
       if (existing) clearTimeout(existing)
 
-      if (!scheduledAt) {
-        // Upload immediately
-        doUpload(id)
-        return
-      }
-
-      const delay = scheduledAt.getTime() - Date.now()
-      if (delay <= 0) {
-        // Scheduled time already passed — upload now
+      // Null time, or a time already past, uploads now rather than arming a
+      // negative timeout. The `!scheduledAt` arm is redundant with
+      // scheduleDecision(null) but is what narrows the type below.
+      const decision = scheduleDecision(scheduledAt)
+      if (!scheduledAt || decision.kind === "now") {
         doUpload(id)
         return
       }
@@ -276,7 +274,7 @@ export function usePendingResources(filterChannelId: string | null, filterTaskId
       const timer = setTimeout(() => {
         timers.current.delete(id)
         doUpload(id)
-      }, delay)
+      }, decision.delayMs)
 
       timers.current.set(id, timer)
     },

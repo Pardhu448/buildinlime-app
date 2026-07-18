@@ -4,6 +4,7 @@
 export * from "./platform"
 export * from "./collections"
 export * from "./mutation-fns"
+export * from "./upload-policy"
 export * from "./actions/tasks"
 export * from "./actions/messages"
 export * from "./actions/properties"
