@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import {
   parseIdList,
-  idListWhere,
+  idSetWhere,
 } from "%/infrastructure/database/shape-where"
 
 // The Electric shape `where` clause is built from client-supplied ids and run as
@@ -32,13 +32,13 @@ describe("parseIdList", () => {
   })
 })
 
-describe("idListWhere", () => {
+describe("idSetWhere", () => {
   it("default-denies an empty id set with `1 = 0`", () => {
-    expect(idListWhere("channel_id", [])).toBe("1 = 0")
+    expect(idSetWhere("channel_id", [])).toBe("1 = 0")
   })
 
   it("builds an ANY(ARRAY[...]) clause for valid ids", () => {
-    expect(idListWhere("channel_id", [A, B])).toBe(
+    expect(idSetWhere("channel_id", [A, B])).toBe(
       `channel_id = ANY(ARRAY['${A}','${B}']::text[])`,
     )
   })
@@ -46,7 +46,7 @@ describe("idListWhere", () => {
 
 describe("parse + build together: an injection attempt cannot escape", () => {
   it("collapses to default-deny, never an injected or unscoped clause", () => {
-    const where = idListWhere(
+    const where = idSetWhere(
       "channel_id",
       parseIdList("'; DROP TABLE messages;--"),
     )
