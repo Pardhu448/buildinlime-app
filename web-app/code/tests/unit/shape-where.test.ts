@@ -1,36 +1,13 @@
 import { describe, it, expect } from "vitest"
-import {
-  parseIdList,
-  idSetWhere,
-} from "%/infrastructure/database/shape-where"
+import { idSetWhere } from "%/infrastructure/database/shape-where"
 
-// The Electric shape `where` clause is built from client-supplied ids and run as
-// raw SQL against Postgres (ARCHITECTURE.md §4). These tests pin the two
-// security-critical invariants: only UUIDs survive, and an empty set is
-// default-deny — never an unscoped or injectable query.
+// The Electric shape `where` clause is run as raw SQL against Postgres
+// (ARCHITECTURE.md §4). Its ids are now all server-resolved, so what is left to
+// pin here is default-deny: an empty id set must match nothing, never everything.
+// The descriptors that consume this are covered in ./shapes.test.ts.
 
 const A = "11111111-1111-4111-8111-111111111111"
 const B = "22222222-2222-4222-8222-222222222222"
-
-describe("parseIdList", () => {
-  it("keeps only well-formed UUIDs", () => {
-    expect(parseIdList(`${A},${B}`)).toEqual([A, B])
-  })
-
-  it("drops a SQL-injection payload entirely", () => {
-    expect(parseIdList(`${A},'; DROP TABLE messages;--`)).toEqual([A])
-  })
-
-  it("returns [] for null, empty, or all-invalid input", () => {
-    expect(parseIdList(null)).toEqual([])
-    expect(parseIdList("")).toEqual([])
-    expect(parseIdList("not-a-uuid,also-bad")).toEqual([])
-  })
-
-  it("trims surrounding whitespace", () => {
-    expect(parseIdList(` ${A} , ${B} `)).toEqual([A, B])
-  })
-})
 
 describe("idSetWhere", () => {
   it("default-denies an empty id set with `1 = 0`", () => {
@@ -41,16 +18,5 @@ describe("idSetWhere", () => {
     expect(idSetWhere("channel_id", [A, B])).toBe(
       `channel_id = ANY(ARRAY['${A}','${B}']::text[])`,
     )
-  })
-})
-
-describe("parse + build together: an injection attempt cannot escape", () => {
-  it("collapses to default-deny, never an injected or unscoped clause", () => {
-    const where = idSetWhere(
-      "channel_id",
-      parseIdList("'; DROP TABLE messages;--"),
-    )
-    expect(where).toBe("1 = 0")
-    expect(where).not.toContain("DROP")
   })
 })

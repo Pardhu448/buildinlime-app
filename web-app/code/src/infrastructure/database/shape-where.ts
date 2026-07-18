@@ -1,32 +1,28 @@
 // Pure builders for the Electric shape `where` clause (see ARCHITECTURE.md §4).
 //
-// The shape routes interpolate client-supplied ids straight into a SQL string
-// that Electric runs against Postgres. The ONLY thing standing between that and
-// SQL injection is UUID validation, and the default for an empty id set must be
-// a hard `1 = 0` (default-deny — a user with no memberships sees zero rows, not
-// every row). Both invariants are security-critical, so they live here as pure
-// functions with unit tests rather than inline in a route handler.
+// The builders interpolate ids straight into a SQL string that Electric runs
+// against Postgres, so where those ids come from is the whole ballgame. Every
+// id set now originates server-side, from resolveMemberScope off the session —
+// no shape parses an id list out of the query string any more. (parseIdList,
+// which existed to make client-supplied lists survivable, went with the last
+// caller; git has it if the pattern ever comes back, but it should not.)
+//
+// The one remaining client-supplied value is /api/buildunits' `project_id`
+// narrowing filter, which is UUID-validated with the regex below and AND-ed
+// INSIDE the access boundary, so it can only restrict what the session already
+// permits.
+//
+// The other invariant is default-deny: an empty id set must be a hard `1 = 0`,
+// never an unscoped match. A user with no memberships sees zero rows.
 
 export const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
- * Parse a comma-separated id param, keeping ONLY well-formed UUIDs. Anything
- * else — empty strings, injection payloads, malformed ids — is dropped. Never
- * throws; a fully invalid input yields an empty array (→ default-deny below).
- */
-export function parseIdList(raw: string | null | undefined): string[] {
-  return (raw ?? "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter((id) => UUID_REGEX.test(id))
-}
-
-/**
  * Build a `where` clause scoping `column` to `ids`. An empty list is
- * default-deny (`1 = 0`), NEVER an unscoped match. Ids are assumed already
- * UUID-validated by parseIdList (or DB-sourced); the `'...'` quoting is safe
- * only under that assumption, which is why the two are meant to be used together.
+ * default-deny (`1 = 0`), NEVER an unscoped match. Ids are assumed DB-sourced
+ * (resolveMemberScope) or UUID-validated; the `'...'` quoting is safe only under
+ * that assumption.
  *
  * Was two identical functions — this one and access-scope's idSetWhere — under
  * two names, one tested and one not. Now one.

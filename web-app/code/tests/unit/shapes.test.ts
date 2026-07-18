@@ -15,6 +15,10 @@ import * as shapes from "%/infrastructure/database/shapes"
 // They also stand on their own as authorization tests: an empty id set must be
 // default-deny, and the owner escape hatch must be present exactly where the
 // architecture says it is.
+//
+// The strongest invariant here is the one asserted last: NO descriptor may read
+// an id set out of the query string. That is what the four scope fixes closed,
+// and a regression would look exactly like the bug they fixed.
 
 const ME = "11111111-1111-4111-8111-111111111111"
 const CH = "33333333-3333-4333-8333-333333333333"
@@ -109,9 +113,8 @@ describe("channel-scoped shapes have no owner escape hatch", () => {
   it("messages deliberately keeps deleted rows so threads survive", () => {
     // A deleted parent must keep syncing or its replies orphan. The row is
     // redacted server-side, so the tombstone carries no text.
-    const where = whereOf(shapes.messagesShape, {
-      query: `?member_channel_ids=${CH}`,
-    })
+    const where = whereOf(shapes.messagesShape)
+    expect(where).toBe(`channel_id = ANY(ARRAY['${CH}']::text[])`)
     expect(where).not.toContain("deleted_at")
   })
 
@@ -130,49 +133,65 @@ describe("channel-scoped shapes have no owner escape hatch", () => {
   })
 })
 
-describe("badge slices are bounded by a session-derived predicate", () => {
-  // These two still take their channel ids from the client (see the
-  // ⚠️ CLIENT-SCOPED notes in shapes.ts). What keeps that from being a leak is
-  // the assignee/mention clause, so these assertions are load-bearing.
-  it("my-tasks is bounded by assignee_id = me", () => {
-    expect(whereOf(shapes.myTasksShape, { query: `?member_channel_ids=${CH}` })).toBe(
+describe("badge slices carry their session-derived predicate", () => {
+  it("my-tasks is scoped to visible channels AND assignee_id = me", () => {
+    expect(whereOf(shapes.myTasksShape)).toBe(
       `channel_id = ANY(ARRAY['${CH}']::text[]) AND assignee_id = '${ME}' AND deleted_at IS NULL`,
     )
   })
 
-  it("inbox-mentions is bounded by mention_ids @> me", () => {
-    expect(
-      whereOf(shapes.inboxMentionsShape, { query: `?member_channel_ids=${CH}` }),
-    ).toBe(
+  it("inbox-mentions is scoped to visible channels AND mention_ids @> me", () => {
+    expect(whereOf(shapes.inboxMentionsShape)).toBe(
       `channel_id = ANY(ARRAY['${CH}']::text[]) AND mention_ids @> ARRAY['${ME}']::text[]`,
     )
   })
 
-  it("default-denies both when no channel ids are supplied", () => {
-    expect(whereOf(shapes.myTasksShape)).toContain(`1 = 0`)
-    expect(whereOf(shapes.inboxMentionsShape)).toContain(`1 = 0`)
-  })
-
-  it("drops an injection payload from the client id param", () => {
-    const where = whereOf(shapes.myTasksShape, {
-      query: `?member_channel_ids=${encodeURIComponent("'; DROP TABLE tasks;--")}`,
-    })
-    expect(where).not.toContain("DROP")
-    expect(where).toContain(`1 = 0`)
+  it("default-denies both when the caller can see no channels", () => {
+    expect(whereOf(shapes.myTasksShape, { scope: emptyScope })).toContain(`1 = 0`)
+    expect(whereOf(shapes.inboxMentionsShape, { scope: emptyScope })).toContain(`1 = 0`)
   })
 })
 
 describe("channel-members roster", () => {
-  it("scopes to the requested channels and active members", () => {
-    expect(whereOf(shapes.channelMembersShape, { query: `?channel_ids=${CH}` })).toBe(
+  it("scopes to the caller's visible channels and active members", () => {
+    expect(whereOf(shapes.channelMembersShape)).toBe(
       `channel_id = ANY(ARRAY['${CH}']::text[]) AND member_flag = true`,
     )
   })
 
-  it("returns a well-formed match-nothing predicate when no channels are asked for", () => {
-    // Must be a predicate Electric can resume from, not an empty body.
-    expect(whereOf(shapes.channelMembersShape)).toBe(`false`)
+  it("default-denies with a predicate Electric can resume from", () => {
+    // Not an empty body — the client cannot resume from that.
+    expect(whereOf(shapes.channelMembersShape, { scope: emptyScope })).toBe(
+      `1 = 0 AND member_flag = true`,
+    )
   })
+})
+
+describe("no descriptor takes an id set from the query string", () => {
+  // The regression guard for the four scope fixes. Every id-set param a client
+  // has ever sent, pointed at a channel/project/buildunit the caller cannot see,
+  // against a caller whose real scope is empty. Nothing may come back carrying
+  // the attacker's id — a shape that reads any of these is the IDOR again.
+  //
+  // /api/buildunits' `project_id` is deliberately NOT in this list: it is a
+  // narrowing filter AND-ed inside the access boundary, so it appears in the
+  // output by design and can only restrict. Its own cases cover it above.
+  const EVIL = "99999999-9999-4999-8999-999999999999"
+  const params = [
+    "member_channel_ids",
+    "member_buildunit_ids",
+    "member_project_ids",
+    "member_ids",
+    "channel_ids",
+  ]
+  const query = `?${params.map((p) => `${p}=${EVIL}`).join("&")}`
+
+  for (const [name, def] of Object.entries(shapes)) {
+    it(`${name} ignores client-supplied ids`, () => {
+      const where = whereOf(def, { query, scope: emptyScope })
+      expect(where ?? "").not.toContain(EVIL)
+    })
+  }
 })
 
 describe("every descriptor names a real table", () => {

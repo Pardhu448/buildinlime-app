@@ -2,10 +2,14 @@
 // surface: if you want to know what a given table exposes and to whom, it is
 // one entry here, not one file per route in the routes tree.
 //
-// Four shapes still derive their channel scope from a client-supplied query
-// param rather than from the session (marked ⚠️ CLIENT-SCOPED below). That is
-// pre-existing behaviour, carried over unchanged by the refactor that created
-// this file; each one carries the exact change that closes it.
+// EVERY shape here resolves its scope from the session. No descriptor reads an
+// id set out of the query string — that is the broken-access-control shape of
+// ARCHITECTURE.md §4, and `scope: "member"` exists so it does not have to.
+//
+// Clients still SEND member_channel_ids / channel_ids params. They are inert:
+// the proxy never forwards them to Electric and no descriptor reads them. They
+// remain only because they key the client's own collection rebuilds; removing
+// them client-side is a follow-up.
 
 import {
   and,
@@ -15,7 +19,6 @@ import {
   notDeleted,
   idSetWhere,
   idSetOrOmit,
-  parseIdList,
   UUID_REGEX,
 } from "./shape-where"
 // TYPE-ONLY on purpose: it keeps this module free of any runtime dependency on
@@ -149,16 +152,17 @@ export const resourcesShape: ShapeDef = {
  * place. Adding the filter here would look like a tightening and would in fact
  * destroy threads.
  *
- * ⚠️ CLIENT-SCOPED. This is the IDOR that projects/buildunits/channels/tasks/
- * resources/properties already had closed; messages was missed. To close it:
- *
- *     scope: `member`,
- *     where: ({ scope }) => idSetWhere(`channel_id`, scope.channelIds),
+ * The channel set is resolved server-side from the session. It used to come from
+ * a client `member_channel_ids` param that was only UUID-format-checked, which
+ * let any authenticated caller stream any channel's messages — the same IDOR
+ * closed earlier on projects/buildunits/channels/tasks/resources/properties.
+ * Message text is the most sensitive thing the system syncs, so this was the
+ * worst of the four remaining instances.
  */
 export const messagesShape: ShapeDef = {
   table: `messages`,
-  where: ({ url }) =>
-    idSetWhere(`channel_id`, parseIdList(url.searchParams.get(`member_channel_ids`))),
+  scope: `member`,
+  where: ({ scope }) => idSetWhere(`channel_id`, scope.channelIds),
 }
 
 /**
@@ -190,23 +194,25 @@ export const propertiesShape: ShapeDef = {
 // last client-scoped surfaces; it costs one resolveMemberScope query each.
 // ---------------------------------------------------------------------------
 
-/** ⚠️ CLIENT-SCOPED, bounded by `assignee_id = me`. */
+/** Tasks assigned to the caller, in channels the caller can currently see. */
 export const myTasksShape: ShapeDef = {
   table: `tasks`,
-  where: ({ userId, url }) =>
+  scope: `member`,
+  where: ({ userId, scope }) =>
     and(
-      idSetWhere(`channel_id`, parseIdList(url.searchParams.get(`member_channel_ids`))),
+      idSetWhere(`channel_id`, scope.channelIds),
       isMe(`assignee_id`, userId),
       notDeleted,
     ),
 }
 
-/** ⚠️ CLIENT-SCOPED, bounded by `mention_ids @> me`. */
+/** Messages mentioning the caller, in channels the caller can currently see. */
 export const inboxMentionsShape: ShapeDef = {
   table: `messages`,
-  where: ({ userId, url }) =>
+  scope: `member`,
+  where: ({ userId, scope }) =>
     and(
-      idSetWhere(`channel_id`, parseIdList(url.searchParams.get(`member_channel_ids`))),
+      idSetWhere(`channel_id`, scope.channelIds),
       arrayContains(`mention_ids`, userId),
     ),
 }
@@ -217,26 +223,23 @@ export const inboxMentionsShape: ShapeDef = {
  * pickers). Shares the `memberships` table with membershipsShape but is a
  * different shape — hence a separate entry.
  *
- * ⚠️ CLIENT-SCOPED, and UNBOUNDED — unlike my-tasks and inbox-mentions there is no
- * session-derived predicate narrowing it, so any authenticated caller can read any
- * channel's roster. The route's own comment flags this and says to lock it down
- * together with projects/buildunits/channels; those were done, this was not. Close
- * it the same way as messages:
+ * The channel set is resolved server-side from the session. It used to come from
+ * a client `channel_ids` param with no membership check, so any authenticated
+ * caller could read any channel's roster — who is in it, and their roles. This
+ * was the one shape with no session-derived predicate bounding it at all.
  *
- *     scope: `member`,
- *     where: ({ scope }) =>
- *       and(idSetWhere(`channel_id`, scope.channelIds), `member_flag = true`),
+ * The caller now gets the roster for every channel they can see, rather than the
+ * subset they asked for. That is a superset of what the UI needs; the client's
+ * own channel-id list still drives when it rebuilds the collection, it just no
+ * longer decides what the server is willing to send.
  *
- * Note the empty-set case changes from `false` to `1 = 0`. Both are well-formed
- * predicates that match nothing, which is what the Electric client needs in order
- * to resume — a bare `[]` body is what it cannot handle.
+ * The no-visible-channels case is now `1 = 0` rather than `false` — both are
+ * well-formed predicates matching nothing, which is what the Electric client
+ * needs to resume from (a bare `[]` body is what it cannot handle).
  */
 export const channelMembersShape: ShapeDef = {
   table: `memberships`,
-  where: ({ url }) => {
-    const channelIds = parseIdList(url.searchParams.get(`channel_ids`))
-    return channelIds.length > 0
-      ? and(idSetWhere(`channel_id`, channelIds), `member_flag = true`)
-      : `false`
-  },
+  scope: `member`,
+  where: ({ scope }) =>
+    and(idSetWhere(`channel_id`, scope.channelIds), `member_flag = true`),
 }

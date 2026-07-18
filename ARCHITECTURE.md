@@ -100,15 +100,21 @@ The asymmetry is the point: **reads and writes take entirely different paths.** 
 
 Electric syncs *shapes* — a table plus a `where` clause. The client never talks to Electric directly. Every collection points at an `/api/<table>` route on the app server, and that route is where **authorization happens**.
 
-Each shape route (`presentation/routes/api/*.ts`) does the same three things:
+Every shape route does the same three things, and does them in **one** place — `shapeHandler` in `infrastructure/database/shape-route.ts`:
 
 1. `auth.api.getSession()` — reject with 401 if there is no session.
 2. Build the Electric origin URL, forcing `table` and `where` server-side (`infrastructure/database/electric-proxy.ts`).
 3. Proxy the response, stripping caching headers — shape responses are user-specific and must never be cached, and HTTP caching breaks Electric's handle+offset polling protocol.
 
-The scope is resolved **server-side from the session, never from client input**. A shared resolver (`infrastructure/database/access-scope.ts`) turns the session user id into the `{channelIds, buildunitIds, projectIds}` the user is entitled to — active membership OR ownership — and each route builds its `where` clause from that set via `idSetWhere()`. **A user with no memberships gets `where 1 = 0`** — literally zero rows: a clean, if blunt, default-deny.
+The files under `presentation/routes/api/*.ts` are shells: a path and a descriptor, no logic. Every authorization rule lives together in `infrastructure/database/shapes.ts`, one `ShapeDef` per shape, which is the file to read (and to review) when you want to know what a table exposes and to whom. They were fifteen hand-written copies of the three steps above until they were collapsed; the copies had drifted, and the drift is what §4's history below describes.
 
-> **Why server-side, not client-supplied.** Routes used to take these id sets as `member_*_ids` query params and only check their UUID *format*. Format is not ownership: any authenticated user could pass someone else's ids and stream their rows — a broken-access-control / IDOR hole across `tasks`, `resources`, `properties`, `projects`, `build_units`, and `channels`. It was closed by moving scope resolution into `resolveMemberScope()` off the session. `memberships` was already safe (scoped `user_id = session.user.id`, a server-issued value) and keeps its stable self-stream. Clients still send the now-ignored `member_*_ids`, but the proxy never forwards them to Electric, so they are inert — deleting them client-side is a follow-up.
+The scope is resolved **server-side from the session, never from client input**. A descriptor declaring `scope: "member"` is handed the `{channelIds, buildunitIds, projectIds}` the user is entitled to — active membership OR ownership — from `resolveMemberScope()` (`infrastructure/database/access-scope.ts`), and builds its `where` from that set via `idSetWhere()`. **A user with no memberships gets `where 1 = 0`** — literally zero rows: a clean, if blunt, default-deny.
+
+> **Why server-side, not client-supplied.** Routes used to take these id sets as `member_*_ids` query params and only check their UUID *format*. Format is not ownership: any authenticated user could pass someone else's ids and stream their rows — a broken-access-control / IDOR hole. It was closed in two passes. The first covered `tasks`, `resources`, `properties`, `projects`, `build_units`, and `channels`. That left four behind — `messages`, `channel_members`, `my_tasks`, and `inbox_mentions` — which kept reading client ids for some time afterwards while this document already described them as fixed. `messages` (every word of every channel) and `channel_members` (any channel's roster) were unbounded and fully exploitable; `my_tasks` and `inbox_mentions` were bounded by `assignee_id = me` / `mention_ids @> me`, so they leaked only rows already addressed to the caller, in channels they had lost access to. All four now resolve scope from the session like the rest. `memberships` was always safe (scoped `user_id = session.user.id`, a server-issued value) and keeps its stable self-stream.
+>
+> No shape reads an id set from the query string any more, and `tests/unit/shapes.test.ts` asserts it for every descriptor — feed each one a URL full of someone else's ids against an empty scope, and nothing may come back carrying them. The helper that made client-supplied lists survivable (`parseIdList`) was deleted along with its last caller. Clients still *send* `member_*_ids` / `channel_ids`; they are inert — the proxy never forwards them to Electric and no descriptor reads them — and they survive only because they key the clients' own collection rebuilds. Deleting them client-side is a follow-up.
+>
+> The one client-supplied value still in a `where` is `/api/buildunits`' `project_id`, a narrowing filter that is UUID-validated and AND-ed *inside* the access boundary, so it can only restrict what the session already permits.
 
 Fourteen collections sync this way: `projects`, `build_units`, `channels`, `memberships`, `channel_members`, `users`, `teams`, `messages`, `tasks`, `resources`, `properties`, `seen_state`, `inbox_mentions`, `my_tasks`. The last three are tiny user-scoped slices that feed the always-mounted badges (web sidebar / mobile drawer); `seen_state` also replaced the old per-item `reads` collection on both apps (see §1).
 
@@ -367,8 +373,10 @@ These are the things to fix before this stops being a POC. Every one of them is 
 | --- | --- |
 | Postgres schema | `web-app/code/src/infrastructure/database/schema/` |
 | Migrations | `web-app/code/drizzle/` |
-| Shape routes (read authorization) | `web-app/code/src/presentation/routes/api/` |
-| Shape scope resolver (`resolveMemberScope` / `idSetWhere`) | `web-app/code/src/infrastructure/database/access-scope.ts` |
+| Shape authorization rules (all of them) | `web-app/code/src/infrastructure/database/shapes.ts` |
+| Shape route handler + `where` combinators | `web-app/code/src/infrastructure/database/shape-route.ts`, `shape-where.ts` |
+| Shape route shells (path → descriptor) | `web-app/code/src/presentation/routes/api/` |
+| Shape scope resolver (`resolveMemberScope`) | `web-app/code/src/infrastructure/database/access-scope.ts` |
 | tRPC routers (write authorization) | `web-app/code/src/infrastructure/trpc/routers/` |
 | Electric proxy | `web-app/code/src/infrastructure/database/electric-proxy.ts` |
 | Auth config | `web-app/code/src/infrastructure/auth/server.ts` |
