@@ -1,4 +1,5 @@
 import { Stack } from "expo-router"
+import { singleParam } from "@/src/presentation/shared/route-params"
 
 export default function ChannelLayout() {
   return (
@@ -6,7 +7,7 @@ export default function ChannelLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen
         name="[taskId]"
-        dangerouslySingular={(_name, params) => params?.taskId}
+        dangerouslySingular={(_name, params) => singleParam(params?.taskId)}
       />
     </Stack>
   )
