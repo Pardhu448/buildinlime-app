@@ -154,14 +154,17 @@ export function membershipSetsChanged(projectId: string | null): boolean {
 // Phase 1 — Bootstrap: memberships + projects + users.
 // Called immediately after login. Enough for the project picker screen.
 // ---------------------------------------------------------------------------
-export async function initBootstrapCollections(userId: string): Promise<void> {
+export async function initBootstrapCollections(
+  userId: string,
+  sessionId: string,
+): Promise<void> {
   const t0 = __DEV__ ? Date.now() : 0
 
-  // Wipe the local DB if it belongs to a different user BEFORE any collection
-  // opens it — otherwise the new user can inherit stale rows and, worse, stale
-  // Electric sync offsets that suppress their own rows. See
-  // ensureCleanPersistenceForUser.
-  await ensureCleanPersistenceForUser(userId)
+  // Wipe the local DB unless it belongs to THIS login — a different user, or an
+  // earlier session of the same user — BEFORE any collection opens it. Otherwise
+  // the session can inherit stale rows and, worse, stale Electric sync offsets
+  // that suppress its own rows. See ensureCleanPersistenceForUser.
+  await ensureCleanPersistenceForUser(userId, sessionId)
 
   initializeMembershipsCollection()
   await loadMembershipsCollection()

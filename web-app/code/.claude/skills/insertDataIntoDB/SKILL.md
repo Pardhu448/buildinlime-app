@@ -134,37 +134,49 @@ export const appRouter = router({
 
 ---
 
-### 4. Electric Shape API Route — `src/presentation/routes/api/tasks.ts`
+### 4. Electric Shape — a descriptor plus a route shell
 
-Copy the `properties.ts` Electric proxy pattern, changing only the table name and filter:
+Two pieces. **Do not** hand-write an auth check or an Electric proxy call in a route
+file — `shapeHandler` owns those, and a route that rolls its own is how the shape
+routes drifted apart last time.
+
+First, the authorization rule, in `src/infrastructure/database/shapes.ts` alongside
+the other fourteen:
+
+```ts
+export const tasksShape: ShapeDef = {
+  table: `tasks`,
+  scope: `member`, // resolves the caller's visible ids from the SESSION
+  where: ({ scope }) => and(idSetWhere(`channel_id`, scope.channelIds), notDeleted),
+}
+```
+
+Then the route shell, `src/presentation/routes/api/tasks.ts` — a path and nothing else:
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router"
-import { auth } from "../../../infrastructure/auth/server"
-import { prepareElectricUrl, proxyElectricRequest } from "../../../infrastructure/database/electric-proxy"
-
-const serve = async ({ request }: { request: Request }) => {
-  const session = await auth.api.getSession({ headers: request.headers })
-  if (!session) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "content-type": "application/json" },
-    })
-  }
-
-  const originUrl = prepareElectricUrl(request.url)
-  originUrl.searchParams.set("table", "tasks")
-  originUrl.searchParams.set("where", `'${session.user.id}' = ANY(member_ids)`)
-
-  return proxyElectricRequest(originUrl)
-}
+import { shapeHandler } from "../../../infrastructure/database/shape-route"
+import { tasksShape } from "../../../infrastructure/database/shapes"
 
 export const Route = createFileRoute("/api/tasks")({
-  server: { handlers: { GET: serve } },
+  server: { handlers: { GET: shapeHandler(tasksShape) } },
 })
 ```
 
-> The `where` filter uses `member_ids` (the actual DB column name) to scope rows to the current user.
+Rules that matter:
+
+- **Scope comes from the session, never from a query param.** Declaring
+  `scope: "member"` gives `where` the caller's `{channelIds, buildunitIds,
+  projectIds}` via `resolveMemberScope`. Taking ids from the URL is the
+  broken-access-control bug described in ARCHITECTURE.md §4 — a client can pass
+  someone else's ids. Omit `scope` only when the clause is purely session-derived
+  (`user_id = me`, `owner_id = me`).
+- **Empty id set must be default-deny.** `idSetWhere` returns `1 = 0`. Use
+  `idSetOrOmit` only inside an `or()` that already has an unconditional clause such
+  as `owner_id = me`.
+- **Add a case to `tests/unit/shapes.test.ts`** pinning the emitted `where` string.
+  The descriptors are pure, so this is cheap, and it is what keeps an authorization
+  boundary from moving silently.
 
 ---
 

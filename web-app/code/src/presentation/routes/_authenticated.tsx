@@ -4,7 +4,7 @@ import { authStateCollection } from '../../infrastructure/database/tanstack-db-e
 import { projectsCollection, buildUnitsCollection, channelsCollection, usersCollection, teamsCollection, membershipsCollection, channelMembersCollection, initializeOrganizationCollections, initializeChannelMembersCollection, initializeUsersCollection, initializeMembershipsCollection, initializeTeamsCollection } from '../../infrastructure/database/tanstack-db-electric/admincollections'
 import { initializeCommunicationCollections, initializePropertiesCollection, tasksCollection, messagesCollection, resourcesCollection, inboxMentionsCollection, myTasksCollection, propertiesCollection, seenStateCollection } from '../../application/collections/communication'
 import { membershipsShapeErrored, clearMembershipsShapeError } from '../../application/collections/_shared'
-import { debugListOPFSFiles } from '../../infrastructure/persistence/browser-persistence'
+import { debugListOPFSFiles, ensureCleanPersistenceForUser } from '../../infrastructure/persistence/browser-persistence'
 import { initOfflineExecutor, disposeOfflineExecutor } from '../../infrastructure/offline/executor'
 import { useEffect, useState, useRef } from 'react'
 
@@ -149,8 +149,15 @@ function membershipSetsChanged(): boolean {
   return s.visibilityKey !== _appliedSets.visibilityKey || s.channelKey !== _appliedSets.channelKey
 }
 
-async function initCollections(): Promise<void> {
+async function initCollections(userId: string, sessionId: string): Promise<void> {
   const t0 = import.meta.env.DEV ? performance.now() : 0
+
+  // 0. Wipe the OPFS store unless it belongs to THIS login — a different user, or
+  //    an earlier session of the same user — BEFORE any collection opens it.
+  //    Otherwise the session inherits stale rows and, worse, stale Electric sync
+  //    offsets that suppress its own rows for good. See
+  //    ensureCleanPersistenceForUser.
+  await ensureCleanPersistenceForUser(userId, sessionId)
 
   // 1. Bootstrap: init the SELF membership stream (user_id = me) and wait for a
   //    TRUSTWORTHY result — not merely a "ready" one. Everything below derives
@@ -281,10 +288,22 @@ function AuthenticatedLayout() {
     }
   }, [session, isPending, navigate])
 
+  // The session id keys the persistence owner marker (see
+  // ensureCleanPersistenceForUser). It is deliberately NOT part of the start
+  // condition: gating on it would mean a session shape that ever lacked one
+  // leaves init unstarted and the app on its loading screen forever. It degrades
+  // to "unknown login", which the marker treats as a mismatch and wipes — a
+  // redundant re-sync at worst, never a hang.
   useEffect(() => {
     if (!session || initStarted.current) return
     initStarted.current = true
-    initCollections()
+    // The session type declares `session` non-nullable, so the guards below read
+    // as redundant — but this object is JSON off the wire, and getting it wrong
+    // writes a marker that a later login cannot distinguish from its own. The
+    // empty-string fallback degrades to "unknown login" (wipe) rather than
+    // trusting a shape we did not actually verify at runtime.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    initCollections(session.user.id, session.session?.id ?? ``)
       .then(() => setCollectionsReady(true))
       .catch((err) => {
         console.error(`[collections] Init failed:`, err)

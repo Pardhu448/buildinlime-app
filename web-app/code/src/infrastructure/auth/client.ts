@@ -2,11 +2,7 @@ import { createAuthClient } from "better-auth/react"
 import { emailOTPClient } from "better-auth/client/plugins"
 import { disposePersistence } from "../persistence/browser-persistence"
 import { disposeOfflineExecutor } from "../offline/executor"
-import { resetTaskActions } from "../../application/actions/tasks"
-import { resetMessageActions } from "../../application/actions/messages"
-import { resetResourceActions } from "../../application/actions/resources"
-import { resetPropertyActions } from "../../application/actions/properties"
-import { resetTeamActions } from "../../application/actions/teams"
+import { resetAllOfflineActions } from "../../application/actions"
 
 /**
  * Better Auth Client Configuration
@@ -45,11 +41,7 @@ export const {
 export async function signOutAndDispose(): Promise<void> {
   await authClient.signOut()
   disposeOfflineExecutor()
-  resetTaskActions()
-  resetMessageActions()
-  resetResourceActions()
-  resetPropertyActions()
-  resetTeamActions()
+  resetAllOfflineActions()
   await disposePersistence()
 }
 

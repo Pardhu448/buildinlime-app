@@ -66,13 +66,3 @@ export async function resolveMemberScope(userId: string): Promise<MemberScope> {
     projectIds: [...projectIds],
   }
 }
-
-/**
- * Builds an Electric `where` clause matching `column` against a set of ids
- * resolved server-side. Empty set → `1 = 0` (match nothing), preserving the
- * existing routes' behaviour. Ids are DB-sourced UUIDs, so interpolation is safe.
- */
-export function idSetWhere(column: string, ids: string[]): string {
-  if (ids.length === 0) return `1 = 0`
-  return `${column} = ANY(ARRAY[${ids.map((id) => `'${id}'`).join(`,`)}]::text[])`
-}
