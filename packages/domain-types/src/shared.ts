@@ -86,3 +86,17 @@ export const PRIORITY_VALUES = [
   "cancelled",
 ] as const
 export type PriorityValue = typeof PRIORITY_VALUES[number]
+
+/**
+ * A timestamp as it can actually appear on a client — the same shape the row
+ * schemas use (`wireTimestamp` in @buildinlime/contracts), because these types
+ * describe the same rows.
+ *
+ * A `Date` fresh off Electric, a `string` once rehydrated from the local SQLite /
+ * OPFS store, and absent where the column is optional on the wire. These fields
+ * were declared as plain `Date`, which no synced row guarantees: call sites were
+ * already working around it with `instanceof Date ? … : new Date(… as string)`
+ * and casts, i.e. the type was decorative. Read one with `toDate()` from
+ * @buildinlime/contracts rather than assuming a Date method is there.
+ */
+export type WireTimestamp = string | Date | undefined

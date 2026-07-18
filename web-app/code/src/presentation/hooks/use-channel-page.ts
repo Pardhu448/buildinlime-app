@@ -6,7 +6,6 @@ import { tasksCollection, channelsCollection, usersCollection, channelMembersCol
 import { trpc } from "%/infrastructure/trpc/lib/trpc-client"
 import { useSession } from "%/infrastructure/auth/client"
 import { createTaskAction } from "%/application/actions/tasks"
-import type { Task } from "../components/buildInlime"
 
 export function useChannelPage(channelId: string, buildUnitId: string, projectId: string, buildUnitName: string, channelName: string) {
   const { data: session } = useSession()
@@ -49,10 +48,13 @@ export function useChannelPage(channelId: string, buildUnitId: string, projectId
   const channelOwnerId = channelData?.[0]?.owner_id
   const isOwner = session?.user?.id === channelOwnerId
 
-  const tasks: Task[] = (dbTasks ?? []).map((t) => ({
+  const tasks = (dbTasks ?? []).map((t) => ({
     id: t.id,
     name: t.name,
     completed: t.completed,
+    // Carried for the panel's unread check (opened_at vs the channel's seen marker).
+    opened_at: t.opened_at,
+    channel_id: t.channel_id,
   }))
 
   // Handlers

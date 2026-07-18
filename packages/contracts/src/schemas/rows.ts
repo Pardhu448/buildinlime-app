@@ -56,6 +56,22 @@ export const unwrapJsonb = (v: unknown) =>
  */
 const wireTimestamp = z.union([z.string(), z.date()])
 
+/**
+ * Read a wire timestamp as a Date.
+ *
+ * The counterpart to wireTimestamp above: a synced row's timestamp is a `Date`
+ * fresh off Electric and a `string` once rehydrated from the local SQLite/OPFS
+ * store, so no call site may assume a Date method is there. Every consumer was
+ * hand-rolling the same `instanceof Date ? … : new Date(… as string)` check, with
+ * a cast, because the hand-written domain types claimed a plain `Date`.
+ *
+ * Missing (the column is optional on the wire) reads as the epoch, which keeps
+ * "is this newer than my seen-marker" comparisons false rather than throwing on
+ * an Invalid Date.
+ */
+export const toDate = (v: string | Date | null | undefined): Date =>
+  v instanceof Date ? v : new Date(v ?? 0)
+
 /** A text[] column. Electric delivers a real array once the shape types it. */
 const wireTextArray = z.array(z.string())
 

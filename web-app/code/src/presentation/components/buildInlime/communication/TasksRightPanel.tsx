@@ -1,3 +1,4 @@
+import type { TaskRow } from "@buildinlime/contracts"
 import { useState } from "react";
 import { Circle, ChevronDown, ChevronRight } from "lucide-react";
 
@@ -11,11 +12,24 @@ export interface Task {
   channel_id: string;
 }
 
+/**
+ * What this panel needs off a task: `id`/`name`/`completed` to render, and the two
+ * fields the seen-check reads. Sliced off the canonical row rather than demanding
+ * a full domain `Task` — it asked for one while using a handful of fields, so
+ * every caller had to construct one.
+ */
+export type PanelTask = Pick<
+  TaskRow,
+  "id" | "name" | "completed" | "opened_at" | "channel_id"
+>
+
 export interface TasksRightPanelProps {
-  tasks: Task[];
+  // Only what the panel reads, sliced off the canonical row. It asked for a full
+  // domain `Task` while using `id` and `name`, so every caller had to build one.
+  tasks: PanelTask[];
   onTaskClick?: (taskId: string) => void;
   /** Tasks that arrived since the viewer last opened this channel — shown bold with a dot. */
-  isUnread?: (task: Task) => boolean;
+  isUnread?: (task: PanelTask) => boolean;
 }
 
 export function TasksRightPanel({ tasks, onTaskClick, isUnread }: TasksRightPanelProps) {

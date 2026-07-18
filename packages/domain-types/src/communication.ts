@@ -4,6 +4,7 @@ import type {
   StatusValue,
   PriorityValue,
   TaskStatusValue,
+  WireTimestamp,
 } from "./shared"
 
 export type Task = {
@@ -11,8 +12,8 @@ export type Task = {
   name: string
   description: string
   completed: boolean
-  opened_at: Date
-  closed_at: Date
+  opened_at?: WireTimestamp
+  closed_at?: WireTimestamp
   channel_id: string
   buildunit_id: string
   createdby_id: string
@@ -40,7 +41,7 @@ export type UpdateTask = {
 export type Message = {
   id: string
   text: string
-  created_at: Date
+  created_at?: WireTimestamp
   channel_id: string
   buildunit_id: string
   project_id: string
@@ -79,7 +80,7 @@ export type Resource = {
   file_location: string
   mime_type: string
   file_size_bytes: number
-  uploaded_at: Date
+  uploaded_at?: WireTimestamp
   message_id?: string | null
   task_id?: string | null
   channel_id: string
@@ -123,7 +124,7 @@ export type Property = {
   // column as of migration 0003 — read it from here, not from pending_task.
   percent_complete?: string | null
   label_value?: string | null
-  created_at: Date
+  created_at?: WireTimestamp
 }
 
 export type UpdateProperty = {

@@ -6,6 +6,7 @@ import { ProjectsTable } from "../../../components/buildInlime";
 import { projectsCollection, usersCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
 
 import { useLiveQuery } from "@tanstack/react-db"
+import { toDate } from "@buildinlime/contracts"
 
 export const Route = createFileRoute('/_authenticated/projects/')({
   component: ProjectsRoute,
@@ -32,7 +33,7 @@ function ProjectsRoute() {
       id: p.id,
       name: p.name,
       createdBy: creator?.name || creator?.email || "Unknown",
-      createdAt: p.created_at ? new Date(p.created_at).toLocaleDateString() : "—",
+      createdAt: p.created_at ? toDate(p.created_at).toLocaleDateString() : "—",
     }
   })
 

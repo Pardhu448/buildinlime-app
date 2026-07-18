@@ -19,6 +19,7 @@ import {
   SheetEmpty,
 } from "@/src/presentation/shared/components/BottomSheet"
 import type { Resource } from "@buildinlime/domain-types"
+import { toDate } from "@buildinlime/contracts"
 
 interface ResourcesSheetProps {
   channelId: string
@@ -74,7 +75,7 @@ export function ResourcesSheet({
   const resources = ((data ?? []) as Resource[])
     .filter((r) => (taskId ? r.task_id === taskId : true))
     .sort(
-      (a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()
+      (a, b) => toDate(b.uploaded_at).getTime() - toDate(a.uploaded_at).getTime()
     )
 
   const { pendingUploads, enqueue, start, retry, cancel, schedule, rename } =

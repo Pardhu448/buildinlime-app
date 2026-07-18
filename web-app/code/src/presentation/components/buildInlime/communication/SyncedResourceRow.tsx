@@ -1,19 +1,13 @@
+import type { ResourceRow } from "@buildinlime/contracts"
 import { Download, X } from "lucide-react"
 import { ResourceThumbnail } from "./ResourceThumbnail"
 import { formatDateTime } from "%/presentation/lib/datetime"
 import { formatBytes } from "%/presentation/lib/format-bytes"
 
 /** A resource that has synced through Electric — visible to every client. */
-export type SyncedResource = {
-  id: string
-  name: string
-  description?: string | null
-  file_location: string
-  mime_type: string
-  uploaded_at: string | Date
-  file_size_bytes: number | bigint
-  createdby_id: string
-}
+// Was a hand-rolled structural copy of a resource row. The wire row type is the
+// one the collection actually produces and the one zod describes, so use it.
+export type SyncedResource = ResourceRow
 
 export interface SyncedResourceRowProps {
   resource: SyncedResource
