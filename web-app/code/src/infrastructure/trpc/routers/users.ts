@@ -1,3 +1,4 @@
+import { checkEmailInput } from "@buildinlime/contracts"
 import { router, authedProcedure, procedure } from "../lib/trpc"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
@@ -6,7 +7,7 @@ import { users } from "../../database/schema/auth-schema"
 
 export const usersRouter = router({
   checkEmail: procedure
-    .input(z.object({ email: z.string().email() }))
+    .input(checkEmailInput)
     .query(async ({ ctx, input }) => {
       const [user] = await ctx.db
         .select({ id: users.id })

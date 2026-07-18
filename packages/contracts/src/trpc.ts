@@ -21,3 +21,18 @@ export type MutationResult = { item: unknown; txid: number }
 export const stub = (): MutationResult => {
   throw new Error("contract router is type-only and must not be invoked")
 }
+
+/**
+ * Stub for a procedure whose OUTPUT the client actually reads.
+ *
+ * The default `stub` above is mutation-shaped, and outputs are deliberately not
+ * pinned — clients don't consume `item`. Queries are different: a client that
+ * destructures the result needs its shape, or the call types as a mutation
+ * result and the field it wants "does not exist". `users.checkEmail` is the
+ * case that surfaced this.
+ */
+export const stubOf =
+  <T,>(): (() => T) =>
+  () => {
+    throw new Error("contract router is type-only and must not be invoked")
+  }
