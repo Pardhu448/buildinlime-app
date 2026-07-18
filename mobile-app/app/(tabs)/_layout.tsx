@@ -70,14 +70,14 @@ export default function DrawerLayout() {
     initProjectCollections(projectId)
       .then(async () => {
         // Executor must init AFTER project collections so it can register them.
-        // Re-runs on project switch — initOfflineExecutor disposes the previous
-        // instance internally before constructing a new one; clear cached
-        // action references so the next call binds against the new executor.
+        // This block runs ONCE per mount — there is no project switch (the
+        // drawer says "Sign out to switch project"). The executor's rebuild
+        // path is the resync effect below, not here. resetAllOfflineActions
+        // clears cached action references so they bind against this executor.
         resetAllOfflineActions()
         await initOfflineExecutor()
         // Upload manager: a separate service from the executor (binaries do not
-        // belong in the outbox). initUploadManager is idempotent, so re-running
-        // it on project switch is a no-op.
+        // belong in the outbox). Idempotent, so the guard costs nothing.
         await initUploadManager()
         if (__DEV__) console.log(`[layout] Project collections + offline executor ready`)
         setProjectReady(true)

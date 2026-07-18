@@ -161,8 +161,11 @@ export function initializeCommunicationCollections(params: {
   memberChannelIds: string[]
 }) {
   const { persistence } = getPersistence()
-  // On a project switch / channel-set resync these hold the previous instances;
-  // stop their sync before replacing (GC is disabled, so nothing else will).
+  // On a channel-set resync (resyncProjectCollections re-enters this function)
+  // these hold the previous instances; stop their sync before replacing, since
+  // GC is disabled and nothing else will. Unlike the organization equivalent,
+  // this cleanup IS live — a membership change rebuilds the channel-scoped
+  // collections mid-session.
   safeCleanup(tasksCollection)
   safeCleanup(messagesCollection)
   safeCleanup(resourcesCollection)

@@ -106,8 +106,17 @@ export function initializeOrganizationCollections(params: {
   if (!projectsCollection) {
     projectsCollection = _makeProjectsCollection(persistence, params.memberProjectIds)
   }
-  // On a project switch these hold the previous project's collections; stop
-  // their sync before replacing (GC is disabled, so it won't happen for us).
+  // These two safeCleanup calls are currently NO-OPS, and deliberately kept.
+  //
+  // The only caller is initProjectCollections, which runs once per mount of
+  // (tabs)/_layout — there is no project SWITCH in the app any more (the drawer
+  // says "Sign out to switch project", and the picker is unreachable once a
+  // project is selected), so both refs are still null here every time.
+  //
+  // They stay because they are the correct cleanup if switching ever comes
+  // back: GC is disabled on these collections, so replacing a live instance
+  // without stopping its sync first leaks the previous project's Electric
+  // shape with nothing left to close it.
   safeCleanup(buildUnitsCollection)
   safeCleanup(channelsCollection)
   buildUnitsCollection = _makeBuildUnitsCollection(persistence, params.memberBuildunitIds)

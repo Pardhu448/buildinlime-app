@@ -250,8 +250,12 @@ export async function initProjectCollections(projectId: string): Promise<void> {
 // ---------------------------------------------------------------------------
 // Resync — rebuild the membership-scoped collections in place when the current
 // user's visible scope changes at runtime (they create a channel, or are added
-// to / removed from one) without a fresh login or project switch. Returns true
-// if anything was rebuilt.
+// to / removed from one) without a fresh login. Returns true if anything was
+// rebuilt.
+//
+// This is the ONLY path that rebuilds collections mid-session: there is no
+// project switch (see the drawer's "Sign out to switch project"), so anything
+// that has to survive a rebuild hangs off this, not off a project change.
 //
 // MUST run while the authenticated content is unmounted (the layout renders a
 // spinner during resync), so cleanup() never runs against a collection a
