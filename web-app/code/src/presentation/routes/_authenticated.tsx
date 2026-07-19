@@ -192,9 +192,16 @@ async function initCollections(userId: string, sessionId: string): Promise<void>
   ])
 
   // 3. Start sync — OPFS hydrates from cache, Electric syncs in background.
-  //    (channelsCollection is intentionally started lazily by its route loaders.)
+  //    channelsCollection is part of the NEVER_GC spine, so start it here with
+  //    the other spine collections. It used to be left to a component subscriber
+  //    (the Sidebar) to start lazily, but nothing starts it on a cold deep-link
+  //    or reload straight to a channel URL — the channel route has no loader —
+  //    so the channel shape never synced and the page sat on "Channel not found"
+  //    for the whole session. Starting it at bootstrap makes deep-links
+  //    deterministic and matches projects/build_units/users/teams above.
   projectsCollection.startSyncImmediate()
   buildUnitsCollection.startSyncImmediate()
+  channelsCollection.startSyncImmediate()
   channelMembersCollection.startSyncImmediate()
   usersCollection.startSyncImmediate()
   teamsCollection.startSyncImmediate()

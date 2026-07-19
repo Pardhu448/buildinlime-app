@@ -8,7 +8,7 @@
     "test": "pnpm test:unit && pnpm test:integration",
     "test:unit": "pnpm --filter buildinlime test:unit && pnpm --filter buildinlimemobile test",
     "test:integration": "pnpm --filter buildinlime test:integration",
-    "test:e2e": "echo '[test:e2e] Playwright arrives in Phase 4 — no specs yet' && exit 0",
+    "test:e2e": "pnpm --filter buildinlime test:e2e",
     "typecheck": "pnpm --filter buildinlime typecheck && pnpm --filter buildinlimemobile typecheck",
     "lint": "pnpm --filter buildinlime lint && pnpm --filter buildinlimemobile lint",
     "mobile:set-lan-ip": "pnpm --filter buildinlimemobile set-lan-ip",
