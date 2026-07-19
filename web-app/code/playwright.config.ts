@@ -63,10 +63,19 @@ export default defineConfig({
       ELECTRIC_URL: "http://localhost:30001",
       BETTER_AUTH_SECRET: E2E_SECRET,
       BETTER_AUTH_URL: BASE_URL,
+      // sendEmailOtp.ts constructs `new Resend(...)` at module load, which the
+      // auth server pulls in on any /api/auth request and which throws on a
+      // missing key. E2E never sends email (it seeds sessions directly), so a
+      // dummy key is enough. Locally this comes from .env via dotenvx; CI has no
+      // .env, so set it here.
+      RESEND_API_KEY: "re_e2e_dummy_not_used",
       // Keep out of production so useSecureCookies stays false (server.ts) and
       // the session cookie is accepted over http.
       NODE_ENV: "development",
       PORT: "3000",
+      // Don't front with Caddy — tests hit http://localhost:3000 directly, and
+      // the Caddy plugin hard-exits when the binary is absent (CI runners).
+      DISABLE_CADDY: "true",
     },
   },
 })

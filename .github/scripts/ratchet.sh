@@ -36,12 +36,11 @@ count_errors() {
 }
 
 # NOTE ON FILTERS: pass a PATH (./web-app/code), never a package name.
-# The root workspace package is itself named `buildinlime`, the same as
-# web-app/code, and the root's own `typecheck` script is
-# `pnpm --filter buildinlime typecheck && ...`. So `--filter buildinlime` matches
-# BOTH packages, the root re-runs the web check nested inside its own output, and
-# every error gets counted twice — the count came out at exactly 2x the real one.
-# A path filter names exactly one package and cannot collide.
+# The root package is now `buildinlime-monorepo` (it used to also be named
+# `buildinlime`, colliding with web-app/code so `--filter buildinlime` matched
+# BOTH and double-counted every error). The collision is gone, but a path filter
+# names exactly one package regardless of names, so keep using paths here — it is
+# collision-proof and independent of any future rename.
 check() { # $1 pnpm filter (a path), $2 check-name (== npm script name), $3 baseline key
   local filter="$1" name="$2" key="${3:-$1}" out count base status
   out="$(pnpm --filter "$filter" "$name" 2>&1 || true)"
