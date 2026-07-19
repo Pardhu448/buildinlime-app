@@ -171,12 +171,87 @@ connects **directly to Postgres**, not through the app. Omitting it fails at syn
 with an error that does not obviously point back here. Confirmed against both
 Electric's and Google's docs (§4.5.8).
 
-Then the replication role Electric connects as — **not** a superuser, and not the app's
-role:
+#### 4.2.1 The Electric role — more than `REPLICATION`
+
+**Corrected 2026-07-19 after testing.** An earlier draft of this section had only:
 
 ```sql
 CREATE ROLE electric WITH REPLICATION LOGIN PASSWORD '...';
 ```
+
+That is **not sufficient**. Electric starts, acquires the Postgres lock, then dies with:
+
+```
+[emergency] Publication "electric_publication_default" not found in the database
+```
+
+Electric creates its own publication and sets `REPLICA IDENTITY FULL`, which needs more
+than replication rights. Their docs describe two modes, and the choice is a real
+security decision:
+
+**Electric-managed mode** (their recommendation, and what was verified working):
+
+```sql
+CREATE ROLE electric WITH LOGIN PASSWORD '...' REPLICATION;
+GRANT CONNECT ON DATABASE buildinlime TO electric;
+GRANT USAGE  ON SCHEMA public         TO electric;
+GRANT CREATE ON DATABASE buildinlime  TO electric;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO electric;
+-- plus TABLE OWNERSHIP — Electric must own tables to set REPLICA IDENTITY FULL
+-- and add them to its publication:
+ALTER TABLE public.<each_table> OWNER TO electric;
+```
+
+**⚠️ Weigh the ownership requirement before adopting this.** Handing table ownership to
+the sync service's role is a significant grant — it can `DROP`/`ALTER` any table it
+owns, and it is a *different* role from the app's. It also interacts with migrations:
+`drizzle-kit` runs as the app's role and must still be able to alter tables it no longer
+owns.
+
+**Manual mode** is the alternative: the role gets only `CONNECT`/`USAGE`/`SELECT` +
+`REPLICATION`, and a DBA creates the publication and sets replica identity by hand.
+No ownership transfer.
+
+#### 4.2.2 DECIDED — Electric-managed mode
+
+**Decision (2026-07-19): Electric-managed**, per Electric's own recommendation.
+Implemented as `deploy/sql/01-electric-role.sql` and `02-electric-own-tables.sql`, both
+verified end-to-end against `postgres:17` + `electricsql/electric:1.4.10` with a
+**non-superuser** app role (mirroring Cloud SQL).
+
+Testing turned up three requirements that are **not** in Electric's documented setup.
+Each produces a different, non-obvious failure:
+
+| Missing grant | Symptom |
+|---|---|
+| `CREATE ON SCHEMA public` | `ERROR: permission denied for schema public` on ownership transfer |
+| `CREATE ON DATABASE` | Electric starts, takes the lock, dies: `Publication "electric_publication_default" not found` |
+| `GRANT electric TO <app_role>` | Next migration fails: `ERROR: must be owner of table <name>` |
+
+The schema-level grant is a genuine gap in Electric's docs: they list
+`GRANT CREATE ON DATABASE`, which permits creating *schemas*, not tables within one.
+Postgres 15 removed the implicit `PUBLIC` create privilege on schema `public`, so on
+PG15+ their documented set is insufficient.
+
+**The ownership sweep must run after EVERY migration**, not once. `drizzle-kit` runs as
+the app role, so any table it creates is owned by the app role and silently drops out of
+Electric's reach. Wired into the deploy sequence at §6.
+
+**Verified lazy configuration.** Electric adds a table to its publication and sets
+`REPLICA IDENTITY FULL` on the **first shape request for that table**, not at startup.
+Observed directly: after syncing `users` then `tasks`, `pg_publication_tables` held
+exactly those two. This is why the sweep runs eagerly — otherwise a mis-owned table
+fails at first sync in production rather than at deploy time.
+
+**Accepted cost.** The `electric` role owns every table in `public` and can therefore
+`DROP`/`ALTER` any of them. The app role retains its own identity and reaches ownership
+only through membership. If that grant ever looks too broad, manual mode is the fallback
+— but it needs the publication and replica identity maintained by hand on every schema
+change that touches a synced table.
+
+**Verified working end-to-end:** migrations as the app role → ownership sweep → Electric
+starts healthy → publication created and owned by `electric` → authenticated shape
+requests return 200 for multiple tables.
 
 `--no-assign-ip` is what makes this posture real. Verify after creation that the
 instance has no public IP; it is easy to re-enable one while debugging and forget.
@@ -489,79 +564,135 @@ container.
 
 ## 5. Phase 2 — package the app
 
-### 5.1 `Dockerfile` (repo root, not `web-app/code`)
+### 5.1 `Dockerfile` — BUILT AND VERIFIED
 
-Build context must be the **repo root**: `web-app/code` depends on
-`@buildinlime/contracts`, `@buildinlime/domain-types`, and `@buildinlime/sync-core` via
-`workspace:*`.
+**Status: implemented.** `/Dockerfile`, `/.dockerignore`, and `/deploy/server-entry.mjs`
+exist and are proven — image builds, container boots, routes verified (§5.1.5). This
+section records what the implementation had to change from the original sketch, because
+four of the assumptions were wrong.
 
-```dockerfile
-# syntax=docker/dockerfile:1
-FROM node:22-slim AS base
-ENV PNPM_HOME=/pnpm PATH=$PNPM_HOME:$PATH
-RUN corepack enable
+Build context is the **repo root**: `web-app/code` depends on `@buildinlime/contracts`,
+`@buildinlime/domain-types`, and `@buildinlime/sync-core` via `workspace:*`.
 
-FROM base AS build
-WORKDIR /repo
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
-COPY packages/ packages/
-COPY web-app/code/package.json web-app/code/
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile
-COPY web-app/code/ web-app/code/
+#### 5.1.1 The server bundle externalises every runtime dependency
 
-# Build-time dummies mirror ci.yml:41 — see §2.2. Nothing connects at build time.
-# DISABLE_CADDY because the vite plugin hard-exits when the caddy binary is absent
-# (vite.config.ts:64). STORAGE_DRIVER stays unset so the prerender builds no GCS client.
-RUN DISABLE_CADDY=1 \
-    DATABASE_URL=postgresql://postgres:password@localhost:5432/electric \
-    BETTER_AUTH_SECRET=build-only-secret-000000000000000000000000 \
-    BETTER_AUTH_URL=http://localhost:3000 \
-    RESEND_API_KEY=re_build_dummy \
-    pnpm --filter buildinlime build
+The original sketch copied only `dist/` and ran `node dist/server/server.js`. Both halves
+were wrong.
 
-FROM base AS runtime
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=build /repo/web-app/code/dist ./dist
-CMD ["node", "dist/server/server.js"]
-```
+`dist/server/server.js` is a 34 KB entry over a 1.3 MB `dist/server/assets/` chunk set,
+and **all** runtime deps are bare imports left external — 26 of them, including `pg`,
+`@google-cloud/storage`, `better-auth`, `drizzle-orm`, `resend`, `@electric-sql/client`,
+`h3-v2`, `seroval`. A `dist`-only image dies with `MODULE_NOT_FOUND`.
 
-**⚠️ Verify before trusting the runtime stage.** It is *unconfirmed* whether Nitro
-bundles server deps into `dist/server/server.js` or leaves `pg` /
-`@google-cloud/storage` / `better-auth` external:
-
-```bash
-node -e "const s=require('fs').readFileSync('web-app/code/dist/server/server.js','utf8'); \
-  console.log(['pg','@google-cloud/storage','better-auth'] \
-    .map(m=>m+': '+((s.includes('require(\"'+m+'\")')||s.includes('from\"'+m+'\"'))?'EXTERNAL':'bundled')).join('\n'))"
-```
-
-If anything reports EXTERNAL, add a `pnpm deploy --filter buildinlime --prod /out` stage
-and copy `/out/node_modules`. Do **not** copy the raw workspace `node_modules` — pnpm's
-symlink farm does not survive a layer copy intact.
-
-**A second `tools` stage retaining devDeps is required** for migrations and the purge
-sweep (§6, §8), which need `drizzle-kit`, `tsx`, and the `drizzle/` directory that the
-minimal runtime stage strips.
-
-### 5.2 `.dockerignore` (repo root)
+So the runtime stage must carry a real `node_modules`, produced by:
 
 ```
-node_modules
-**/node_modules
-**/dist
-web-app/code/uploads
-web-app/code/.env
-web-app/code/.tanstack
-android
-ios
-mobile-app
-.git
+pnpm deploy --legacy --filter buildinlime --prod /out
 ```
 
-`uploads/` and `.env` are the load-bearing entries: the first is precisely the local-disk
-state being migrated away from, the second holds dotenvx-encrypted secrets.
+- **`--legacy` is required on pnpm 10** — without it,
+  `ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE`.
+- **`.npmrc` sets `node-linker=hoisted`**, so `/out/node_modules` is a flat npm-style
+  tree that copies cleanly between stages. The original warning about pnpm's symlink farm
+  not surviving a layer copy **does not apply to this repo**.
+- Result is ~516 MB of `node_modules`, ~954 MB image. Larger than ideal: `--prod` still
+  admits `drizzle-kit`, `typescript`, `vite`, and `tsx`, and `react-icons` (85 MB) +
+  `lucide-react` (44 MB) are real dependencies. `pnpm prune --prod` in `/out` is **not** a
+  fix — it deletes the tree entirely, having found no workspace. Size reduction is a
+  follow-up, not a blocker: the VM pulls images rarely.
+
+#### 5.1.2 `@dotenvx/dotenvx` was a devDependency imported at runtime — FIXED
+
+`connection.ts:1` and `electric-proxy.ts:1` both `import "@dotenvx/dotenvx/config"`, and
+that import survives into 14 server chunks as an external. But the package sat in
+**devDependencies**, so `--prod` excluded it and the server could not start.
+
+Fixed by moving it to `dependencies`. It resolved locally only because dev installs
+everything — a latent production-only crash that no test would have caught.
+
+`srvx` (§5.1.4) was added explicitly for the same reason: it was reachable only as a
+transitive dep of `h3-v2`.
+
+> **Still latent, not fixed:** four externals the bundle imports are undeclared —
+> `h3-v2`, `seroval`, `@tanstack/history`, `@tanstack/router-core`. They resolve today
+> purely because `node-linker=hoisted` flattens transitives to the root. Switching to the
+> default isolated linker would break the server at runtime with no build-time warning.
+
+#### 5.1.3 pnpm version must be pinned — FIXED
+
+`corepack enable` alone fetched **pnpm 11**, which silently ignores the root
+`pnpm.overrides` block (pinning react/react-dom to 19.1.0) and then fails
+`--frozen-lockfile` with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`.
+
+Fixed by adding `"packageManager": "pnpm@10.30.3"` to the **root** `package.json`, which
+makes corepack resolve the same version locally, in CI, and in Docker. Matches
+`ci.yml`'s `PNPM_VERSION`.
+
+#### 5.1.4 The build does not produce a server — `deploy/server-entry.mjs`
+
+The largest surprise. TanStack Start v1.132 emits a **server-agnostic** build:
+`dist/server/server.js` default-exports `{ fetch(Request): Response }` and nothing else.
+There are no Nitro presets in `@tanstack/start-plugin-core`. Running it directly **exits
+0 immediately, silently** — no error, no listener.
+
+`deploy/server-entry.mjs` is the adapter, using `srvx` (already present via `h3-v2`) for
+both the Node listener and static serving. Its routing rule, which matters:
+
+| Order | Match | Serves |
+|---|---|---|
+| 1 | file exists in `dist/client` | the file (hashed assets, icons, `sw.js`) |
+| 2 | `/api/*` or `/_server*` | the TanStack handler |
+| 3 | anything else | `dist/client/_shell.html` |
+
+**Page routes must NOT reach the handler.** `vite.config.ts` enables SPA mode — the shell
+is served for every route and `/` and `/login` are deliberately not server-rendered.
+Passing `/` to the handler makes it attempt an SSR render the build is not set up for:
+
+```
+TypeError: Cannot read properties of undefined (reading 'state')
+  at getStartResponseHeaders (dist/server/server.js:574)
+```
+
+All 19 server-route files live under `/api/`, so the prefix rule is exact rather than
+heuristic. `/_server` covers TanStack server functions.
+
+The entry also handles SIGTERM (verified: `docker stop` → exit 0, not a spurious crash in
+restart policies) and patches `.webmanifest` to `application/manifest+json` — srvx's
+static middleware has no MIME entry for it and falls back to `application/octet-stream`,
+which browsers reject, making the PWA uninstallable.
+
+#### 5.1.5 Verification performed
+
+Built, run against the live dev Postgres, and checked:
+
+| Path | Result |
+|---|---|
+| `/`, `/login`, `/deep/route` | `200 text/html` — shell |
+| `/manifest.webmanifest` | `200 application/manifest+json` |
+| `/sw.js`, `/favicon.svg`, `/assets/*.js`, `*.css` | `200`, correct MIME |
+| `/api/auth/get-session` | `200 application/json` — better-auth + DB reachable |
+| `/api/users` | `401` — shape-route auth gate intact |
+| `docker stop` | exit `0` — graceful shutdown |
+
+**Observation, not fixed:** `/api/nope` returns `500`, not `404`. That is the TanStack
+handler's behaviour for an unmatched server route, not the adapter's — pre-existing, worth
+a look sometime.
+
+#### 5.1.6 The `tools` stage
+
+Migrations and the purge sweep (§6, §8) need `drizzle-kit`, `tsx`, and the `drizzle/`
+directory that the runtime stage strips. `--target tools` is `FROM build`, so it keeps the
+full dev tree.
+
+### 5.2 `.dockerignore` — BUILT
+
+`/.dockerignore` exists. Load-bearing entries beyond the obvious `node_modules` / `dist`:
+
+- **`**/.env`** (with `!**/.env.example`) — dotenvx-encrypted secrets must never enter a
+  layer.
+- **`web-app/code/uploads`** — precisely the local-disk state the object-storage migration
+  moved off the app server *(storage §12.1)*. Baking it into an image would reintroduce it.
+- `android` / `ios` / `mobile-app` — not part of the web image.
 
 ### 5.3 Production Compose file
 
@@ -609,56 +740,95 @@ volumes:
   caddy_config:
 ```
 
-Notes:
+Notes on what testing changed:
 
-- **`ELECTRIC_URL: http://electric:3000`** — Compose DNS, not a VPC hop. This is the
-  §1.3 payoff. No `ELECTRIC_SOURCE_ID` / `ELECTRIC_SECRET` (§4.4).
+- **`ELECTRIC_URL: http://electric:3000`** — Compose DNS, not a VPC hop. The §1.3 payoff.
+- **`ELECTRIC_SECRET` IS required** — an earlier draft said "no `ELECTRIC_SOURCE_ID` /
+  `ELECTRIC_SECRET`", conflating the two. Verified against
+  `electricsql/electric:1.4.10`: without a secret, shape requests return
+  `401 Unauthorized - Invalid API secret`. It is required unless `ELECTRIC_INSECURE=true`,
+  and is passed as a `?secret=` query param. `ELECTRIC_SOURCE_ID` remains Electric Cloud
+  only. **This forced a code change — see §5.3.1.**
 - **No `GCS_KEY_FILENAME`** — ADC via the VM's attached service account, which
   `storage/index.ts:44` and `gcs.ts:22` already handle. **Zero code change.**
 - **Electric's port is not published** — reachable only on the Compose network.
-- **`ELECTRIC_INSECURE` is deliberately absent.** `docker-compose.yaml` sets it for dev
-  with an explicit *"Not suitable for production"* comment. Do not carry it over;
-  configure Electric's own auth per their security guide.
-- **Pin the Electric image tag.** `restart: always` plus a floating tag would upgrade a
-  replication-slot-holding service on an unplanned restart.
-- **Verify `ELECTRIC_STORAGE_DIR` is the correct variable name** for the pinned Electric
-  version before relying on it — if it is wrong, Electric silently writes shape logs to
-  its default path on the boot disk and the whole point of the data disk is lost.
+- **`ELECTRIC_INSECURE` deliberately absent.** `docker-compose.yaml` sets it for dev with
+  an explicit *"Not suitable for production"* comment.
+- **`ELECTRIC_STORAGE_DIR` confirmed** as the correct variable (default `./persistent`).
+  Pointed at the mounted pd-ssd (§4.6.3).
+- **Healthcheck uses `curl`, not `wget`.** The Electric image ships **curl only** — a
+  wget-based probe never passes, and `depends_on: service_healthy` then blocks app startup
+  forever. `/v1/health` returns `{"status":"active"}`; the probe accepts 200 or 401 so it
+  needs no secret.
+- **`app-tools` is behind a `tools` profile** so `up -d` never starts it.
+- **Required vars fail loudly.** `${GCS_BUCKET:?...}` style, so a missing value aborts the
+  deploy instead of silently starting a misconfigured container.
 
-### 5.4 Connection pool
+#### 5.3.1 Code change forced by self-managed Electric
 
-`connection.ts:9` uses pg's default `max: 10`. On a single app container that is fine as
-is, but make it configurable now so adding a second container later is a Compose change
-rather than a code change:
+`electric-proxy.ts` previously sent credentials only when **both** env vars were set:
 
 ```ts
-const pool = new Pool({
-  connectionString: databaseUrl,
-  max: Number(process.env.PG_POOL_MAX ?? 10),
-})
+if (process.env.ELECTRIC_SOURCE_ID && process.env.ELECTRIC_SECRET) { …set both… }
 ```
 
-### 5.5 dotenvx — no change needed
+Correct for Electric Cloud, silently broken for self-managed — which has a secret but no
+source id, so **no credential was sent at all** and every shape request would have 401'd
+in production. The two are now independent. Covered by
+`tests/unit/electric-proxy.test.ts`, which pins all three deployment shapes
+(self-managed / Cloud / local-insecure).
 
-`connection.ts:1` imports `@dotenvx/dotenvx/config`. It does not override already-set
-process env, so Compose's `env_file` and `environment` values win, and with no `.env` in
-the image it is an inert no-op. The only requirement is that `.dockerignore` excludes
-`.env` (§5.2).
+### 5.4 Connection pool — DONE
 
-### 5.6 Production Caddyfile
+`connection.ts` now takes `PG_POOL_MAX` (default 10). One app container today, but the
+ceiling is instances × max against a `db-g1-small` capped near 100.
 
-Distinct from the dev `Caddyfile`, which fronts vite at :5173 via `vite-plugin-caddy.ts`
-and is not used in production. `deploy/Caddyfile`:
+### 5.5 dotenvx — the original note was WRONG
 
-```
-app.example.com {
-  reverse_proxy app:3000
-  encode gzip
-}
-```
+This section previously read "no change needed". It was incorrect: `@dotenvx/dotenvx` was
+a **devDependency** imported at runtime, which breaks any `--prod` install. Fixed in
+§5.1.2. The rest of the original reasoning still holds — dotenvx does not override
+already-set env, so Compose's values win, and it logs a harmless `MISSING_ENV_FILE`
+notice in-container.
 
-Caddy obtains and renews the certificate automatically. This requires the DNS A record
-to resolve to the VM's static IP **before** first start (§3).
+### 5.6 Production Caddyfile — BUILT
+
+`deploy/Caddyfile`. Distinct from the dev `Caddyfile`, which fronts vite at :5173 via
+`vite-plugin-caddy.ts` and is unused in production. Validated with
+`caddy validate` — config adapts cleanly and automatic HTTP→HTTPS redirects are enabled.
+
+Beyond the basic reverse proxy it sets:
+
+- **Explicit 5m proxy timeouts.** Electric shape requests long-poll (~20s with
+  `live=true`) through the app. Defaults are adequate today; being explicit stops a future
+  tightening from silently breaking sync.
+- **Security headers** — `nosniff`, `DENY` framing, `strict-origin-when-cross-origin`,
+  and `-Server`. **HSTS deliberately omitted** until the domain is settled; it is hard to
+  walk back.
+- `{$PUBLIC_DOMAIN}` from the environment rather than a hardcoded host.
+
+Certificates issue automatically on first HTTPS request, which requires the DNS A record
+to already resolve to the VM's static IP (§3). **The `caddy_data` volume must persist** —
+losing it re-issues certificates, and Let's Encrypt rate limits apply.
+
+### 5.7 Phase 2 verification performed
+
+Full stack run locally against an **isolated** Postgres (deliberately not the dev
+database — a second Electric contends for the `electric_slot_default` lock, which is
+§4.5.2's single-writer property demonstrated the hard way):
+
+| Check | Result |
+|---|---|
+| `docker compose config` | valid |
+| `caddy validate` | valid |
+| `app-tools pnpm migrate` | migrations applied |
+| Electric healthcheck | healthy in ~60s |
+| `/`, `/login` | 200, SPA shell |
+| `/api/auth/get-session` | 200 |
+| `/api/users` unauthenticated | 401 — app-side gate intact |
+| Electric direct, no secret | 401 |
+| Electric direct, `?secret=` | 200 |
+| `tests/unit/electric-proxy.test.ts` | 4 passed |
 
 ---
 
@@ -667,12 +837,28 @@ to resolve to the VM's static IP **before** first start (§3).
 Run explicitly, before starting the new app container — never at container start:
 
 ```bash
-docker compose run --rm app-tools pnpm migrate
+docker compose --env-file compose.env --env-file .env \
+  -f docker-compose.prod.yaml --profile tools run --rm app-tools pnpm migrate
+
+# THEN, every time — not optional, not one-off:
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f deploy/sql/02-electric-own-tables.sql
 ```
 
 Uses the `tools` image (§5.1). Single-VM deploys are serialised so there is no
 concurrent-migration race, but keeping migrations a separate explicit step preserves
 that property if a second app container is ever added.
+
+**The ownership sweep is part of "migrate", not a separate concern.** `drizzle-kit` runs
+as the app role, so any table a migration creates is owned by the app role — and Electric
+cannot add it to its publication or set `REPLICA IDENTITY FULL` on it (§4.2.2). Because
+Electric configures tables lazily, on first shape request, skipping the sweep does **not**
+fail the deploy. It fails later, at first sync of the new table, in production. Treat the
+two commands as one step.
+
+> **Note the `--env-file compose.env --env-file .env` pair.** A single `--env-file`
+> *replaces* Compose's default `.env` lookup rather than adding to it, so
+> `${ELECTRIC_SECRET}` and `${ELECTRIC_DATABASE_URL}` go unresolved and the command aborts.
+> Verified. All systemd units in `vm-bootstrap.sh` pass both.
 
 ---
 
@@ -820,4 +1006,23 @@ optional CI; once GCS is the production driver, that suite exercises the real pa
   request path reintroduces §12.1 — and on this topology it would *appear* to work,
   which makes it more dangerous, not less. The provider seam exists to make that a
   review-catchable mistake.
-- **The runtime image contents are unverified** until the §5.1 bundling check is run.
+- **The image is ~954 MB** (§5.1.1). Acceptable — the VM pulls rarely — but `--prod`
+  admits `drizzle-kit`/`typescript`/`vite`/`tsx` it does not need. Worth trimming once
+  the deploy is boring.
+- **Four bundle externals are undeclared** (§5.1.2): `h3-v2`, `seroval`,
+  `@tanstack/history`, `@tanstack/router-core`. They resolve only because
+  `node-linker=hoisted` flattens transitives. Changing the linker breaks production at
+  runtime with no build-time signal. Declare them if that setting is ever revisited.
+- **`app` and `app-tools` must be built from the same commit.** The tools image runs
+  migrations against the schema the app expects; a drift between them is a silent
+  mismatch. CI builds both from one context (§9).
+- **The ownership sweep must run after every migration** (§4.2.2, §6). Skipping it does
+  not fail the deploy — Electric configures tables lazily, so a new table breaks at
+  *first sync in production* instead. The slowest possible feedback loop; keep the sweep
+  welded to the migrate step.
+- **The `electric` role owns every table in `public`** and can drop or alter any of them
+  (§4.2.2). Accepted, not ignored. Manual mode is the fallback if that grant ever looks
+  too broad.
+- **Never run a second Electric against the same database.** It blocks on
+  `electric_slot_default` and reports `Timeout waiting for Postgres lock acquisition` —
+  observed while testing. Relevant to any staging environment that points at prod's DB.
