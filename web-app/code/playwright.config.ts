@@ -73,6 +73,9 @@ export default defineConfig({
       // the session cookie is accepted over http.
       NODE_ENV: "development",
       PORT: "3000",
+      // Don't front with Caddy — tests hit http://localhost:3000 directly, and
+      // the Caddy plugin hard-exits when the binary is absent (CI runners).
+      DISABLE_CADDY: "true",
     },
   },
 })

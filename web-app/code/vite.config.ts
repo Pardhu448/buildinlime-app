@@ -58,7 +58,10 @@ const config = defineConfig({
     devtools(),
     tsconfigPaths({ projects: ['./tsconfig.json'] }),
     tailwindcss(),
-    caddyPlugin(),
+    // Caddy fronts dev with HTTPS at :5173. The plugin hard-exits if the `caddy`
+    // binary is missing, so allow opting out (e.g. Playwright E2E in CI, which
+    // hits http://localhost:3000 directly and needs no HTTPS front).
+    ...(process.env.DISABLE_CADDY ? [] : [caddyPlugin()]),
     tanstackStart({
       srcDirectory: 'src/presentation',
       router: {
