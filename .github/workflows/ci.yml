@@ -123,9 +123,16 @@ jobs:
         # and fails on "/var/lib/apt/lists/lock"; that race is unwinnable from
         # here. The ubuntu-24.04 runner image already ships every shared library
         # headless Chromium needs, so the OS deps step is unnecessary.
-        run: pnpm --filter buildinlime exec playwright install chromium
+        #
+        # Run from web-app/code with `pnpm exec`, NOT `--filter buildinlime`: the
+        # root and web packages share the name "buildinlime", so a name filter
+        # matches BOTH and starts two vite dev servers that collide on the
+        # devtools event-bus port (EADDRINUSE :::42069). Path/cwd is unambiguous.
+        working-directory: web-app/code
+        run: pnpm exec playwright install chromium
       - name: E2E tests (offline-sync + two-user-sync)
-        run: pnpm --filter buildinlime test:e2e
+        working-directory: web-app/code
+        run: pnpm exec playwright test
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
