@@ -35,9 +35,13 @@ jobs:
         env:
           # Dummy values: nothing connects at build time, but connection.ts and
           # auth throw if these are unset when the server bundle is prerendered.
+          # RESEND_API_KEY is required because sendEmailOtp.ts constructs
+          # `new Resend(...)` at module load, which the `/` prerender pulls in and
+          # which throws on a missing key ("Missing API key").
           DATABASE_URL: postgresql://postgres:password@localhost:5432/electric
           BETTER_AUTH_SECRET: ci-build-secret-not-used-at-runtime-000000
           BETTER_AUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_dummy_not_used
 
   # ---------------------------------------------------------------------------
   # Unit tests — web (jsdom) + mobile (node). No database needed.
@@ -114,7 +118,18 @@ jobs:
       - name: Start e2e stack (Postgres + Electric)
         run: docker compose -f web-app/code/docker-compose.e2e.yaml -p buildinlime-e2e up -d --wait
       - name: Install Playwright browser
-        run: pnpm --filter buildinlime exec playwright install --with-deps chromium
+        # `--with-deps` runs apt-get, which races the runner's boot-time apt and
+        # fails with "Could not get lock /var/lib/apt/lists/lock". Wait for the
+        # apt locks to clear before installing.
+        run: |
+          for i in $(seq 1 40); do
+            if sudo fuser /var/lib/apt/lists/lock /var/lib/dpkg/lock-frontend >/dev/null 2>&1; then
+              echo "apt is busy, waiting ($i)..."; sleep 3
+            else
+              break
+            fi
+          done
+          pnpm --filter buildinlime exec playwright install --with-deps chromium
       - name: E2E tests (offline-sync + two-user-sync)
         run: pnpm --filter buildinlime test:e2e
       - name: Upload Playwright report
