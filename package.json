@@ -1,5 +1,5 @@
 {
-  "name": "buildinlime",
+  "name": "buildinlime-monorepo",
   "private": true,
   "version": "0.1.0",
   "scripts": {
@@ -8,7 +8,7 @@
     "test": "pnpm test:unit && pnpm test:integration",
     "test:unit": "pnpm --filter buildinlime test:unit && pnpm --filter buildinlimemobile test",
     "test:integration": "pnpm --filter buildinlime test:integration",
-    "test:e2e": "pnpm --filter ./web-app/code test:e2e",
+    "test:e2e": "pnpm --filter buildinlime test:e2e",
     "typecheck": "pnpm --filter buildinlime typecheck && pnpm --filter buildinlimemobile typecheck",
     "lint": "pnpm --filter buildinlime lint && pnpm --filter buildinlimemobile lint",
     "mobile:set-lan-ip": "pnpm --filter buildinlimemobile set-lan-ip",
