@@ -32,7 +32,8 @@
     "migrate": "drizzle-kit migrate",
     "migrate:generate": "drizzle-kit generate",
     "psql": "dotenvx run -- sh -c 'psql \"$DATABASE_URL\"'",
-    "purge:resources": "dotenvx run -- tsx scripts/purge-resources.ts"
+    "purge:resources": "dotenvx run -- tsx scripts/purge-resources.ts",
+    "migrate:storage": "dotenvx run -- tsx scripts/migrate-storage-to-gcs.ts"
   },
   "dependencies": {
     "@buildinlime/contracts": "workspace:*",
@@ -40,6 +41,7 @@
     "@buildinlime/sync-core": "workspace:*",
     "@electric-sql/client": "1.5.15",
     "@faker-js/faker": "^10.0.0",
+    "@google-cloud/storage": "^7.21.0",
     "@journeyapps/wa-sqlite": "1.5.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-popover": "^1.1.15",

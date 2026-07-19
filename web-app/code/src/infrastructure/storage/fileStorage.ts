@@ -1,5 +1,5 @@
-import { promises as fs } from "node:fs"
 import path from "node:path"
+import { getStorage } from "./index"
 import { auth } from "%/infrastructure/auth/server"
 import { db } from "%/infrastructure/database/connection"
 import {
@@ -10,8 +10,6 @@ import {
   tasksTable,
 } from "%/infrastructure/database/schema/admin-schema"
 import { sql, eq, and } from "drizzle-orm"
-
-const UPLOADS_DIR = path.resolve(process.cwd(), "uploads", "resources")
 
 export async function handleFileUpload(request: Request): Promise<Response> {
   const session = await auth.api.getSession({ headers: request.headers })
@@ -54,14 +52,12 @@ export async function handleFileUpload(request: Request): Promise<Response> {
 
   // Sanitise filename to prevent path traversal
   const safeFilename = path.basename(originalFilename).replace(/[^a-zA-Z0-9._-]/g, "_")
-  const resourceDir = path.join(UPLOADS_DIR, resourceId)
-  const storagePath = path.join(resourceDir, safeFilename)
+  const storageKey = `resources/${resourceId}/${safeFilename}`
   const fileLocation = `/api/resources/${resourceId}/file`
 
   try {
-    await fs.mkdir(resourceDir, { recursive: true })
     const buffer = Buffer.from(await file.arrayBuffer())
-    await fs.writeFile(storagePath, buffer)
+    await getStorage().put(storageKey, buffer, { contentType: mimeType })
   } catch (err) {
     console.error("File write error:", err)
     return new Response(JSON.stringify({ error: "Failed to save file" }), {
@@ -128,7 +124,7 @@ export async function handleFileUpload(request: Request): Promise<Response> {
         await tx.insert(resourcesRawTable).values({
           id: rawId,
           resource_id: resourceId,
-          storage_path: storagePath,
+          storage_path: storageKey,
           original_filename: originalFilename,
           mime_type: mimeType,
           file_size_bytes: fileSizeBytes,
@@ -151,8 +147,7 @@ export async function handleFileUpload(request: Request): Promise<Response> {
     })
   } catch (err) {
     // Clean up the file if the DB insert failed
-    await fs.unlink(storagePath).catch(() => {})
-    await fs.rmdir(resourceDir).catch(() => {})
+    await getStorage().delete(storageKey).catch(() => {})
     console.error("DB insert error:", err)
     return new Response(JSON.stringify({ error: "Failed to save resource record" }), {
       status: 500,
@@ -227,22 +222,22 @@ export async function serveResourceFile(
   }
   const raw = rawRecords[0]
 
-  try {
-    const fileBuffer = await fs.readFile(raw.storage_path)
-    const disposition = `attachment; filename="${encodeURIComponent(raw.original_filename)}"`
-    return new Response(fileBuffer, {
-      status: 200,
-      headers: {
-        "content-type": raw.mime_type,
-        "content-length": String(raw.file_size_bytes),
-        "content-disposition": disposition,
-        "cache-control": "private, max-age=3600",
-      },
-    })
-  } catch {
+  const obj = await getStorage().get(raw.storage_path)
+  if (!obj) {
     return new Response(JSON.stringify({ error: "File not found on server" }), {
       status: 404,
       headers: { "content-type": "application/json" },
     })
   }
+
+  const disposition = `attachment; filename="${encodeURIComponent(raw.original_filename)}"`
+  return new Response(obj.stream, {
+    status: 200,
+    headers: {
+      "content-type": raw.mime_type,
+      "content-length": String(raw.file_size_bytes),
+      "content-disposition": disposition,
+      "cache-control": "private, max-age=3600",
+    },
+  })
 }
