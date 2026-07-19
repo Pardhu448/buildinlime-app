@@ -155,3 +155,88 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Quality ratchet (typecheck + lint vs baseline)
         run: bash .github/scripts/ratchet.sh
+
+  # ---------------------------------------------------------------------------
+  # Deploy — main only, and only when every gate above is green.
+  #
+  # Auth is Workload Identity Federation, never a downloaded JSON key. The
+  # provider is pinned to this repository by an attribute condition
+  # (deploy/setup-cicd.sh §9); without that, any GitHub repo could federate in.
+  #
+  # Ordering (migrate before restart, sweep after migrate) lives in
+  # deploy/deploy.sh so it is versioned and runnable by hand, not buried in YAML.
+  # ---------------------------------------------------------------------------
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build, unit, integration, e2e, quality]
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      # Never two deploys at once: they would race on migrations and on the
+      # single Electric replication slot. Not cancel-in-progress — killing a
+      # half-finished migration is worse than queueing.
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # required for WIF
+    env:
+      PROJECT: buildinlime
+      REGION: asia-south1
+      ZONE: asia-south1-a
+      VM: buildinlime-app
+      AR: asia-south1-docker.pkg.dev/buildinlime/buildinlime
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure docker for Artifact Registry
+        run: gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
+
+      # app and tools MUST come from the same commit: the tools image runs the
+      # migrations that the app image expects (deploymentPlan.md §12).
+      - name: Build and push images
+        run: |
+          TAG=${GITHUB_SHA::7}
+          docker build --target runtime -t $AR/app:$TAG   -t $AR/app:latest   .
+          docker build --target tools   -t $AR/tools:$TAG -t $AR/tools:latest .
+          docker push --all-tags $AR/app
+          docker push --all-tags $AR/tools
+
+      # Config lives in git, not only on the box — a rebuilt VM must be
+      # reproducible from this repo.
+      - name: Sync deploy config to the VM
+        run: |
+          for f in docker-compose.prod.yaml Caddyfile deploy.sh; do
+            gcloud compute scp --zone $ZONE --tunnel-through-iap --quiet \
+              deploy/$f $VM:/tmp/$f
+            gcloud compute ssh $VM --zone $ZONE --tunnel-through-iap --quiet \
+              --command "sudo mv /tmp/$f /opt/buildinlime/$f"
+          done
+          gcloud compute ssh $VM --zone $ZONE --tunnel-through-iap --quiet \
+            --command "sudo mkdir -p /opt/buildinlime/sql"
+          gcloud compute scp --zone $ZONE --tunnel-through-iap --quiet \
+            deploy/sql/02-electric-own-tables.sql $VM:/tmp/02-electric-own-tables.sql
+          gcloud compute ssh $VM --zone $ZONE --tunnel-through-iap --quiet \
+            --command "sudo mv /tmp/02-electric-own-tables.sql /opt/buildinlime/sql/"
+
+      # pull -> migrate -> ownership sweep -> up -d -> smoke, with rollback.
+      - name: Deploy
+        run: |
+          gcloud compute ssh $VM --zone $ZONE --tunnel-through-iap --quiet \
+            --command "sudo IMAGE_TAG=${GITHUB_SHA::7} PROJECT=$PROJECT REGION=$REGION bash /opt/buildinlime/deploy.sh"
+
+      - name: Verify from the public internet
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 https://app.buildinlime.com/api/auth/get-session || echo 000)
+            [ "$code" = "200" ] && echo "public health OK" && exit 0
+            sleep 5
+          done
+          echo "public health check FAILED"; exit 1

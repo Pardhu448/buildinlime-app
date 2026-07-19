@@ -12,8 +12,31 @@ point at `ARCHITECTURE.md`; refs like *(storage §9)* point at
 containers, with **Cloud SQL on private IP**, bytes in **Google Cloud Storage**, and
 **Caddy** terminating TLS. Secrets in **Secret Manager**.
 
-**Status (2026-07-19): NOT STARTED.** Storage steps 1–3 are built and CI-green
-*(storage §9)*; everything below is provisioning + packaging work.
+**Status (2026-07-19): DEPLOYED and serving at https://app.buildinlime.com.**
+
+| Phase | State |
+|---|---|
+| §4 Phase 1 — provisioning | ✅ done, `asia-south1` |
+| §5 Phase 2 — packaging | ✅ done, images in Artifact Registry |
+| §6 migrations | ✅ applied + ownership sweep |
+| §7 first deploy | ✅ live, valid Let's Encrypt cert |
+| §8 purge timer | ✅ unit + timer enabled, **first run unverified** |
+| §9 CI/CD | ✅ written, **never executed** — needs `setup-cicd.sh --apply` |
+| §10 verification | ◑ steps 1–6 done; 7–10 need an authenticated session |
+
+**Live configuration** (differs from the defaults written below, which were
+pre-decision):
+
+| | |
+|---|---|
+| Host | `app.buildinlime.com` → `34.93.54.217` |
+| VM | `buildinlime-app`, **e2-medium**, `asia-south1-a` |
+| Cloud SQL | `buildinlime-db`, PG17, **db-g1-small, ENTERPRISE edition**, private IP `10.101.0.3` |
+| Electric disk | **20 GB** pd-ssd at `/var/lib/electric` |
+| Cost | ≈ $70/mo (≈ ₹5,930 + GST) |
+
+§3's table and §4.6.2 still show the pre-decision `us-central1` / `e2-standard-2`
+/ 50 GB values as the *reasoning*; the table above is what actually runs.
 
 > **This file was previously `cloudRunDeployment.md`.** The plan moved from Cloud Run
 > to a single VM after the Electric hosting decision (§1.2, §4.5). Renamed because a
@@ -901,80 +924,142 @@ never fires in a fresh prod (§2.1), but **keep the guard**.
 
 ## 9. Phase 6 — CI/CD
 
-Add a `deploy` job to `ci.yml`, gated on `push: branches: [main]` **and** on the existing
-`build` / `unit` / `integration` jobs passing.
+**Status: written, never executed.** `deploy/setup-cicd.sh` and the `deploy` job in
+`.github/workflows/ci.yml` exist; the WIF resources they depend on have **not** been
+created. Run `PROJECT=buildinlime ./deploy/setup-cicd.sh --apply`, then set the two
+repo variables it prints, before the first push to `main`.
 
-Use **Workload Identity Federation**, never a downloaded JSON key:
+### 9.1 Auth — Workload Identity Federation, never a key file
 
-```yaml
-permissions:
-  contents: read
-  id-token: write
-```
+`deploy/setup-cicd.sh` creates the pool, an OIDC provider, and the
+`buildinlime-deploy` service account.
 
-Steps:
+> **The `--attribute-condition` on the provider is load-bearing.** Without it the
+> provider trusts *any* token GitHub's OIDC issuer signs, which means any repository
+> on GitHub could federate into the pool and impersonate the deployer. It is pinned to
+> `Pardhu448/buildinlime-app`, and the `workloadIdentityUser` binding is scoped to the
+> same `attribute.repository`.
 
-1. authenticate (WIF → a deploy service account)
-2. build + push the `app` and `app-tools` images to Artifact Registry
-3. deploy over an IAP-tunnelled SSH command:
+Roles granted, and why each is needed:
 
-```bash
-gcloud compute ssh buildinlime-app --zone us-central1-a --tunnel-through-iap \
-  --command 'cd /opt/buildinlime && \
-             docker compose pull && \
-             docker compose run --rm app-tools pnpm migrate && \
-             docker compose up -d'
-```
+| Role | For |
+|---|---|
+| `artifactregistry.writer` | push images |
+| `iap.tunnelResourceAccessor` | open the IAP SSH tunnel |
+| `compute.osAdminLogin` | log in over it with sudo (docker, `/opt/buildinlime`) |
+| `compute.viewer` | `gcloud compute ssh` describes the instance first |
 
-**This is not a zero-downtime deploy.** `docker compose up -d` recreates the app
-container, producing a short gap. Acceptable at POC scale; recorded in §12.
+The script also sets `enable-oslogin=TRUE` on the VM. Without OS Login, gcloud falls
+back to metadata SSH keys, which a CI service account cannot manage.
 
-It should **not** restart `electric` — Compose only recreates services whose image or
-config changed, which is what keeps the replication slot stable across app deploys.
-**Verify this empirically** rather than assuming it; if it is wrong, every deploy churns
-the slot (§12).
+### 9.2 The job
 
-**Promote the fake-gcs-server leg from optional to standard.** *(storage §8)* lists it as
-optional CI; once GCS is the production driver, that suite exercises the real path.
+Gated on `push` to `main` **and** on `build`, `unit`, `integration`, `e2e`, and
+`quality` all passing. `e2e` is included deliberately — it is a hard gate in this
+workflow, so excluding it would let a red end-to-end suite ship.
+
+`concurrency: deploy-production` with **`cancel-in-progress: false`**. Two concurrent
+deploys would race on migrations and on the single Electric replication slot, and
+cancelling a half-applied migration is worse than queueing behind it.
+
+### 9.3 The ordering lives in `deploy/deploy.sh`, not in YAML
+
+So it is versioned, reviewable, and runnable by hand during an incident:
+
+1. **pull** — fail before touching anything if the image is missing
+2. **migrate** — schema first; the new app never meets an old schema
+3. **ownership sweep** — §4.2.2. Missing this does not fail the deploy; it fails at
+   first sync of the new table, in production
+4. **`up -d`** — Compose recreates only changed services (§12)
+5. **smoke** — `/api/auth/get-session` 200, `/api/users` 401, `/api/.env` 404
+
+On smoke failure it **rolls the image tag back** and restarts.
+
+> **Rollback is image-only.** Migrations are not reverted, so if the failed deploy
+> applied a schema change, the previous image may not be compatible with the schema it
+> lands on. A rollback is a stop-the-bleeding measure, not a return to a known-good
+> state.
+
+**Not zero-downtime.** `up -d` recreates the app container, producing a short gap.
+Accepted at POC scale.
+
+**Verified (§12 was unsure about this):** Compose recreates only changed services.
+Observed twice — a caddy-only config change left `app` and `electric` up, and an
+app-only change left `caddy` and `electric` up. App deploys do not churn the
+replication slot.
+
+**Still to do:** promote the fake-gcs-server leg from optional to standard
+*(storage §8)*. Once GCS is the production driver, that suite exercises the real path.
 
 ---
 
-## 10. Phase 7 — verification, in order
+## 10. Phase 7 — verification
 
-1. Migrations applied.
-2. `https://app.example.com` serves; certificate valid; `/login` renders.
-3. Auth round-trip — validates `BETTER_AUTH_URL` and trusted origins
-   (`auth/server.ts:131-135`).
-4. Electric sync works — validates logical decoding (§4.2), the private-IP path, and the
-   replication role.
-5. `SELECT * FROM pg_replication_slots` — exactly **one** active slot.
-6. Confirm Electric is writing to `/var/lib/electric` on the data disk, not the boot disk
-   (§5.3).
-7. **Upload a file.** Confirm the object lands at
-   `resources/<resourceId>/<safeFilename>` in the bucket, and that
-   `resources_raw.storage_path` holds a **key**, not a path.
-8. **Download it back** — exercises `serveResourceFile`'s stream path.
-9. **Negative tests:** soft-delete a resource → 404; non-member → 404. This is the §8
-   guard and the security-critical assertion of the whole migration.
-10. **Statelessness check.** §12.1's original proof was "upload via instance A, read via
-    instance B" — not directly available on a single VM. Substitute: **destroy the app
-    container entirely, recreate it, and confirm previously-uploaded files still serve.**
-    That demonstrates the same property — no user bytes on the app's filesystem — which
-    is what §12.1 actually asserts (§1.4).
+### Done
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Migrations applied | ✅ + ownership sweep, 16 tables |
+| 2 | HTTPS serves, cert valid | ✅ Let's Encrypt, clean verify, 308 from HTTP |
+| 3 | Auth round-trip | ✅ after verifying the domain in Resend (see below) |
+| 4 | Electric sync | ✅ container healthy, shapes served |
+| 5 | Exactly one replication slot | ✅ `electric_slot_default`, active, `wal_status=reserved` |
+| 6 | Electric writes to the data disk | ✅ `/dev/sdb`, not the boot disk |
+
+### Outstanding — need an authenticated session
+
+| # | Check |
+|---|---|
+| 7 | Upload a file; confirm the object lands at `resources/<id>/<name>` in the bucket and `storage_path` holds a **key**, not a path |
+| 8 | Download it back — exercises `serveResourceFile`'s stream path |
+| 9 | **Negative tests:** soft-deleted → 404, non-member → 404. The §8 guard, and the security-critical assertion of the whole migration |
+| 10 | **Statelessness:** destroy and recreate the app container, confirm previously-uploaded files still serve. §12.1's original "instance A → instance B" proof is unavailable on one VM; this demonstrates the same property (§1.4) |
+
+### Findings from first use
+
+- **OTP mail failed with Resend 403** — `The buildinlime.com domain is not verified`.
+  Not a deploy fault; fixed by verifying the domain in Resend. `EMAIL_FROM` was also
+  never passed to the container and fell back to `sendEmailOtp.ts:30`'s hardcoded
+  default. Now explicit in `compose.env` — prod silently diverging from dev on a value
+  that only matters at login is a bad failure mode.
+- **Dev users are absent from production, by design.** Production is a fresh database;
+  §2.1 — prod starts with zero rows. Not a bug, and the backfill script does not
+  change this (it moves *bytes*, not accounts).
+- **Unknown `/api/*` paths returned 500, now 404.** TanStack falls through to the SSR
+  path when no server route matches, and SPA mode has no SSR, so it threw. Scanners
+  probe `/api/.env`, `/api/graphql`, `/api/config` constantly. Fixed by deriving the
+  route list from `routeTree.gen.ts` at build time
+  (`scripts/generate-api-routes.mjs`) rather than catching the framework's internal
+  error.
 
 ---
 
-## 11. Docs and code still to update
+## 11. Follow-ups
 
-- *(storage §Target header)*, *(storage §9 step 4)*, *(storage §4 table)* currently say
-  **Cloud Run**, having been updated from **GCE VM** earlier the same day. They now need
-  to say **GCE VM** again. The churn is real; update once this plan is executed rather
-  than tracking each revision.
-- **`src/infrastructure/storage/drivers/gcs.ts:15-18`** and
-  **`src/infrastructure/storage/index.ts:35`** — same story. The original comments said
-  "the GCE VM's attached service account", were changed to Cloud Run, and are now correct
-  again in their **original** wording. Revert them.
-- *(storage §10)* — already updated with `--public-access-prevention`. No further change.
+**Blocking nothing, but genuinely outstanding:**
+
+1. **Run `deploy/setup-cicd.sh --apply`** and set `WIF_PROVIDER` / `WIF_SERVICE_ACCOUNT`
+   as repo variables. Until then every deploy is manual, and §9 is untested code.
+2. **§10 steps 7–10** — the upload/download path and the §8 access-gate negative tests.
+   These are the security-critical assertions of the storage migration and are still
+   unverified in production.
+3. **Verify the purge timer's first run** (§8). It is enabled but has never fired.
+   Confirm from the log that it reports *applying*, not dry-running — a purge stuck in
+   dry-run is silent.
+4. **`app` is a member of `cloudsqlsuperuser`.** `gcloud sql users create` grants this
+   by default, so the app role is more privileged than §4.2.2 assumes and the
+   `GRANT electric TO app` membership is not actually load-bearing for it. Revisit once
+   migrations are proven stable.
+5. **Rotate the Resend API key.** It was pasted in plaintext during setup.
+6. **Promote the fake-gcs-server CI leg** from optional to standard *(storage §8)*.
+
+**Cosmetic / low priority:**
+
+- §3's decision table and §4.6.2 still show the pre-decision `us-central1` /
+  `e2-standard-2` / 50 GB values. Kept as the *reasoning*; the header table records
+  what actually runs.
+- *(storage §Target header, §9 step 4, §4 table)* say **GCE VM**, which is now correct
+  again after the Cloud Run detour. No change needed.
 
 ---
 
