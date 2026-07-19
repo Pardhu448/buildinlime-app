@@ -1,0 +1,42 @@
+# Build context is the repo root (see Dockerfile). Keep it small and, more
+# importantly, keep secrets and local state out of the image.
+
+# Dependencies — reinstalled inside the image from the lockfile.
+node_modules
+**/node_modules
+
+# Build output — produced inside the image.
+**/dist
+web-app/code/.tanstack
+web-app/code/.vite
+
+# SECRETS. .env is dotenvx-encrypted; it must never enter a layer.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local file-storage state. This is precisely what the object-storage migration
+# moved off the app server (objectStorageMigration.md §12.1) — it must not be
+# baked into an image.
+web-app/code/uploads
+
+# Mobile — not part of the web image.
+android
+ios
+mobile-app
+
+# Repo/tooling noise.
+.git
+.github
+.claude
+.agents
+.goose
+**/agentGuides
+**/developmentNotes
+**/*.md
+!README.md
+
+# Test artefacts.
+**/playwright-report
+**/test-results
+**/coverage
