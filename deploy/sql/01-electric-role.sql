@@ -14,12 +14,14 @@
 
 -- REPLICATION is what lets Electric open a logical replication slot. Without
 -- LOGIN it cannot connect at all.
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'electric') THEN
-    EXECUTE format('CREATE ROLE electric WITH LOGIN REPLICATION PASSWORD %L', :'electric_pw');
-  END IF;
-END $$;
+--
+-- Built with \gexec rather than a DO block: psql does NOT interpolate :variables
+-- inside dollar-quoted strings, so `:'electric_pw'` within $$ ... $$ reaches the
+-- server literally and fails with `syntax error at or near ":"`. Generating the
+-- statement as text keeps the substitution outside the quoting.
+SELECT format('CREATE ROLE electric WITH LOGIN REPLICATION PASSWORD %L', :'electric_pw')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'electric')
+\gexec
 
 GRANT CONNECT ON DATABASE :"db" TO electric;
 
