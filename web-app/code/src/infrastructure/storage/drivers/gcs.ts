@@ -6,7 +6,7 @@ export interface GcsStorageConfig {
   bucket: string
   /** Usually supplied by ADC; only needed when it can't be inferred. */
   projectId?: string
-  /** Path to a service-account key. Omit under ADC (Cloud Run workload identity). */
+  /** Path to a service-account key. Omit under ADC (the VM's attached service account). */
   keyFilename?: string
   /** Emulator endpoint (fake-gcs-server) for tests; omit against real GCS. */
   apiEndpoint?: string

@@ -11,12 +11,23 @@ disk, the backend cannot be run as more than one instance and cannot go serverle
 Drafted 2026-07-19 against `main`. Section refs like **§8** point at
 `ARCHITECTURE.md` at the repo root.
 
-**Target: GCP** — the app on a **GCE VM** (Compute Engine), bytes in **Google Cloud
-Storage** (via `@google-cloud/storage`, ADC from the VM's attached service account).
+**Target: GCP** — the app on a **GCE VM**, co-located with the self-managed Electric
+sync service, bytes in **Google Cloud Storage** (via `@google-cloud/storage`, ADC from
+the VM's attached service account).
 **Status (2026-07-19): §9 steps 1–3 BUILT** — the provider seam, the local + GCS
 drivers, the shared conformance suite, the purge-script port, and the backfill script
-are in and CI-green. Step 4 (provisioning the VM + bucket and switching
-`STORAGE_DRIVER=gcs`) remains; see §9.
+are in and CI-green. Step 4 (provisioning + switching `STORAGE_DRIVER=gcs`) remains;
+see §9 and **`deploymentPlan.md`**, which supersedes step 4 in full.
+
+> **Deploy target settled 2026-07-19 after two revisions: GCE VM → Cloud Run → GCE VM.**
+> The round trip was driven by the Electric hosting decision, not by storage: Electric
+> Cloud has no private-connectivity option, so self-managing Electric became the choice,
+> and a self-managed Electric cannot run on Cloud Run (it needs a persistent filesystem
+> and holds a single replication slot). Co-locating the app with it on one VM beat
+> straddling two platforms. **The driver was unaffected throughout** — `drivers/gcs.ts`
+> passes no credentials and resolves ADC from the metadata server, which a VM's attached
+> service account and a Cloud Run runtime service account satisfy identically. See
+> `deploymentPlan.md` §1 and §4.5.
 
 ---
 
@@ -231,30 +242,45 @@ DB must run the script (even on the local driver) to rewrite paths to keys.
 2. ✅ **GCS driver + shared provider conformance suite (fake-gcs-server).** Proves
    the two drivers behave identically.
 3. ✅ **Backfill script + purge-script port** (unblocks §12.9 in the same stroke).
-4. ⏳ **Provision the GCE VM + bucket** and switch `STORAGE_DRIVER=gcs` — the first
-   point the app server holds no bytes, i.e. the first time §12.1 is actually closed.
-   Steps: create the bucket (private, uniform bucket-level access); attach a service
-   account to the VM with `roles/storage.objectAdmin` scoped to that bucket; set
-   `STORAGE_DRIVER=gcs` + `GCS_BUCKET` in the VM's env (no key file — ADC via the
-   metadata server); then run `pnpm migrate:storage -- --apply` once to move existing
-   bytes and rewrite paths to keys before traffic hits the new driver.
+4. ⏳ **Provision the VM + bucket + Cloud SQL** and switch `STORAGE_DRIVER=gcs` —
+   the first point the app server holds no bytes, i.e. the first time §12.1 is
+   actually closed. **Fully specified in `deploymentPlan.md`;** in outline: create
+   the bucket (private, uniform bucket-level access, public-access-prevention); bind
+   `roles/storage.objectAdmin` on that bucket to the VM's attached service account;
+   set `STORAGE_DRIVER=gcs` + `GCS_BUCKET` in the app container's env (no key file —
+   ADC via the metadata server).
 5. **(Later, if egress warrants)** GCS signed-URL serving (§5B).
 
 Steps 1–3 are done — §12.1 is now a config switch (`STORAGE_DRIVER`). Step 4 is GCP
-provisioning (VM, bucket, service-account binding) plus the one-time backfill; the
-deploy target is settled (GCP + GCE VM), so what's left there is infra, not a decision.
+provisioning plus CI/CD packaging; the deploy target is settled (GCP + a single GCE
+VM), so what's left there is infra, not a decision.
 
-> **Ordering note for step 4:** run the backfill *after* pointing the app at
-> `gcs` but the purge sweep *after* the backfill — the sweep aborts while any
-> absolute path remains, which is the intended interlock, not a bug.
+> **§12.1 is closed as a *property*, not as a deployed reality.** On a single VM the
+> app is not horizontally scaled, so the original "upload via instance A, read via
+> instance B" proof does not apply. What the migration still buys: the VM is
+> replaceable without user-data loss, and adding a second app container later needs no
+> data migration. `deploymentPlan.md` §1.4 and §10 step 10 carry the substitute check.
+
+> **Backfill is NOT part of the production cutover.** `migrate-storage-to-gcs.ts`
+> reads bytes from the *old absolute local path* — it presupposes a machine holding
+> the pre-migration `uploads/` tree. A freshly provisioned VM has none, and per §11
+> there is no production environment, so **prod starts with zero rows and zero
+> objects.** The backfill remains a **dev-machine tool**: required for any populated
+> dev/staging DB (§6), never run in prod. See `deploymentPlan.md` §2.1.
+>
+> **Ordering note (dev/staging only):** run the backfill *after* pointing the app at
+> `gcs`, and the purge sweep *after* the backfill — the sweep aborts while any
+> absolute path remains, which is the intended interlock, not a bug. In a fresh prod
+> that interlock never fires, but the guard stays.
 
 ---
 
 ## 10. Watch-outs
 
-- **`serveResourceFile` stays the only access gate.** Keep the GCS bucket private
-  (uniform bucket-level access, no `allUsers`) and do not leak signed URLs with long
-  TTLs — the §8 soft-delete guard is defeated the moment bytes are reachable without
+- **`serveResourceFile` stays the only access gate.** Keep the GCS bucket private —
+  uniform bucket-level access plus **`--public-access-prevention`**, which makes an
+  `allUsers` grant structurally impossible rather than merely absent — and do not leak
+  signed URLs with long TTLs — the §8 soft-delete guard is defeated the moment bytes are reachable without
   passing through that function (or a short-lived, deliberately-scoped signed URL).
 - **Key, not path, in `storage_path` going forward** — the local driver rejects
   absolute paths, so a populated DB MUST run the backfill (§6) before it serves, or
