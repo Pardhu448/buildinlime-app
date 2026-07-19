@@ -118,17 +118,15 @@ jobs:
       - name: Start e2e stack (Postgres + Electric)
         run: docker compose -f web-app/code/docker-compose.e2e.yaml -p buildinlime-e2e up -d --wait
       - name: Install Playwright browser
-        # `--with-deps` runs apt-get, which races the runner's boot-time apt and
-        # fails with "Could not get lock /var/lib/apt/lists/lock". Wait for the
-        # apt locks to clear before installing.
+        # `--with-deps` runs apt-get, which races the runner's BACKGROUND apt
+        # (apt-daily / unattended-upgrades) and fails with "Could not get lock
+        # /var/lib/apt/lists/lock". A pre-check can't win the race, so instead:
+        # (1) stop the background apt units to free the lock, and (2) tell apt to
+        # WAIT for any remaining lock rather than fail. This is inherited by the
+        # apt-get that `playwright install --with-deps` runs internally.
         run: |
-          for i in $(seq 1 40); do
-            if sudo fuser /var/lib/apt/lists/lock /var/lib/dpkg/lock-frontend >/dev/null 2>&1; then
-              echo "apt is busy, waiting ($i)..."; sleep 3
-            else
-              break
-            fi
-          done
+          printf 'DPkg::Lock::Timeout "600";\nAcquire::Retries "5";\n' | sudo tee /etc/apt/apt.conf.d/99ci-lock >/dev/null
+          sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true
           pnpm --filter buildinlime exec playwright install --with-deps chromium
       - name: E2E tests (offline-sync + two-user-sync)
         run: pnpm --filter buildinlime test:e2e
