@@ -15,9 +15,13 @@ set -euo pipefail
 PROJECT="${PROJECT:?set PROJECT}"
 PUBLIC_DOMAIN="${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN, e.g. app.example.com}"
 GCS_BUCKET="${GCS_BUCKET:-buildinlime-resources}"
-REGION="${REGION:-us-central1}"
+REGION="${REGION:-asia-south1}"
 AR_REPO="${AR_REPO:-buildinlime}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
+# Sender for auth OTP mail. Its domain must be verified in Resend, or sends fail
+# with 403 "The <domain> domain is not verified" — the app starts fine and only
+# login breaks, so this is worth getting right before first use.
+EMAIL_FROM="${EMAIL_FROM:-BuildInLime <contact@buildinlime.com>}"
 
 ELECTRIC_DEV="/dev/disk/by-id/google-buildinlime-electric-data"
 ELECTRIC_MNT="/var/lib/electric"
@@ -85,6 +89,7 @@ TOOLS_IMAGE=${REGION}-docker.pkg.dev/${PROJECT}/${AR_REPO}/tools:${IMAGE_TAG}
 GCS_BUCKET=${GCS_BUCKET}
 PUBLIC_URL=https://${PUBLIC_DOMAIN}
 PUBLIC_DOMAIN=${PUBLIC_DOMAIN}
+EMAIL_FROM=${EMAIL_FROM}
 PG_POOL_MAX=10
 EOF
 chmod 0644 "${APP_DIR}/compose.env"

@@ -48,6 +48,11 @@ services:
       STORAGE_DRIVER: gcs
       GCS_BUCKET: ${GCS_BUCKET:?set GCS_BUCKET}
       BETTER_AUTH_URL: ${PUBLIC_URL:?set PUBLIC_URL, e.g. https://app.example.com}
+      # Explicit rather than relying on sendEmailOtp.ts:30's hardcoded fallback —
+      # prod silently diverging from dev's .env is the kind of thing found late.
+      # The domain here MUST be verified in Resend or sends fail with
+      # 403 "The <domain> domain is not verified".
+      EMAIL_FROM: ${EMAIL_FROM:?set EMAIL_FROM}
       # Compose DNS, not a VPC hop — the payoff of co-locating (§1.3).
       # Electric's port is never published; only this network can reach it.
       ELECTRIC_URL: http://electric:3000
