@@ -73,3 +73,10 @@ ios/
 
 # purge-resources cron log
 logs/
+
+# Playwright (web E2E)
+web-app/code/test-results/
+web-app/code/playwright-report/
+web-app/code/blob-report/
+web-app/code/playwright/.cache/
+web-app/code/tests/e2e/.auth/

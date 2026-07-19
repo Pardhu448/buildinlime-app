@@ -1,0 +1,44 @@
+name: buildinlime-e2e
+
+# Dedicated, EPHEMERAL stack for Playwright E2E — never touches the dev stack.
+# Distinct ports (54322 / 30001) and tmpfs storage so every run starts from a
+# clean database and leaves nothing behind. Bring up with:
+#   docker compose -f docker-compose.e2e.yaml -p buildinlime-e2e up -d --wait
+# (or `pnpm e2e:up`). Electric runs INSECURE — dev/test only, same as the dev
+# compose; see ARCHITECTURE.md §12.3.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: electric
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - 54322:5432
+    # Ephemeral: the data dir lives in RAM, so each `up` is a fresh database and
+    # `down` reclaims everything. No named volume on purpose.
+    tmpfs:
+      - /var/lib/postgresql/data
+    command:
+      - -c
+      - listen_addresses=*
+      - -c
+      - wal_level=logical
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d electric"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  electric:
+    image: electricsql/electric:1.4.10
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/electric?sslmode=disable
+      # Not suitable for production (ARCHITECTURE.md §12.3) — fine for E2E.
+      ELECTRIC_INSECURE: true
+    ports:
+      - 30001:3000
+    depends_on:
+      postgres:
+        condition: service_healthy

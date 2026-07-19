@@ -95,9 +95,38 @@ jobs:
         run: pnpm test:integration
 
   # ---------------------------------------------------------------------------
-  # E2E (Playwright) — added in Phase 4. Needs compose (Postgres + Electric),
-  # a build, and the specs, so it is intentionally not wired yet.
+  # E2E (Playwright, web) — Phase 4. Brings up the dedicated ephemeral
+  # Postgres + Electric stack (docker-compose.e2e.yaml), then Playwright serves
+  # the app itself (vite dev) and runs the offline-sync + two-user-sync specs.
   # ---------------------------------------------------------------------------
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start e2e stack (Postgres + Electric)
+        run: docker compose -f web-app/code/docker-compose.e2e.yaml -p buildinlime-e2e up -d --wait
+      - name: Install Playwright browser
+        run: pnpm --filter buildinlime exec playwright install --with-deps chromium
+      - name: E2E tests (offline-sync + two-user-sync)
+        run: pnpm --filter buildinlime test:e2e
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web-app/code/playwright-report/
+          retention-days: 7
+      - name: Tear down e2e stack
+        if: ${{ always() }}
+        run: docker compose -f web-app/code/docker-compose.e2e.yaml -p buildinlime-e2e down -v
 
   # ---------------------------------------------------------------------------
   # Quality ratchet — typecheck + lint are red at baseline, so this fails only
