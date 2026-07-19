@@ -18,6 +18,13 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: always
+    environment:
+      # REQUIRED. The Caddyfile opens its site block with `{$PUBLIC_DOMAIN} {`.
+      # If this is unset the line collapses to a bare `{`, which Caddy parses as
+      # a GLOBAL OPTIONS block, and the first directive inside fails with a
+      # confusing `unrecognized global option: encode`. Compose substitution in
+      # this file is NOT enough — the variable must reach the container itself.
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN}
     ports:
       - "80:80"
       - "443:443"
