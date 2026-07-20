@@ -19,6 +19,13 @@ coverage/
 .env.local
 .env.*.local
 
+# The production env files. compose.env holds only non-secret config today
+# (image tags, bucket, domain) and CI syncs it TO the VM — but it sits next to
+# the real .env and is one careless `cp` from carrying secrets. Ignored as a
+# tripwire, not because its current contents are sensitive.
+compose.env
+*.env
+
 # Package manager artifacts
 npm-debug.log*
 yarn-debug.log*
