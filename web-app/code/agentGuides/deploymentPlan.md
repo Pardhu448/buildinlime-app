@@ -22,7 +22,7 @@ containers, with **Cloud SQL on private IP**, bytes in **Google Cloud Storage**,
 | §7 first deploy | ✅ live, valid Let's Encrypt cert |
 | §8 purge timer | ✅ unit + timer enabled, **first run unverified** |
 | §9 CI/CD | ✅ written, **never executed** — needs `setup-cicd.sh --apply` |
-| §10 verification | ◑ steps 1–6 done; 7–10 need an authenticated session |
+| §10 verification | ✅ all 10 steps; 7–10 scripted in `deploy/verify-storage.sh` |
 
 **Live configuration** (differs from the defaults written below, which were
 pre-decision):
@@ -929,6 +929,44 @@ never fires in a fresh prod (§2.1), but **keep the guard**.
 created. Run `PROJECT=buildinlime ./deploy/setup-cicd.sh --apply`, then set the two
 repo variables it prints, before the first push to `main`.
 
+### The pipeline in four files
+
+| File | Runs where | Role |
+|---|---|---|
+| `.github/workflows/ci.yml` | GitHub runners | the five CI gates + the `deploy` job |
+| `.github/scripts/ratchet.sh` | GitHub runner | the `quality` gate's logic |
+| `deploy/setup-cicd.sh` | an operator's machine, once | creates the WIF trust so the deploy job can authenticate at all |
+| `deploy/deploy.sh` | on the VM | the deploy ordering (§9.3) |
+
+**CI** runs on every PR and on push to `main`, `cancel-in-progress: true`:
+
+| Job | What it proves |
+|---|---|
+| `build` | the app compiles, with the four dummy env vars §2.2 explains |
+| `unit` | web (jsdom) + mobile (node), no database |
+| `integration` | tRPC routers against a real `postgres:17-alpine` service. Deliberately **not** `wal_level=logical` — this tier exercises SQL and `generateTxId`, not replication |
+| `e2e` | Playwright against the ephemeral `docker-compose.e2e.yaml` stack (Postgres + Electric) |
+| `quality` | `ratchet.sh` |
+
+Two non-obvious choices are recorded at their call sites rather than here.
+`playwright install` runs **without `--with-deps`** (`ci.yml:122-125`): `--with-deps`
+shells out to apt-get and races the runner's own `unattended-upgrades` on the apt lock,
+a race that cannot be won from inside the job — and the runner image already ships every
+library headless Chromium needs. And the ratchet **fails when an error count goes
+*down*** (`ratchet.sh:56`), which reads as perverse until you see that a baseline left
+above the real count is tolerated slack: the gap is exactly how many new errors a later
+PR could add unnoticed. It has happened twice. Failing until the number is committed is
+what keeps the ratchet monotonic.
+
+*(Full CI rationale — the tiering, the baseline-count-vs-changed-files decision, what is
+out of scope — lives in `testingAndCiSetup.md` §5 Phase 5. Do not duplicate it here;
+this table exists so the deploy path is readable end to end.)*
+
+**CD** is the `deploy` job: authenticate via WIF → build and push `app` + `tools` from
+one commit → sync config to the VM over IAP → run `deploy.sh` there → verify from the
+public internet. That last step deliberately runs *outside* the VM, so it exercises DNS,
+Caddy, and the certificate rather than just the container.
+
 ### 9.1 Auth — Workload Identity Federation, never a key file
 
 `deploy/setup-cicd.sh` creates the pool, an OIDC provider, and the
@@ -1064,6 +1102,54 @@ active membership, zero leftover rows, no bucket objects.
    migrations are proven stable.
 5. **Rotate the Resend API key.** It was pasted in plaintext during setup.
 6. **Promote the fake-gcs-server CI leg** from optional to standard *(storage §8)*.
+7. **Run the app container as a non-root user.** It is `uid=0` today. Partial mitigation
+   for the exposure in §11.1 below — it limits a container escape, not an SSRF. Needs a
+   Dockerfile change, rebuild, and redeploy.
+
+### 11.1 Secret handling — audited 2026-07-20
+
+**What holds up.** No credential has ever been committed: a scan of all history
+(`git rev-list --all`) turns up only `re_ci_build_dummy_not_used` and
+`postgres:password@localhost` from the dev compose stack. The build-time dummies (§2.2)
+keep real values out of the image. On the VM, secrets and config are split by
+sensitivity — `.env` is `600 root:root` and holds the five real secrets; `compose.env`
+is `644` and holds only image tags, bucket, domain, `PG_POOL_MAX`, `EMAIL_FROM`. That
+split is what lets CI sync `compose.env` from git while `.env` never leaves the box.
+Secret Manager grants are **per-secret** to `buildinlime-vm`, not project-wide. CI holds
+no long-lived credential at all (WIF, §9). The bucket has public access prevention
+*enforced* with zero `allUsers` bindings, and Cloud SQL has no public IP.
+
+`compose.env` and `*.env` are now gitignored (`310eeea`) — a tripwire, since
+`compose.env` sits beside the real `.env` and is one careless `cp` from a leak.
+
+**`.env` is not hand-maintained.** `buildinlime-secrets.service` re-materialises it from
+Secret Manager on every boot — atomic `mv`, `umask 077`, `chmod 0600` — and
+`buildinlime.service` declares `Requires=` on it. So Secret Manager is genuinely the
+source of truth at runtime, and rotation is one step: update the secret, restart the
+unit.
+
+**The accepted exposure.** The app container reaches the metadata server (verified: it
+mints a token) and runs as root. That token carries the VM SA's full scope — `secretAccessor`
+on all five secrets, plus `objectAdmin` on the resources bucket. An SSRF in the app reads
+every credential and can delete every user file.
+
+**Neither obvious fix works, and both were attempted:**
+
+- *Blocking `169.254.169.254` from the container network* breaks storage outright.
+  `gcs.ts` runs under ADC — `GCS_KEY_FILENAME` is unset, so the SDK reads the attached
+  service account **from the metadata server**. The block would kill every upload and
+  download.
+- *Revoking `secretAccessor` from the VM SA* breaks boot. The secrets unit needs it, and
+  `buildinlime.service` `Requires=` that unit, so the VM would return from any reboot
+  unable to serve.
+
+The host needs `secretAccessor` at boot; the container needs metadata at runtime; **GCE
+allows one service account per VM**, so the two needs cannot be split across principals.
+This is structural to single-VM + ADC, not a misconfiguration, and IAM tuning does not
+resolve it — the roles are already scoped to per-secret bindings,
+`artifactregistry.reader`, and object admin on exactly one bucket. Item 7 above is the
+available partial mitigation; the real fixes are app-layer SSRF defence, or per-workload
+identity on a platform that offers it.
 
 **Cosmetic / low priority:**
 
