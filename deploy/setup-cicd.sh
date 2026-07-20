@@ -60,6 +60,26 @@ for role in roles/artifactregistry.writer roles/iap.tunnelResourceAccessor \
     --member "serviceAccount:${SA_EMAIL}" --role "$role" --condition=None
 done
 
+step "Let the deployer act as the VM's service account"
+# ---------------------------------------------------------------------------
+# `gcloud compute ssh/scp` against an instance that HAS a service account
+# attached requires iam.serviceAccounts.actAs on THAT account — the four project
+# roles above are not enough. Without this the deploy job fails at the config
+# sync step with:
+#
+#   PERMISSION_DENIED: User does not have iam.serviceAccounts.actAs permission
+#   on the instance's service account
+#
+# Bound on the VM's service account as a RESOURCE, not project-wide: granting
+# roles/iam.serviceAccountUser at project level would let the deployer
+# impersonate every service account in the project, including any added later.
+# ---------------------------------------------------------------------------
+VM_SA="${VM_SA:-buildinlime-vm@${PROJECT}.iam.gserviceaccount.com}"
+mk "serviceAccountUser on ${VM_SA}"
+run gcloud iam service-accounts add-iam-policy-binding "$VM_SA" \
+  --project "$PROJECT" --role roles/iam.serviceAccountUser \
+  --member "serviceAccount:${SA_EMAIL}"
+
 step "Workload Identity Pool"
 if have gcloud iam workload-identity-pools describe "$POOL" --project "$PROJECT" --location global; then
   skip "$POOL"
