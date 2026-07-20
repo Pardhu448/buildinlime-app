@@ -21,7 +21,7 @@ proven end to end.**
 | §5 Phase 2 — packaging | ✅ done, images in Artifact Registry |
 | §6 migrations | ✅ applied + ownership sweep |
 | §7 first deploy | ✅ live, valid Let's Encrypt cert |
-| §8 purge timer | ✅ unit + timer enabled, **first run unverified** |
+| §8 purge timer | ✅ active and verified applying (§11.3) — was silently never started |
 | §9 CI/CD | ✅ **proven** — `5c12dfd` deployed by the pipeline, all 9 steps green (§9.6) |
 | §10 verification | ✅ all 10 steps; 7–10 scripted in `deploy/verify-storage.sh` |
 
@@ -1166,11 +1166,24 @@ active membership, zero leftover rows, no bucket objects.
    `--now`, which only arms a unit for the *next boot* — and the VM has not rebooted
    since the unit was created. Fixed in the script (`enable --now`).
 
-   **Still to do on the live VM:** `systemctl start buildinlime-purge.timer`. Note the
-   unit sets `Persistent=true`, so starting it will likely trigger an immediate catch-up
-   run that **deletes orphaned objects from the bucket** — do it deliberately, not as a
-   side effect. Then confirm from the log that it reports *applying*, not dry-running: a
-   purge stuck in dry-run is silent, and so is one that never starts.
+   **Started and verified 2026-07-20.** Sequence used, and worth repeating on any rebuild:
+   dry-run first (`pnpm purge:resources` with no `--apply`) to see the blast radius —
+   it reported `0 file(s)`, `0 object(s)`, `0.0 KB`, so starting carried no data risk —
+   then `systemctl start buildinlime-purge.timer`, then one manual
+   `systemctl start buildinlime-purge.service` to prove the run itself works.
+
+   ```
+   active: active      NEXT: Tue 2026-07-21 00:12:07 UTC
+   PURGING  retention=30d  driver=gcs        <- "PURGING", not "DRY RUN"
+   Deleted longer than 30d ago: 0 file(s)
+   Orphaned in the store (...older than 60m): 0 object(s)
+   Result=success  ExecMainStatus=0
+   ```
+
+   `PURGING` is the line that matters: `--apply` reaches the script through the unit's
+   `docker compose ... -- --apply`, so the timer is not silently dry-running. Note
+   `Persistent=true` did **not** trigger a catch-up run on start — there was no missed
+   schedule to catch up on, since the timer had never been active.
 
    The general lesson: `enabled` is not `running`. A timer that has never fired looks
    identical to one that is merely waiting, unless you check `is-active` or the NEXT
