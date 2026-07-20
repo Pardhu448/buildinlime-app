@@ -213,7 +213,7 @@ jobs:
       # reproducible from this repo.
       - name: Sync deploy config to the VM
         run: |
-          for f in docker-compose.prod.yaml Caddyfile deploy.sh; do
+          for f in docker-compose.prod.yaml Caddyfile deploy.sh verify-storage.sh; do
             gcloud compute scp --zone $ZONE --tunnel-through-iap --quiet \
               deploy/$f $VM:/tmp/$f
             gcloud compute ssh $VM --zone $ZONE --tunnel-through-iap --quiet \
