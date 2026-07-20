@@ -30,9 +30,18 @@ export function prepareElectricUrl(requestUrl: string): URL {
     }
   })
 
-  // Add Electric Cloud authentication if configured
-  if (process.env.ELECTRIC_SOURCE_ID && process.env.ELECTRIC_SECRET) {
+  // Authenticate to Electric. The two params are INDEPENDENT:
+  //   - `secret`    — required by any Electric that isn't running with
+  //                   ELECTRIC_INSECURE=true. Self-managed prod sets this alone.
+  //   - `source_id` — Electric Cloud only, to select the source.
+  // They used to be sent only when BOTH were set, which meant a self-managed
+  // deployment (secret, no source id) sent no credential at all and got
+  // `401 Unauthorized - Invalid API secret` on every shape request.
+  // Local dev sets neither and talks to an ELECTRIC_INSECURE container.
+  if (process.env.ELECTRIC_SOURCE_ID) {
     originUrl.searchParams.set(`source_id`, process.env.ELECTRIC_SOURCE_ID)
+  }
+  if (process.env.ELECTRIC_SECRET) {
     originUrl.searchParams.set(`secret`, process.env.ELECTRIC_SECRET)
   }
 

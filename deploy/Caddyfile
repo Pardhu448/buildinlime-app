@@ -1,0 +1,45 @@
+# Production Caddyfile — deployed to /opt/buildinlime/Caddyfile.
+#
+# NOT the dev Caddyfile at web-app/code/Caddyfile, which fronts vite at :5173 via
+# vite-plugin-caddy.ts. This one terminates TLS for the public domain and proxies
+# everything to the app container.
+#
+# Certificates are issued automatically on first HTTPS request, which requires the
+# DNS A record to already resolve to the VM's static IP (deploymentPlan.md §3).
+# The caddy_data volume MUST persist — losing it re-issues certificates and Let's
+# Encrypt rate limits apply.
+#
+# {$PUBLIC_DOMAIN} comes from the environment; Compose passes it through from .env.
+# See deploymentPlan.md §5.6.
+
+{$PUBLIC_DOMAIN} {
+	encode gzip zstd
+
+	# The app serves both the SPA shell and /api/* — see deploy/server-entry.mjs.
+	# Static assets are served by the app too, so there is one origin and no
+	# split-brain about which side owns dist/client.
+	reverse_proxy app:3000 {
+		# Electric shape requests long-poll (~20s with live=true) through
+		# electric-proxy.ts. The default
+		# transport timeouts are generous enough, but be explicit so a future
+		# tightening does not silently break sync.
+		transport http {
+			response_header_timeout 5m
+			read_timeout 5m
+		}
+	}
+
+	# Hardening. HSTS is deliberately absent until the domain is confirmed stable
+	# — it is difficult to walk back.
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

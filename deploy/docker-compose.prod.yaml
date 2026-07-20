@@ -1,0 +1,112 @@
+# Production stack — single GCE VM. Deployed to /opt/buildinlime/ alongside
+# Caddyfile and .env (materialised at boot from Secret Manager; see
+# agentGuides/deploymentPlan.md §4.6.5).
+#
+#   docker compose -f docker-compose.prod.yaml pull
+#   docker compose -f docker-compose.prod.yaml run --rm app-tools pnpm migrate
+#   docker compose -f docker-compose.prod.yaml up -d
+#
+# .env must define: DATABASE_URL, ELECTRIC_DATABASE_URL, ELECTRIC_SECRET,
+#                   BETTER_AUTH_SECRET, RESEND_API_KEY
+#
+# See deploymentPlan.md §5.3.
+
+name: buildinlime
+
+services:
+  # Public edge. The only container with published ports.
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    environment:
+      # REQUIRED. The Caddyfile opens its site block with `{$PUBLIC_DOMAIN} {`.
+      # If this is unset the line collapses to a bare `{`, which Caddy parses as
+      # a GLOBAL OPTIONS block, and the first directive inside fails with a
+      # confusing `unrecognized global option: encode`. Compose substitution in
+      # this file is NOT enough — the variable must reach the container itself.
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # certificates — MUST persist or LE rate limits bite
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_started
+
+  app:
+    image: ${APP_IMAGE:?set APP_IMAGE to the Artifact Registry tag}
+    restart: always
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # ADC via the VM's attached service account — no GCS_KEY_FILENAME in prod.
+      # storage/index.ts and drivers/gcs.ts already handle this; no code change.
+      STORAGE_DRIVER: gcs
+      GCS_BUCKET: ${GCS_BUCKET:?set GCS_BUCKET}
+      BETTER_AUTH_URL: ${PUBLIC_URL:?set PUBLIC_URL, e.g. https://app.example.com}
+      # Explicit rather than relying on sendEmailOtp.ts:30's hardcoded fallback —
+      # prod silently diverging from dev's .env is the kind of thing found late.
+      # The domain here MUST be verified in Resend or sends fail with
+      # 403 "The <domain> domain is not verified".
+      EMAIL_FROM: ${EMAIL_FROM:?set EMAIL_FROM}
+      # Compose DNS, not a VPC hop — the payoff of co-locating (§1.3).
+      # Electric's port is never published; only this network can reach it.
+      ELECTRIC_URL: http://electric:3000
+      # ELECTRIC_SECRET comes from .env and is forwarded as ?secret= by
+      # electric-proxy.ts. NO ELECTRIC_SOURCE_ID — that is Electric Cloud only.
+      PG_POOL_MAX: ${PG_POOL_MAX:-10}
+    depends_on:
+      electric:
+        condition: service_healthy
+
+  electric:
+    image: electricsql/electric:1.4.10 # pinned: restart:always + floating tag
+    restart: always #   would upgrade a slot-holding service unattended
+    environment:
+      # The `electric` role, which has REPLICATION. Distinct from the app's role.
+      DATABASE_URL: ${ELECTRIC_DATABASE_URL:?set ELECTRIC_DATABASE_URL}
+      # Required unless ELECTRIC_INSECURE=true. Deliberately NOT insecure here:
+      # docker-compose.yaml sets that for dev only, marked "Not suitable for
+      # production". Verified: without it, shape requests 401.
+      ELECTRIC_SECRET: ${ELECTRIC_SECRET:?set ELECTRIC_SECRET}
+      # Default is ./persistent (inside the container). Point it at the mounted
+      # pd-ssd data disk (§4.6.3) or shape logs land on the boot disk and are
+      # lost on container recreation.
+      ELECTRIC_STORAGE_DIR: /var/lib/electric
+    volumes:
+      - /var/lib/electric:/var/lib/electric
+    healthcheck:
+      # curl, NOT wget — this image ships curl only, and a wget-based probe would
+      # never pass, leaving `depends_on: service_healthy` blocking app startup
+      # forever. Accepts 401 as well as 200 so the probe needs no secret:
+      # either answer proves the HTTP API is listening.
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/v1/health | grep -qE '^(200|401)$$'",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  # Migrations and the purge sweep. Never runs as a long-lived service — it is
+  # invoked with `docker compose run --rm`. Built from the same commit as `app`
+  # (§12): a schema/app drift between the two is a silent mismatch.
+  app-tools:
+    image: ${TOOLS_IMAGE:?set TOOLS_IMAGE to the Artifact Registry tag}
+    profiles: ["tools"] # keeps it out of `up -d`
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      STORAGE_DRIVER: gcs
+      GCS_BUCKET: ${GCS_BUCKET:?set GCS_BUCKET}
+    command: ["pnpm", "migrate"]
+
+volumes:
+  caddy_data:
+  caddy_config:
