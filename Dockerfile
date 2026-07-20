@@ -49,7 +49,23 @@ COPY web-app/code/ web-app/code/
 #                     (vite.config.ts:64).
 #   STORAGE_DRIVER  — deliberately UNSET so the prerender builds no GCS client;
 #                     storage/index.ts is lazy for exactly this reason.
+#   NODE_OPTIONS    — pin DNS to IPv4, to stop an address-family mismatch during
+#                     prerender. TanStack's prerender starts a Vite preview server
+#                     and fetches `/` from it. Node resolves `localhost` verbatim,
+#                     and in this image that binds the server to ::1 — while the
+#                     failure in CI showed the client hitting 127.0.0.1 and finding
+#                     nothing ("Prerendered 0 pages", then TypeError: fetch failed,
+#                     ECONNREFUSED 127.0.0.1). Server and client on different
+#                     families.
+#
+#                     Caveat: this was NOT reproduced locally. A container with
+#                     IPv6 fully disabled binds 127.0.0.1 and works, so "the runner
+#                     has no IPv6" does not explain it on its own — it would need
+#                     IPv6 present but unroutable. ipv4first forces both sides onto
+#                     IPv4 either way. If the prerender fails in CI again, this is
+#                     the first assumption to re-test, not to trust.
 RUN DISABLE_CADDY=1 \
+    NODE_OPTIONS=--dns-result-order=ipv4first \
     DATABASE_URL=postgresql://postgres:password@localhost:5432/electric \
     BETTER_AUTH_SECRET=build-only-secret-000000000000000000000000 \
     BETTER_AUTH_URL=http://localhost:3000 \
