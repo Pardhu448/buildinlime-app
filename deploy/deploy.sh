@@ -59,10 +59,22 @@ step "5/5 restart"
 "${COMPOSE[@]}" ps --format 'table {{.Service}}\t{{.Status}}'
 
 step "smoke test"
+# Hit the PUBLIC HTTPS URL, not http://localhost.
+#
+# Caddy 308-redirects HTTP to HTTPS, so `curl http://localhost/...` returns 308
+# forever and never 200. The first real run of this script rolled back a
+# perfectly healthy deploy because of exactly that: the image was fine,
+# migrations applied, containers came up — and the check was wrong.
+#
+# The public URL is also the more honest test: it exercises DNS, the certificate,
+# Caddy's routing and the app, which is what "deployed" actually means. It
+# hairpins back to this VM, which is verified to work from here.
+BASE="https://$(grep -oP '(?<=^PUBLIC_DOMAIN=).*' compose.env)"
 ok=true
+last=000
 for i in $(seq 1 20); do
-  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://localhost/api/auth/get-session || echo 000)
-  [[ "$code" == "200" ]] && break
+  last=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$BASE/api/auth/get-session" || echo 000)
+  [[ "$last" == "200" ]] && break
   [[ $i -eq 20 ]] && ok=false
   sleep 3
 done
@@ -70,12 +82,20 @@ done
 if $ok; then
   # /api/users must be 401, not 500 — proves the auth gate is intact and the
   # route manifest (scripts/generate-api-routes.mjs) loaded.
-  users=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://localhost/api/users || echo 000)
-  probe=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://localhost/api/.env || echo 000)
+  users=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$BASE/api/users" || echo 000)
+  probe=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$BASE/api/.env" || echo 000)
+  echo "  ${BASE}"
   echo "  /api/auth/get-session : 200"
   echo "  /api/users            : ${users} (expect 401)"
   echo "  /api/.env             : ${probe} (expect 404)"
   [[ "$users" == "401" && "$probe" == "404" ]] || ok=false
+else
+  # Print the evidence. Previously this branch printed NOTHING, so the first
+  # failure gave no clue why — the diagnosis had to be redone by hand on the VM.
+  echo "  ${BASE}/api/auth/get-session never returned 200 in 60s"
+  echo "  last status: ${last}"
+  echo "  --- app logs ---"
+  "${COMPOSE[@]}" logs app --tail 20 2>&1 | sed 's/^/  /'
 fi
 
 if ! $ok; then
