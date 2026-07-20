@@ -8,9 +8,17 @@ references like **§5** point at `ARCHITECTURE.md` at the repo root — the cano
 description of what runs today. This guide is the *how-we-verify-it* companion to
 that doc; keep the two in step.
 
-**Status (2026-07-15): Phases 0–3 and 5 are BUILT; 4 and 6 remain.** Landed across
-`chore/typecheck-baseline` (Phase 0) and `chore/test-runners` (Phases 1–3, 5).
+**Status (2026-07-19): ALL phases 0–6 are BUILT.** Landed across
+`chore/typecheck-baseline` (Phase 0), `chore/test-runners` (Phases 1–3, 5),
+`test/web-e2e-playwright` (Phase 4), and `chore/gcp-vm-deployment` (Phase 6).
 §5 below marks each phase and records where the build diverged from the plan.
+
+**Phase 6 was un-blocked, not re-decided.** It sat deferred on two architectural
+constraints, and both were resolved rather than waived: `ARCHITECTURE.md` §12.1 (file
+storage on the local filesystem) by the object-storage migration, and §12.3
+(`ELECTRIC_INSECURE: true`) by the production Compose file deliberately omitting it.
+The target is a single GCE VM, not the SST→AWS shape this doc originally guessed —
+see `deploymentPlan.md`, which owns the deployment story end to end.
 
 **Rebaselined 2026-07-16** after the contracts/sync-core refactor on
 `fix/mobile-safe-area-and-resync` (shared `packages/contracts` +
@@ -52,7 +60,12 @@ will have moved.
 
 ---
 
-## 1. Baseline — what passes today
+## 1. Baseline — the 2026-07-16 starting point
+
+**Historical.** These are the figures the strategy below was designed against, kept
+because the *shape* of the problem is what justifies the ratchet. For current numbers
+see §5 Phase 5 — typecheck has since reached **0 everywhere** and is a hard gate, so
+the asymmetry noted underneath now applies to web lint alone.
 
 Measured across both workspaces:
 
@@ -336,15 +349,42 @@ by construction; the contract-parity spec is new.)*
 - The shape-guard test targets the extracted `shape-where.ts`, not the route handler
   directly (the 401 path lives in the route and is left to Phase 4's E2E).
 
-### Phase 4 — Playwright E2E (web) — ⏳ NOT BUILT
-`playwright.config.ts` with a `webServer` running the built app against the test DB;
-global setup brings up compose (Postgres + Electric), migrates, seeds a known user,
-saves authenticated `storageState`. Two specs:
+### Phase 4 — Playwright E2E (web) — ✅ DONE
+`@playwright/test` ^1.61.1, `playwright.config.ts`, `tests/e2e/` (global-setup,
+helpers, two specs), and a dedicated `docker-compose.e2e.yaml` (Postgres + Electric)
+that CI brings up with `--wait` and tears down with `down -v`. Both specs as planned:
 - **offline-sync** — post message → `context.setOffline(true)` → create task + delete
   resource → assert optimistic UI → back online → outbox drains, mutations survive
   reload. This is the one place the txid-handshake window (§12.6) and the write path
   (§5) are exercised end to end.
 - **two-user-sync** — two browser contexts; A posts, B receives via Electric.
+
+**Diverged from plan — four deliberate changes:**
+
+- **`webServer` runs `pnpm dev` (vite), not the built app.** The plan said built;
+  running dev keeps one server definition instead of a build-then-serve step CI would
+  have to sequence. `reuseExistingServer: !process.env.CI`, so local runs attach to a
+  dev server you already have up.
+- **`DISABLE_CADDY` opt-out added to `vite.config.ts:64`.** The Caddy plugin fronts dev
+  with HTTPS at :5173 and **hard-exits if the `caddy` binary is missing** — fatal on a
+  CI runner that has no reason to install it. The env toggle is the seam.
+- **`globalSetup` bypasses the email-OTP login entirely.** It inserts a real `sessions`
+  row and hands the browser a cookie signed with Better Auth's own `makeSignature` from
+  `better-auth/crypto` — the same primitive the server verifies with. With only the
+  session_token cookie present, `getSession` falls back to a DB lookup by token and
+  finds the seeded row. No Resend, no `verifications` table, **no prod-code changes**.
+  It reuses the integration harness (migrate/reset/factories) so seeding stays
+  single-sourced.
+- **`fullyParallel: false`.** The specs share one seeded channel and drive
+  optimistic/offline state; racing writes through a single outbox is not a test, it is
+  a coin flip.
+
+> **Cookie-name footgun, recorded because it has now bitten twice.** `global-setup.ts`
+> uses the **un-prefixed** `better-auth.session_token`, correct here because
+> `useSecureCookies` is false in dev. Over HTTPS better-auth adds a `__Secure-` prefix,
+> and the un-prefixed name then authenticates as *nobody* — which surfaces as a
+> confusing "no user" rather than an auth error. The production verification script hit
+> exactly this (`deploymentPlan.md` §10). Same cookie, two names, decided by scheme.
 
 ### Phase 5 — CI (GitHub Actions) — ✅ DONE
 `.github/workflows/ci.yml`, pnpm 10.30.3 + Node 22, cached store, concurrency-cancel.
@@ -355,7 +395,10 @@ Jobs:
 - **unit** — `pnpm test:unit` (web jsdom + mobile node). No database.
 - **integration** — `pnpm test:integration` against a `postgres:17-alpine` **service**;
   the harness creates + migrates `buildinlime_test`.
+- **e2e** — Phase 4's stack + specs. Added once Phase 4 landed; a hard gate, and the
+  `deploy` job (below) waits on it.
 - **quality** — the baseline-count ratchet (below).
+- **deploy** — Phase 6. `main` only, `needs` all five gates above.
 
 **Diverged from plan — two deliberate changes:**
 - **No `wal_level=logical` on the integration service.** That is only needed for
@@ -369,9 +412,13 @@ Jobs:
   `export`) would fail a changed-files gate for ~20 errors that were already there.
 
   Instead, `.github/quality-baseline.json` holds a **max tolerated error count** per
-  workspace/check (post-refactor 2026-07-16: `buildinlime` 224 type / 188 lint;
-  `buildinlimemobile` 34 / 4 — the refactor deleted a lot of dirty code and the
-  baselines were lowered to lock that in).
+  workspace/check. **Current (2026-07-19): `buildinlime` 0 type / 147 lint;
+  `buildinlimemobile` 0 / 0; every `packages/*` entry 0.**
+
+  **Typecheck is now 0 everywhere — a hard gate, no longer a debt number, and it must
+  not be raised to accommodate a change.** That is the ratchet having done its job: the
+  numbers were 232/201 and 57/5 when this section was first written, 224/188 after the
+  2026-07-16 refactor. Web lint is the only debt left.
   `.github/scripts/ratchet.sh` runs the full `typecheck` + `lint`, counts errors, and
   **fails only when a count EXCEEDS its baseline** (a net regression); when a count
   drops it says so and asks you to lower the baseline — the debt ratchets down without
@@ -382,26 +429,50 @@ Jobs:
   clean, so the same ratchet machinery is a hard gate for them. They have no eslint
   config yet, so no lint entries; add both when one lands.
 
-- **e2e** — intentionally **omitted** until Phase 4 (needs compose + specs); a
-  commented placeholder marks where it goes.
+- **`playwright install chromium` runs WITHOUT `--with-deps`.** `--with-deps` shells out
+  to apt-get, which races the runner's own `apt-daily` / `unattended-upgrades` on
+  `/var/lib/apt/lists/lock` — a race that cannot be won from inside the job. The
+  `ubuntu-24.04` runner image already ships every shared library headless Chromium
+  needs, so the OS-deps step buys nothing. See the comment at `ci.yml:122-125`; four
+  commits went into discovering this, so do not "helpfully" add the flag back.
 
 > Watch-out for whoever runs this: the ratchet baselines are a committed snapshot.
 > When you fix errors and a count drops, **lower the matching number** in
 > `quality-baseline.json` in the same PR, or the gain isn't locked in.
 
-### Phase 6 — CD (DEFERRED — blocked, not just undecided)
-Per §11 and §12, CD is not merely awaiting a target choice; it is **blocked on two
-architectural constraints that must land first:**
-- **§12.1 — file storage is the local filesystem** (`uploads/resources/`). This pins
-  the backend to a single machine; no serverless/horizontal deploy until it moves to
-  object storage.
-- **§12.3 — Electric runs `ELECTRIC_INSECURE: true`**, which its own docs flag as
-  unsuitable for production; needs the gatekeeper/auth config.
+### Phase 6 — CD — ✅ BUILT (web). Mobile still open.
 
-`sst` is present as a devDep with **no config committed** (§11), hinting SST→AWS +
-Electric Cloud, but that's still an open architectural choice (vs Vercel/Fly + Neon).
-Mobile CD would be EAS Build + EAS Update. **Get CI green first; treat CD as a
-separate track that starts once §12.1 and §12.3 are resolved.**
+**The two blockers were resolved, not waived.** This section previously said CD was
+blocked on `ARCHITECTURE.md` §12.1 (file storage on the local filesystem) and §12.3
+(`ELECTRIC_INSECURE: true`). Both are closed: the object-storage migration put every
+byte behind a `StorageProvider` with a GCS driver, and the production Compose file
+deliberately omits `ELECTRIC_INSECURE`, passing a real `ELECTRIC_SECRET` instead.
+
+**The target is a single GCE VM, not SST→AWS.** This doc's guess — `sst` sitting in
+devDependencies with no config committed — did not survive contact with the Electric
+hosting decision. Self-managed Electric holds a logical replication slot and needs a
+persistent filesystem, so it cannot run serverless; co-locating it with the app on one
+VM beat straddling two platforms. The full reasoning, including why Electric Cloud and
+a Cloud Run sidecar were both rejected, is in `deploymentPlan.md` §1 and §4.5.
+
+**What exists** (`deploymentPlan.md` §9 owns the detail — do not duplicate it here):
+
+| File | Role |
+|---|---|
+| `ci.yml` `deploy` job | `main` only, `needs` all five gates, `concurrency: deploy-production` with `cancel-in-progress: false` |
+| `deploy/setup-cicd.sh` | one-time WIF bootstrap — no downloaded service-account key, ever |
+| `deploy/deploy.sh` | pull → migrate → Electric ownership sweep → `up -d` → smoke, with image-only rollback |
+| `deploy/verify-storage.sh` | post-deploy verification of the storage path and the access gate |
+
+The ordering lives in `deploy.sh` rather than in YAML so it is versioned, reviewable,
+and runnable by hand during an incident.
+
+**Status: written, not yet executed.** The WIF resources `setup-cicd.sh` creates do not
+exist, and the deploy work sits on `chore/gcp-vm-deployment` — so the job's `main`-only
+gate has never fired. Production was deployed by hand. Expect the first CI-driven
+deploy to be the first real test of this path.
+
+**Mobile CD remains open** — EAS Build + EAS Update, unchanged and unstarted.
 
 ---
 
