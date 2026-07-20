@@ -187,7 +187,15 @@ step "Enable units"
 systemctl daemon-reload
 systemctl enable buildinlime-secrets.service
 systemctl enable buildinlime.service
-systemctl enable buildinlime-purge.timer
+# --now, unlike the two above. `enable` alone only arms the unit for the NEXT
+# boot; a timer created after boot then sits inactive with no scheduled run and
+# no log output — indistinguishable from a timer that is working but has not
+# fired yet. That is exactly what happened here: the purge showed `enabled` but
+# `inactive`, with an empty NEXT column, and never ran once in 18 hours.
+#
+# The two services above are deliberately NOT started (see the notes below —
+# they need secrets and migrations first). The timer has no such prerequisite.
+systemctl enable --now buildinlime-purge.timer
 
 cat <<NEXT
 

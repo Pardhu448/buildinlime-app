@@ -12,7 +12,8 @@ point at `ARCHITECTURE.md`; refs like *(storage §9)* point at
 containers, with **Cloud SQL on private IP**, bytes in **Google Cloud Storage**, and
 **Caddy** terminating TLS. Secrets in **Secret Manager**.
 
-**Status (2026-07-19): DEPLOYED and serving at https://app.buildinlime.com.**
+**Status (2026-07-20): DEPLOYED and serving at https://app.buildinlime.com, with CI/CD
+proven end to end.**
 
 | Phase | State |
 |---|---|
@@ -20,8 +21,8 @@ containers, with **Cloud SQL on private IP**, bytes in **Google Cloud Storage**,
 | §5 Phase 2 — packaging | ✅ done, images in Artifact Registry |
 | §6 migrations | ✅ applied + ownership sweep |
 | §7 first deploy | ✅ live, valid Let's Encrypt cert |
-| §8 purge timer | ✅ unit + timer enabled, **first run unverified** |
-| §9 CI/CD | ✅ written, **never executed** — needs `setup-cicd.sh --apply` |
+| §8 purge timer | ✅ active and verified applying (§11.3) — was silently never started |
+| §9 CI/CD | ✅ **proven** — `5c12dfd` deployed by the pipeline, all 9 steps green (§9.6) |
 | §10 verification | ✅ all 10 steps; 7–10 scripted in `deploy/verify-storage.sh` |
 
 **Live configuration** (differs from the defaults written below, which were
@@ -924,10 +925,25 @@ never fires in a fresh prod (§2.1), but **keep the guard**.
 
 ## 9. Phase 6 — CI/CD
 
-**Status: written, never executed.** `deploy/setup-cicd.sh` and the `deploy` job in
-`.github/workflows/ci.yml` exist; the WIF resources they depend on have **not** been
-created. Run `PROJECT=buildinlime ./deploy/setup-cicd.sh --apply`, then set the two
-repo variables it prints, before the first push to `main`.
+**Status (2026-07-20): PROVEN.** WIF resources created, both repo variables set, and
+`5c12dfd` deployed end to end by the pipeline — all nine steps green, smoke test
+`200 / 401 / 404` against `https://app.buildinlime.com`.
+
+It took four runs to get there, and §9.6 records what the three failures were. Read it
+before changing any of this: every one was in code that looked obviously correct.
+
+**The result that matters most** is in the container ages after a successful deploy:
+
+```
+app        Up 4 minutes      <- recreated
+caddy      Up 17 hours       <- untouched
+electric   Up 17 hours       <- untouched, slot still active/reserved
+```
+
+§1.3 accepted "app deploys touch the box holding the replication slot" as the main cost
+of co-location, and §12 said to **verify that empirically**. This is that verification,
+from a real CI deploy rather than a constructed test: Compose recreated only `app`, and
+`electric_slot_default` stayed `active` / `reserved` throughout.
 
 ### The pipeline in four files
 
@@ -1009,9 +1025,14 @@ So it is versioned, reviewable, and runnable by hand during an incident:
 3. **ownership sweep** — §4.2.2. Missing this does not fail the deploy; it fails at
    first sync of the new table, in production
 4. **`up -d`** — Compose recreates only changed services (§12)
-5. **smoke** — `/api/auth/get-session` 200, `/api/users` 401, `/api/.env` 404
+5. **smoke** — against `https://${PUBLIC_DOMAIN}`, **not** `http://localhost`:
+   `/api/auth/get-session` 200, `/api/users` 401, `/api/.env` 404. Caddy 308-redirects
+   HTTP, so a plain-HTTP check never sees 200 (§9.6). The public URL is also the more
+   honest test — it exercises DNS, the certificate, Caddy's routing and the app.
 
-On smoke failure it **rolls the image tag back** and restarts.
+On smoke failure it **rolls the image tag back** and restarts, and prints the last
+status code plus the app's recent logs. That diagnostic output exists because the first
+failure printed *nothing* and had to be re-diagnosed by hand on the VM.
 
 > **Rollback is image-only.** Migrations are not reverted, so if the failed deploy
 > applied a schema change, the previous image may not be compatible with the schema it
@@ -1028,6 +1049,51 @@ replication slot.
 
 **Still to do:** promote the fake-gcs-server leg from optional to standard
 *(storage §8)*. Once GCS is the production driver, that suite exercises the real path.
+
+### 9.6 What the first four deploy runs cost
+
+Three failures before a green run, each in a different layer, none caught by CI. All
+three were in code written here and reviewed as correct. Production was never damaged —
+every failure stopped before or was reverted — but two of them were avoidable and it is
+worth being precise about why they weren't avoided.
+
+**Run 1 — the image build died in the prerender.** TanStack starts a Vite preview server
+and fetches `/` from it; the fetch got `ECONNREFUSED 127.0.0.1` in ~10ms. In
+`node:22-slim`, `localhost` resolves `::1` first, so the server binds IPv6 while the
+client went to IPv4. Fixed with `NODE_OPTIONS=--dns-result-order=ipv4first` in the
+Dockerfile build stage.
+
+This one was genuinely hard to see: `docker build --no-cache` succeeds locally, and the
+`build` CI job runs the same command on the same runner and passes — it fails *only*
+inside Docker on a runner. **It was never reproduced.** A container with IPv6 fully
+disabled binds `127.0.0.1` and works, so "the runner has no IPv6" does not explain it
+alone; that would need IPv6 present but unroutable. The fix forces both sides onto IPv4
+regardless of which was choosing wrong. If the prerender breaks in CI again, this is the
+first assumption to re-test, not to trust.
+
+**Run 2 — `PERMISSION_DENIED: iam.serviceAccounts.actAs`.** `gcloud compute ssh/scp`
+against an instance that *has* a service account attached requires `actAs` on **that
+account**. `setup-cicd.sh` granted four project roles, each necessary, none sufficient.
+Avoidable — it is a documented requirement, and nothing surfaces the gap until a real
+SSH is attempted. Now bound on the VM's service account **as a resource**, since
+project-wide `roles/iam.serviceAccountUser` would let the deployer impersonate every
+service account in the project, including ones added later.
+
+**Run 3 — the smoke test rolled back a healthy deploy.** The worst of the three. The
+deploy *worked*: image pulled, migrations applied, sweep a no-op, containers up. Then
+`curl http://localhost/api/auth/get-session` returned **308** — Caddy's HTTP→HTTPS
+redirect — twenty times, and the script reverted a good deploy. The image was later
+confirmed fine by running it directly on the VM.
+
+The rollback happened to be safe only because no migration files differed between the
+two images; that was checked afterwards, not guaranteed by anything. Had a migration
+landed, the reverted image would have met a schema it did not match — precisely the
+limitation the box above describes.
+
+**The lesson, stated plainly:** a check that can revert a deploy was never once run
+against the real Caddy config before being given that power, and its failure branch
+printed nothing. Both are fixed. If a future gate gains authority to undo a deploy, run
+it against production *before* wiring it to the rollback.
 
 ---
 
@@ -1088,14 +1154,40 @@ active membership, zero leftover rows, no bucket objects.
 
 **Blocking nothing, but genuinely outstanding:**
 
-1. **Run `deploy/setup-cicd.sh --apply`** and set `WIF_PROVIDER` / `WIF_SERVICE_ACCOUNT`
-   as repo variables. Until then every deploy is manual, and §9 is untested code.
+1. ~~**Run `deploy/setup-cicd.sh --apply`**~~ — **done.** WIF live, both repo variables
+   set, `production` environment gated on a required reviewer. `5c12dfd` deployed by the
+   pipeline; §9 is no longer untested code. See §9.6 for what the first four runs cost.
 2. ~~**§10 steps 7–10**~~ — **done.** All 22 checks pass against production via
    `deploy/verify-storage.sh`; see §10. Re-run after any change to `fileStorage.ts`,
    `gcs.ts`, or the membership model.
-3. **Verify the purge timer's first run** (§8). It is enabled but has never fired.
-   Confirm from the log that it reports *applying*, not dry-running — a purge stuck in
-   dry-run is silent.
+3. **The purge timer has never run, and would not have.** Checked 2026-07-20, ~18h after
+   bootstrap: `is-enabled` → `enabled`, `is-active` → **`inactive`**, `list-timers` NEXT
+   column empty, journal empty. `vm-bootstrap.sh` ran `systemctl enable` without
+   `--now`, which only arms a unit for the *next boot* — and the VM has not rebooted
+   since the unit was created. Fixed in the script (`enable --now`).
+
+   **Started and verified 2026-07-20.** Sequence used, and worth repeating on any rebuild:
+   dry-run first (`pnpm purge:resources` with no `--apply`) to see the blast radius —
+   it reported `0 file(s)`, `0 object(s)`, `0.0 KB`, so starting carried no data risk —
+   then `systemctl start buildinlime-purge.timer`, then one manual
+   `systemctl start buildinlime-purge.service` to prove the run itself works.
+
+   ```
+   active: active      NEXT: Tue 2026-07-21 00:12:07 UTC
+   PURGING  retention=30d  driver=gcs        <- "PURGING", not "DRY RUN"
+   Deleted longer than 30d ago: 0 file(s)
+   Orphaned in the store (...older than 60m): 0 object(s)
+   Result=success  ExecMainStatus=0
+   ```
+
+   `PURGING` is the line that matters: `--apply` reaches the script through the unit's
+   `docker compose ... -- --apply`, so the timer is not silently dry-running. Note
+   `Persistent=true` did **not** trigger a catch-up run on start — there was no missed
+   schedule to catch up on, since the timer had never been active.
+
+   The general lesson: `enabled` is not `running`. A timer that has never fired looks
+   identical to one that is merely waiting, unless you check `is-active` or the NEXT
+   column.
 4. **`app` is a member of `cloudsqlsuperuser`.** `gcloud sql users create` grants this
    by default, so the app role is more privileged than §4.2.2 assumes and the
    `GRANT electric TO app` membership is not actually load-bearing for it. Revisit once
@@ -1104,7 +1196,15 @@ active membership, zero leftover rows, no bucket objects.
 6. **Promote the fake-gcs-server CI leg** from optional to standard *(storage §8)*.
 7. **Run the app container as a non-root user.** It is `uid=0` today. Partial mitigation
    for the exposure in §11.1 below — it limits a container escape, not an SSRF. Needs a
-   Dockerfile change, rebuild, and redeploy.
+   Dockerfile change, rebuild, and redeploy. Cheaper now that the pipeline works: push a
+   branch, merge, and the deploy is automatic and reversible.
+8. **`two-user-sync.spec.ts` is flaky.** It failed all three Playwright retries in one
+   job, then passed on a fresh runner with no code change, then passed again on `main`.
+   Random flake usually clears on retry #1; three failures in one job and success in
+   another points at something stateful *within* the job — the seed step, or Electric's
+   state at that moment — not dice. This is the spec that would catch a real cross-client
+   sync regression, so a flaky one is a gate that can be talked into passing. Worth
+   diagnosing rather than re-running.
 
 ### 11.1 Secret handling — audited 2026-07-20
 
@@ -1167,8 +1267,10 @@ identity on a platform that offers it.
   below change that. Take scheduled snapshots of the boot and Electric disks, keep
   provisioning reproducible, and accept the exposure deliberately at POC scale.
 - **App deploys touch the box holding the replication slot.** The accepted cost of
-  co-location (§1.3). Compose should leave `electric` alone during app deploys —
-  **verify that empirically** (§9), because if it is wrong every deploy churns the slot.
+  co-location (§1.3). **Verified 2026-07-20** by a real CI deploy: Compose recreated only
+  `app`, while `caddy` and `electric` stayed up 17 hours and `electric_slot_default`
+  stayed `active`/`reserved` (§9). Re-check this if the compose file's service
+  definitions ever change — if it stops holding, every deploy churns the slot.
 - **Deploys are not zero-downtime.** A short gap on every `docker compose up -d`.
 - **Electric connectivity is the item to spike first.** Private-IP Cloud SQL, the
   replication role, `cloudsql.logical_decoding`, and the unexplained "Outgoing IP
