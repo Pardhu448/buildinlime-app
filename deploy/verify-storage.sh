@@ -4,7 +4,11 @@
 # Runs ON the VM (needs .env for DATABASE_URL and the VM's service account for
 # gcloud storage), invoked by hand:
 #
-#   SESSION_COOKIE='better-auth.session_token=...' sudo -E bash /opt/buildinlime/verify-storage.sh
+#   SESSION_COOKIE='__Secure-better-auth.session_token=...' sudo -E bash /opt/buildinlime/verify-storage.sh
+#
+# The cookie carries the __Secure- prefix in production (better-auth adds it over
+# HTTPS). The unprefixed name authenticates as nobody, which surfaces here as a
+# confusing "could not resolve a user" in preflight rather than an auth error.
 #
 # These are the security-critical assertions of the object-storage migration:
 # `serveResourceFile` is the SOLE access gate (§12), so the negative tests in
@@ -71,10 +75,16 @@ COMPOSE=(docker compose --env-file compose.env --env-file .env -f docker-compose
 # Caddy and its certificate.
 q() { psql "$DB_URL" -tAqc "$1"; }
 
-# curl helper — emits "<http_code>" and writes the body to $BODY_FILE.
+# curl helper — emits "<http_code>" and writes the body to $BODY_FILE, or to
+# $OUT_FILE when the caller sets it:  OUT_FILE=x req "$url"
+#
+# OUT_FILE exists because `req -o x` does NOT work: curl pairs -o with URLs
+# positionally, so with a single URL the -o baked in below wins and the caller's
+# is silently ignored — leaving their file uncreated and any cmp against it
+# falsely reporting a mismatch.
 BODY_FILE=$(mktemp)
 req() {
-  curl -sS -b "$SESSION_COOKIE" -o "$BODY_FILE" -w '%{http_code}' --max-time 60 "$@" || echo 000
+  curl -sS -b "$SESSION_COOKIE" -o "${OUT_FILE:-$BODY_FILE}" -w '%{http_code}' --max-time 60 "$@" || echo 000
 }
 
 SESSION_JSON=$(curl -sS -b "$SESSION_COOKIE" --max-time 15 "$BASE_URL/api/auth/get-session" || echo '')
@@ -200,7 +210,7 @@ if [[ "$LARGE" == true ]]; then
              -F "channelId=$CHANNEL_ID" -F "buildunitId=$BUILDUNIT_ID" \
              -F "projectId=$PROJECT_ID" "$BASE_URL/api/resources/upload")
   expect "50 MB upload returns 201" "$code" "201"
-  code=$(req -o "$WORK/large.out" "$BASE_URL/api/resources/$LID/file")
+  code=$(OUT_FILE="$WORK/large.out" req "$BASE_URL/api/resources/$LID/file")
   expect "50 MB download returns 200" "$code" "200"
   if cmp -s "$LRG" "$WORK/large.out"; then pass "50 MB bytes identical"; else fail "50 MB bytes DIFFER"; fi
   q "delete from resources_raw where resource_id = '$LID'" >/dev/null
@@ -243,7 +253,7 @@ expect "replication slot still active/reserved" "$SLOT" "true,reserved"
 
 # curl, not a browser — cache-control is private/max-age=3600, and a cache hit
 # would validate the cache instead of the server.
-code=$(req -o "$WORK/after.png" "$BASE_URL/api/resources/$RID/file")
+code=$(OUT_FILE="$WORK/after.png" req "$BASE_URL/api/resources/$RID/file")
 expect "file still served after container recreation" "$code" "200"
 if cmp -s "$SRC" "$WORK/after.png"; then pass "bytes survive container destruction"; else fail "bytes DIFFER after recreation"; fi
 

@@ -1005,15 +1005,27 @@ replication slot.
 | 4 | Electric sync | ✅ container healthy, shapes served |
 | 5 | Exactly one replication slot | ✅ `electric_slot_default`, active, `wal_status=reserved` |
 | 6 | Electric writes to the data disk | ✅ `/dev/sdb`, not the boot disk |
+| 7 | Upload lands as a **key** at `resources/<id>/<name>` | ✅ key not path, filename sanitised (`ma_ana_report.png`), `original_filename` preserved unsanitised, object present in the bucket |
+| 8 | Download round-trip via `serveResourceFile` | ✅ byte-identical, `content-type` round-trips, `cache-control: private`, `content-disposition: attachment` |
+| 9 | **Negative tests** — the §8 guard | ✅ non-member 404, soft-deleted 404, nonexistent 404, access restored when membership returns, bytes outlive the soft delete, **all three 404 bodies byte-identical** (no existence oracle) |
+| 10 | **Statelessness** | ✅ app container genuinely recreated (ID changed), files still serve byte-identical, `electric` untouched and slot still `active/reserved` |
 
-### Outstanding — need an authenticated session
+Steps 7–10 are scripted in `deploy/verify-storage.sh` — run on the VM with a live
+session cookie. Re-runnable; an `EXIT` trap restores membership and removes the test
+resource on every path including failure. Verified independently after the run: one
+active membership, zero leftover rows, no bucket objects.
 
-| # | Check |
-|---|---|
-| 7 | Upload a file; confirm the object lands at `resources/<id>/<name>` in the bucket and `storage_path` holds a **key**, not a path |
-| 8 | Download it back — exercises `serveResourceFile`'s stream path |
-| 9 | **Negative tests:** soft-deleted → 404, non-member → 404. The §8 guard, and the security-critical assertion of the whole migration |
-| 10 | **Statelessness:** destroy and recreate the app container, confirm previously-uploaded files still serve. §12.1's original "instance A → instance B" proof is unavailable on one VM; this demonstrates the same property (§1.4) |
+**Two things the first run caught, both in the test rather than the system:**
+
+- The production cookie carries better-auth's `__Secure-` prefix over HTTPS. The
+  unprefixed name authenticates as nobody, which surfaces as a confusing
+  "could not resolve a user" in preflight rather than an auth error.
+- Step 10 reported *"file still served (200)"* and *"bytes DIFFER"* simultaneously —
+  contradictory, and the tell. `req()` bakes in `-o "$BODY_FILE"`, and the caller
+  passed a second `-o`; **curl pairs `-o` with URLs positionally**, so with one URL the
+  caller's file was never created and `cmp` ran against a missing path. A test that
+  fails for a reason unrelated to what it measures. Fixed with an `OUT_FILE` override;
+  the same latent bug sat in the `--large` branch.
 
 ### Findings from first use
 
@@ -1040,9 +1052,9 @@ replication slot.
 
 1. **Run `deploy/setup-cicd.sh --apply`** and set `WIF_PROVIDER` / `WIF_SERVICE_ACCOUNT`
    as repo variables. Until then every deploy is manual, and §9 is untested code.
-2. **§10 steps 7–10** — the upload/download path and the §8 access-gate negative tests.
-   These are the security-critical assertions of the storage migration and are still
-   unverified in production.
+2. ~~**§10 steps 7–10**~~ — **done.** All 22 checks pass against production via
+   `deploy/verify-storage.sh`; see §10. Re-run after any change to `fileStorage.ts`,
+   `gcs.ts`, or the membership model.
 3. **Verify the purge timer's first run** (§8). It is enabled but has never fired.
    Confirm from the log that it reports *applying*, not dry-running — a purge stuck in
    dry-run is silent.
