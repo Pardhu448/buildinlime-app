@@ -1,4 +1,4 @@
-import { LoginHeader, LoginDecorativeImage , LoginForm , LoginTerms  } from "../components/buildInlime";
+import { LoginHeader, LoginDecorativeImage , LoginForm , LoginTerms, Footer  } from "../components/buildInlime";
 
 export default function LoginPage2() {
   return (
@@ -17,6 +17,8 @@ export default function LoginPage2() {
           </div>
         </div>
       </div>
+
+      <Footer compact />
     </div>
   );
 }

@@ -50,8 +50,12 @@ export { TeamSection } from "./admin/TeamSection";
 export { UserInfo } from "./admin/UserInfo";
 
 // shared / landing / login (remain flat in buildInlime/)
+export { ArticleList, type ArticleListProps } from "./ArticleList";
 export { BottomSection } from "./BottomSection";
+export { CategoryChip } from "./CategoryChip";
+export { PageHeading } from "./PageHeading";
 export { DisplayButton } from "./DisplayButton";
+export { FeatureSection } from "./FeatureSection";
 export { FeaturesCarousel } from "./FeaturesCarousel";
 export { FilterButton } from "./FilterButton";
 export { Footer } from "./Footer";
@@ -64,6 +68,9 @@ export { LoginForm } from "./LoginForm";
 export { LoginHeader } from "./LoginHeader";
 export { LoginTerms } from "./LoginTerms";
 export { NavButton } from "./NavButton";
+export { ProseSection } from "./ProseSection";
+export { ResourceSection, type Article, type ResourceSectionProps } from "./ResourceSection";
 export { RoutePendingComponent } from "./RoutePendingComponent";
+export { StepSection, type Step, type StepSectionProps } from "./StepSection";
 export { ToolbarButton } from "./ToolbarButton";
 export { TrySection } from "./TrySection";
