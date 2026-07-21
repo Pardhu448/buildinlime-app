@@ -75,13 +75,13 @@ export function Footer({ compact = false }: { compact?: boolean } = {}) {
               </Link>
             </li>
             <li>
-              <a
-                href="#pricing"
+              <Link
+                to="/pricing"
                 className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-primary transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 Pricing
-              </a>
+              </Link>
             </li>
             <li>
               <a
@@ -158,12 +158,12 @@ function Copyright() {
       {new Date().getFullYear()}
       {" "}
       <a
-        href="https://buildinlime.com"
+        href="https://barefootprogrammers.in"
         className="hover:text-primary transition-colors"
         target="_blank"
         rel="noreferrer"
       >
-        buildinlime.com
+        barefootprogrammers.in
       </a>
       {". All rights reserved."}
     </p>

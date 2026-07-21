@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, User, LogOut } from "lucide-react";
+import { ChevronDown, User, LogOut, Home } from "lucide-react";
 import { signOutAndDispose } from "%/infrastructure/auth/client";
 
 interface UserInfoProps {
@@ -43,6 +43,15 @@ export function UserInfo({ initials, name }: UserInfoProps) {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
           <div className="absolute left-4 right-4 top-14 bg-white border border-gray-200 shadow-lg rounded-lg z-50 overflow-hidden">
+            <Link
+              to="/"
+              onClick={() => setUserMenuOpen(false)}
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-gray-50 transition-colors text-left"
+            >
+              <Home className="w-4 h-4 text-muted-foreground" />
+              <span>Home</span>
+            </Link>
+            <div className="border-t border-gray-200" />
             <Link
               to="/account"
               onClick={() => setUserMenuOpen(false)}

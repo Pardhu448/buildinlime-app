@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResourcesRouteImport } from './routes/resources'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as GetStartedRouteImport } from './routes/get-started'
 import { Route as FeaturesRouteImport } from './routes/features'
@@ -52,6 +53,11 @@ import { Route as AuthenticatedProjectsProjectIdBuildUnitNameChannelNameTaskName
 const ResourcesRoute = ResourcesRouteImport.update({
   id: '/resources',
   path: '/resources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -267,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/features': typeof FeaturesRoute
   '/get-started': typeof GetStartedRoute
   '/login': typeof LoginRoute
+  '/pricing': typeof PricingRoute
   '/resources': typeof ResourcesRoute
   '/account': typeof AuthenticatedAccountRoute
   '/inbox': typeof AuthenticatedInboxRoute
@@ -307,6 +314,7 @@ export interface FileRoutesByTo {
   '/features': typeof FeaturesRoute
   '/get-started': typeof GetStartedRoute
   '/login': typeof LoginRoute
+  '/pricing': typeof PricingRoute
   '/resources': typeof ResourcesRoute
   '/account': typeof AuthenticatedAccountRoute
   '/inbox': typeof AuthenticatedInboxRoute
@@ -346,6 +354,7 @@ export interface FileRoutesById {
   '/features': typeof FeaturesRoute
   '/get-started': typeof GetStartedRoute
   '/login': typeof LoginRoute
+  '/pricing': typeof PricingRoute
   '/resources': typeof ResourcesRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
@@ -388,6 +397,7 @@ export interface FileRouteTypes {
     | '/features'
     | '/get-started'
     | '/login'
+    | '/pricing'
     | '/resources'
     | '/account'
     | '/inbox'
@@ -428,6 +438,7 @@ export interface FileRouteTypes {
     | '/features'
     | '/get-started'
     | '/login'
+    | '/pricing'
     | '/resources'
     | '/account'
     | '/inbox'
@@ -466,6 +477,7 @@ export interface FileRouteTypes {
     | '/features'
     | '/get-started'
     | '/login'
+    | '/pricing'
     | '/resources'
     | '/_authenticated/account'
     | '/_authenticated/inbox'
@@ -508,6 +520,7 @@ export interface RootRouteChildren {
   FeaturesRoute: typeof FeaturesRoute
   GetStartedRoute: typeof GetStartedRoute
   LoginRoute: typeof LoginRoute
+  PricingRoute: typeof PricingRoute
   ResourcesRoute: typeof ResourcesRoute
   ApiBuildunitsRoute: typeof ApiBuildunitsRoute
   ApiChannelMembersRoute: typeof ApiChannelMembersRoute
@@ -535,6 +548,13 @@ declare module '@tanstack/react-router' {
       path: '/resources'
       fullPath: '/resources'
       preLoaderRoute: typeof ResourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -904,6 +924,7 @@ const rootRouteChildren: RootRouteChildren = {
   FeaturesRoute: FeaturesRoute,
   GetStartedRoute: GetStartedRoute,
   LoginRoute: LoginRoute,
+  PricingRoute: PricingRoute,
   ResourcesRoute: ResourcesRoute,
   ApiBuildunitsRoute: ApiBuildunitsRoute,
   ApiChannelMembersRoute: ApiChannelMembersRoute,

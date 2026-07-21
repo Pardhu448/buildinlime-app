@@ -4,14 +4,13 @@ import { HEADER_LINK_CLASS, HEADER_LINK_STYLE } from "./HeaderShell";
 /**
  * The marketing nav, byte-identical in Header and HeaderLoggedIn before this.
  *
- * Items whose page exists link to it; Pricing still points at "/" as a
- * placeholder, which is preserved rather than quietly fixed.
+ * Every item links to a real page.
  */
 const ITEMS = [
   { label: "About", to: "/about" },
   { label: "Resources", to: "/resources" },
   { label: "Get Started", to: "/get-started" },
-  { label: "Pricing", to: "/" },
+  { label: "Pricing", to: "/pricing" },
 ] as const;
 
 export function MarketingNav() {

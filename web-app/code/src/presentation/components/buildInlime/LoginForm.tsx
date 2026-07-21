@@ -243,6 +243,21 @@ export function LoginForm() {
                 </>
               )}
             </button>
+
+            {/* Signup only — let users return to the email login if they picked
+                signup by mistake or mistyped their address. */}
+            {isSignup && (
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => router.navigate({ to: '/login', search: { mode: 'login', returnTo } })}
+                  className="font-['Instrument_Sans',sans-serif] text-[14px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 mx-auto"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to login
+                </button>
+              </div>
+            )}
           </form>
         )}
 

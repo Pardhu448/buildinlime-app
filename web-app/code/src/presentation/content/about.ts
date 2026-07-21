@@ -18,8 +18,8 @@ export const ABOUT_SECTIONS: AboutSection[] = [
   {
     title: "Where we come from",
     paragraphs: [
-      "As part of our exploration of alternative ways of living we came across natural and eco-friendly architecture and buildings — mud, lime, local materials and methods that sit light on the places they are built in.",
-      "Our thinking is motivated by the work of Laurie Baker, Thannal, and the many other natural builders who showed that thoughtful, low-cost, climate-appropriate building is not a compromise but a craft.",
+      "As part of our exploration of alternative ways of living we came across natural and eco-friendly architecture and buildings — mud, lime, local materials and vernacular methods that are closely aligned to the places they are built in and communities they are built for.",
+      "Our thinking is motivated by the works of Laurie Baker, Thannal, and many other natural builders who showed that thoughtful, low-cost, climate-appropriate building is not a compromise but a craft.",
     ],
   },
   {
