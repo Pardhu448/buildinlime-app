@@ -9,14 +9,22 @@ import {
   PropertiesPanel,
   PageTopBar,
 } from "../components/buildInlime";
+import { ConfirmDeleteModal } from "../components/buildInlime/shared/ConfirmDeleteModal";
 import type { Channel } from "../components/buildInlime";
 import type { Property } from "%/domain/communication/types";
 import type { PendingItem } from "%/presentation/hooks/use-pending-items";
 
 
 
-export function BuildUnitPage({ projectId, buildUnitName, buildUnitId, projectName, buildUnitDesc, channels, properties: dbProperties, pendingChannelIds, addPendingChannel, removePendingChannel, onChannelTrpcComplete }: { projectId: string; buildUnitName: string; buildUnitId: string; projectName: string; buildUnitDesc: string; channels?: Channel[]; properties?: Property[]; pendingChannelIds: Set<string>; addPendingChannel: (item: PendingItem) => void; removePendingChannel: (id: string) => void; onChannelTrpcComplete: (id: string) => void }) {
+export function BuildUnitPage({ projectId, buildUnitName, buildUnitId, projectName, buildUnitDesc, channels, properties: dbProperties, pendingChannelIds, addPendingChannel, removePendingChannel, onChannelTrpcComplete, deleteChannel }: { projectId: string; buildUnitName: string; buildUnitId: string; projectName: string; buildUnitDesc: string; channels?: Channel[]; properties?: Property[]; pendingChannelIds: Set<string>; addPendingChannel: (item: PendingItem) => void; removePendingChannel: (id: string) => void; onChannelTrpcComplete: (id: string) => void; deleteChannel?: (id: string) => void }) {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  // The channel awaiting delete confirmation — drives the modal. null = closed.
+  const [channelToDelete, setChannelToDelete] = useState<{ id: string; title: string } | null>(null);
+  const confirmDeleteChannel = () => {
+    if (!channelToDelete) return;
+    deleteChannel?.(channelToDelete.id);
+    setChannelToDelete(null);
+  };
 
   return (
     <div className="flex h-screen bg-white font-['Instrument_Sans',sans-serif]">
@@ -70,6 +78,7 @@ export function BuildUnitPage({ projectId, buildUnitName, buildUnitId, projectNa
                 addPending={addPendingChannel}
                 removePending={removePendingChannel}
                 onTrpcComplete={onChannelTrpcComplete}
+                onDeleteChannel={deleteChannel ? (channel) => setChannelToDelete({ id: channel.id, title: channel.title }) : undefined}
               />
             </div>
           </div>
@@ -94,9 +103,17 @@ export function BuildUnitPage({ projectId, buildUnitName, buildUnitId, projectNa
               </div>
             </aside>
           )}
-          
+
         </div>
       </main>
+
+      <ConfirmDeleteModal
+        open={!!channelToDelete}
+        onClose={() => setChannelToDelete(null)}
+        onConfirm={confirmDeleteChannel}
+        entityName={channelToDelete?.title ?? ""}
+        constituents="tasks"
+      />
     </div>
   );
 }

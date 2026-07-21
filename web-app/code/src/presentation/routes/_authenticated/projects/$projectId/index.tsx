@@ -13,6 +13,7 @@ import {
   EMPTY_BUILD_UNIT_FILTERS,
   RoutePendingComponent,
 } from "../../../../components/buildInlime";
+import { ConfirmDeleteModal } from "../../../../components/buildInlime/shared/ConfirmDeleteModal";
 import { useProjectBuildUnits } from "../../../../hooks/use-project-build-units";
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId/')({
@@ -22,8 +23,16 @@ export const Route = createFileRoute('/_authenticated/projects/$projectId/')({
 
 function ProjectRoute() {
   const { projectId } = Route.useParams()
-  const { projectName, buildUnits, pendingIds, addPending, removePending, onTrpcComplete, onBuildUnitClick } =
+  const { projectName, buildUnits, pendingIds, addPending, removePending, onTrpcComplete, onBuildUnitClick, deleteBuildUnit } =
     useProjectBuildUnits(projectId)
+
+  // The build unit awaiting delete confirmation — drives the modal. null = closed.
+  const [buildUnitToDelete, setBuildUnitToDelete] = useState<{ id: string; name: string } | null>(null)
+  const confirmDeleteBuildUnit = () => {
+    if (!buildUnitToDelete) return
+    deleteBuildUnit(buildUnitToDelete.id)
+    setBuildUnitToDelete(null)
+  }
 
   // Toggle between the tabular view (default) and a thumbnail/card grid,
   // driven by the "Display" toolbar button.
@@ -103,9 +112,9 @@ function ProjectRoute() {
             right — both sit below the toolbar and share the remaining height. */}
         <div className="flex flex-1 overflow-hidden">
           {viewMode === "table" ? (
-            <BuildUnitsTable buildUnits={visibleBuildUnits} onBuildUnitClick={onBuildUnitClick} pendingIds={pendingIds} />
+            <BuildUnitsTable buildUnits={visibleBuildUnits} onBuildUnitClick={onBuildUnitClick} onDeleteBuildUnit={(bu) => setBuildUnitToDelete({ id: bu.id, name: bu.name })} pendingIds={pendingIds} />
           ) : (
-            <BuildUnitsGrid buildUnits={visibleBuildUnits} onBuildUnitClick={onBuildUnitClick} pendingIds={pendingIds} />
+            <BuildUnitsGrid buildUnits={visibleBuildUnits} onBuildUnitClick={onBuildUnitClick} onDeleteBuildUnit={(bu) => setBuildUnitToDelete({ id: bu.id, name: bu.name })} pendingIds={pendingIds} />
           )}
           {filterOpen && (
             <BuildUnitsFilterPanel
@@ -116,6 +125,14 @@ function ProjectRoute() {
           )}
         </div>
       </div>
+
+      <ConfirmDeleteModal
+        open={!!buildUnitToDelete}
+        onClose={() => setBuildUnitToDelete(null)}
+        onConfirm={confirmDeleteBuildUnit}
+        entityName={buildUnitToDelete?.name ?? ""}
+        constituents="channels and tasks"
+      />
     </div>
   );
 }

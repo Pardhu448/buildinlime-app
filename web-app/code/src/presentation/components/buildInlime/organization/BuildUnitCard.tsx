@@ -1,30 +1,31 @@
-import { Package } from "lucide-react";
+import { Package, Trash2 } from "lucide-react";
 import type { BuildUnit } from "./BuildUnitsTable";
 import { PropertyPill } from "../communication/PropertyPill";
 
 interface BuildUnitCardProps {
   unit: BuildUnit;
   onClick?: () => void;
+  onDelete?: (unit: BuildUnit) => void;
   isPending?: boolean;
 }
 
-export function BuildUnitCard({ unit, onClick, isPending }: BuildUnitCardProps) {
+export function BuildUnitCard({ unit, onClick, onDelete, isPending }: BuildUnitCardProps) {
   // taskStatus is never meaningful on a build unit; drop it defensively.
   const properties = unit.properties.filter((p) => p.type !== "taskStatus");
 
   return (
     <div
       onClick={!isPending ? onClick : undefined}
-      className={`bg-card-surface border border-card-border rounded-lg p-4 transition-colors ${
+      className={`group bg-card-surface border border-card-border rounded-lg p-4 transition-colors ${
         isPending ? "opacity-70 cursor-default" : "hover:bg-icon-chip cursor-pointer"
       }`}
     >
-      {/* Header: icon + name */}
+      {/* Header: icon + name + delete */}
       <div className="flex items-center gap-3 mb-3">
         <div className="w-10 h-10 rounded bg-icon-chip border border-card-border flex items-center justify-center shrink-0">
           <Package className="w-5 h-5 text-primary" />
         </div>
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <h3 className="font-semibold text-foreground truncate">{unit.name}</h3>
           {isPending && (
             <svg
@@ -38,6 +39,20 @@ export function BuildUnitCard({ unit, onClick, isPending }: BuildUnitCardProps) 
             </svg>
           )}
         </div>
+        {!isPending && onDelete && unit.canDelete && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(unit);
+            }}
+            title="Delete this build unit"
+            aria-label={`Delete ${unit.name}`}
+            className="p-1.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 transition-all shrink-0"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Properties — value pills, same source of truth as the table */}

@@ -106,6 +106,10 @@ export const projectRowSchema = z.object({
   status_percent: z.string().nullish(),
   owner_id: z.string(),
   created_at: wireTimestamp.optional(),
+  // Carried even though projectsShape filters soft-deleted rows out server-side
+  // (`deleted_at IS NULL`) — see the same note on taskRowSchema below.
+  deleted_at: wireTimestamp.nullish(),
+  deleted_by_id: z.string().nullish(),
 })
 
 export const buildUnitRowSchema = z.object({
@@ -122,6 +126,8 @@ export const buildUnitRowSchema = z.object({
   project_id: z.string(),
   owner_id: z.string(),
   created_at: wireTimestamp.optional(),
+  deleted_at: wireTimestamp.nullish(),
+  deleted_by_id: z.string().nullish(),
 })
 
 export const channelRowSchema = z.object({
@@ -131,6 +137,8 @@ export const channelRowSchema = z.object({
   buildunit_id: z.string(),
   owner_id: z.string(),
   created_at: wireTimestamp.optional(),
+  deleted_at: wireTimestamp.nullish(),
+  deleted_by_id: z.string().nullish(),
 })
 
 /**

@@ -25,6 +25,14 @@ export const projectsTable = pgTable(`projects`, {
     .notNull()
     .references(() => users.id, { onDelete: `cascade` }),
   status_percent: varchar({ length: 10 }),
+  // Soft delete — mirrors tasks/resources. A deleted project is filtered OUT of
+  // projectsShape (`deleted_at IS NULL`) and vanishes for every client. Its
+  // descendants (build units, channels, tasks, resources) are soft-deleted in the
+  // same transaction by the projects router, because the child shapes don't check
+  // the parent's deleted state — without the cascade they'd be orphaned yet visible.
+  deleted_at: timestamp({ withTimezone: true }),
+  deleted_by_id: text(`deleted_by_id`)
+    .references(() => users.id, { onDelete: `set null` }),
 })
 
 export const buildUnitsTable = pgTable(`build_units`, {
@@ -45,6 +53,11 @@ export const buildUnitsTable = pgTable(`build_units`, {
     .notNull()
     .references(() => users.id, { onDelete: `cascade` }),
   created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  // Soft delete — see projectsTable. Filtered out of buildUnitsShape; its channels,
+  // tasks and resources are soft-deleted with it by the build-units router.
+  deleted_at: timestamp({ withTimezone: true }),
+  deleted_by_id: text(`deleted_by_id`)
+    .references(() => users.id, { onDelete: `set null` }),
 })
 
 export const CHANNEL_NAMES = ["Finance", "Requirements", "Design", "Materials", "Tools", "Execution", "Experimentation"] as const
@@ -61,6 +74,11 @@ export const channelsTable = pgTable(`channels`, {
     .notNull()
     .references(() => users.id, { onDelete: `cascade` }),
   created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  // Soft delete — see projectsTable. Filtered out of channelsShape; its tasks and
+  // resources are soft-deleted with it by the channels router.
+  deleted_at: timestamp({ withTimezone: true }),
+  deleted_by_id: text(`deleted_by_id`)
+    .references(() => users.id, { onDelete: `set null` }),
 })
 
 export const MEMBERSHIP_ROLES = [`owner`, `co-owner`, `viewer`] as const
@@ -77,14 +95,23 @@ export const membershipTable = pgTable(`memberships`, {
   created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex(`memberships_user_channel_unique`).on(t.user_id, t.channel_id)])
 
+// deleted_at / deleted_by_id are nullish in every SELECT schema and omitted from
+// every INSERT schema, for the reasons documented at length in
+// communication-tables.ts: the select schemas double as the client-side validators
+// on the Electric collections (a required deleted_at would reject every optimistic
+// insert), and soft-deletion is the server's to stamp, never a client's to assert.
 export const selectProjectSchema = createSelectSchema(projectsTable).extend({
   description: z.string().nullish(),
   priority: z.enum(["High", "Mid", "Low"]).nullish(),
   target_date: z.string().nullish(),
   status_percent: z.string().nullish(),
+  deleted_at: z.coerce.date().nullish(),
+  deleted_by_id: z.string().nullish(),
 })
 export const createProjectSchema = createInsertSchema(projectsTable).omit({
   created_at: true,
+  deleted_at: true,
+  deleted_by_id: true,
 })
 export const updateProjectSchema = createUpdateSchema(projectsTable)
 
@@ -97,17 +124,25 @@ export const selectBuildUnitSchema = createSelectSchema(buildUnitsTable).extend(
   task_since: z.string().nullish(),
   target_date: z.string().nullish(),
   status_percent: z.string().nullish(),
+  deleted_at: z.coerce.date().nullish(),
+  deleted_by_id: z.string().nullish(),
 })
 export const createBuildUnitSchema = createInsertSchema(buildUnitsTable).omit({
   created_at: true,
+  deleted_at: true,
+  deleted_by_id: true,
 })
 export const updateBuildUnitSchema = createUpdateSchema(buildUnitsTable)
 
 export const selectChannelSchema = createSelectSchema(channelsTable).extend({
   name: z.enum(CHANNEL_NAMES),
+  deleted_at: z.coerce.date().nullish(),
+  deleted_by_id: z.string().nullish(),
 })
 export const createChannelSchema = createInsertSchema(channelsTable).omit({
   created_at: true,
+  deleted_at: true,
+  deleted_by_id: true,
 })
 export const updateChannelSchema = createUpdateSchema(channelsTable)
 

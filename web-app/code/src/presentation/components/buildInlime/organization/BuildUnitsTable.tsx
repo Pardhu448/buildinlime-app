@@ -1,4 +1,4 @@
-import { Package } from "lucide-react";
+import { Package, Trash2 } from "lucide-react";
 import type { Property } from "%/domain/communication/types";
 import { PropertyPill } from "../communication/PropertyPill";
 
@@ -19,15 +19,18 @@ export type BuildUnit = {
   };
   targetDate: string;
   statusPercent: number;
+  // Whether the current user owns this build unit — gates the delete affordance.
+  canDelete: boolean;
 };
 
 interface BuildUnitsTableProps {
   buildUnits: BuildUnit[];
   onBuildUnitClick?: (buildUnit: BuildUnit) => void;
+  onDeleteBuildUnit?: (buildUnit: BuildUnit) => void;
   pendingIds?: Set<string>;
 }
 
-export function BuildUnitsTable({ buildUnits, onBuildUnitClick, pendingIds }: BuildUnitsTableProps) {
+export function BuildUnitsTable({ buildUnits, onBuildUnitClick, onDeleteBuildUnit, pendingIds }: BuildUnitsTableProps) {
   return (
     <div className="flex-1 overflow-auto bg-white">
       <table className="w-full">
@@ -45,6 +48,7 @@ export function BuildUnitsTable({ buildUnits, onBuildUnitClick, pendingIds }: Bu
             >
               Properties
             </th>
+            <th className="w-12 px-6 py-3" />
           </tr>
         </thead>
         <tbody>
@@ -55,7 +59,7 @@ export function BuildUnitsTable({ buildUnits, onBuildUnitClick, pendingIds }: Bu
             return (
               <tr
                 key={unit.id}
-                className="border-b border-card-border hover:bg-card-surface transition-colors cursor-pointer"
+                className="group border-b border-card-border hover:bg-card-surface transition-colors cursor-pointer"
                 onClick={() => onBuildUnitClick?.(unit)}
               >
                 <td className="px-6 py-4 align-top">
@@ -94,6 +98,22 @@ export function BuildUnitsTable({ buildUnits, onBuildUnitClick, pendingIds }: Bu
                         <PropertyPill key={property.id} property={property} showValue />
                       ))}
                     </div>
+                  )}
+                </td>
+                <td className="px-6 py-4 align-top text-right">
+                  {onDeleteBuildUnit && unit.canDelete && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteBuildUnit(unit);
+                      }}
+                      title="Delete this build unit"
+                      aria-label={`Delete ${unit.name}`}
+                      className="p-1.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   )}
                 </td>
               </tr>

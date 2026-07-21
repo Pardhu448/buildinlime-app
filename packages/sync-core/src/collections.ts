@@ -130,7 +130,7 @@ export function makeShapeRetry(log?: (message: string) => void): ShapeRetry {
  * is the point: bump it whenever any row schema changes shape, so cached rows that
  * predate the change are discarded rather than validated as undefined.
  */
-export const COLLECTION_SCHEMA_VERSION = 3
+export const COLLECTION_SCHEMA_VERSION = 4
 
 /** The tanstack builders + per-app primitives a collection definition needs. */
 export interface CollectionRuntime {

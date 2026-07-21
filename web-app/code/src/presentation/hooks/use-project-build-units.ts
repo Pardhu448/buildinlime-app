@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { useLiveQuery, eq, inArray } from "@tanstack/react-db"
 import { projectsCollection, buildUnitsCollection, propertiesCollection } from "%/infrastructure/database/tanstack-db-electric/admincollections"
+import { useSession } from "%/infrastructure/auth/client"
 import { mapPropertyRow } from "%/presentation/lib/utils"
 import type { Property } from "%/domain/communication/types"
 import { usePendingBuildUnits } from "./use-pending-build-units"
 
 export function useProjectBuildUnits(projectId: string) {
   const navigate = useNavigate()
+  const { data: session } = useSession()
   const { pendingItems, pendingIds, addPending, removePending } = usePendingBuildUnits()
 
   const pendingIdsRef = useRef(pendingIds)
@@ -72,6 +74,9 @@ export function useProjectBuildUnits(projectId: string) {
     },
     targetDate: bu.target_date ?? "—",
     statusPercent: parseInt(bu.status_percent ?? "0", 10),
+    // Owner-only delete. The server enforces it (buildUnits.delete returns
+    // NOT_FOUND otherwise); hiding the trash button is courtesy.
+    canDelete: !!session?.user && bu.owner_id === session.user.id,
   }))
 
   // Ghost rows: keep pending items visible during Electric txid reconciliation
@@ -88,6 +93,8 @@ export function useProjectBuildUnits(projectId: string) {
       waitingOnTask: { name: "—", assignee: "—", since: "—" },
       targetDate: "—",
       statusPercent: 0,
+      // A ghost row is still reconciling its create — never offer to delete it.
+      canDelete: false,
     }))
 
   const buildUnits = [...dbBuildUnits, ...ghostRows]
@@ -105,6 +112,15 @@ export function useProjectBuildUnits(projectId: string) {
     })
   }
 
+  // Soft delete, owner-only. The build unit and its channels/tasks/resources fall
+  // out of their Electric shapes — the server cascades the soft-delete in one
+  // transaction (buildUnits.delete). The collection.delete triggers onDelete →
+  // trpc.buildUnits.delete. Confirmation is the page's job (ConfirmDeleteModal);
+  // this is the raw action run once the user confirms.
+  const deleteBuildUnit = (id: string) => {
+    buildUnitsCollection.delete(id)
+  }
+
   return {
     projectName,
     buildUnits,
@@ -113,5 +129,6 @@ export function useProjectBuildUnits(projectId: string) {
     removePending,
     onTrpcComplete,
     onBuildUnitClick,
+    deleteBuildUnit,
   }
 }
