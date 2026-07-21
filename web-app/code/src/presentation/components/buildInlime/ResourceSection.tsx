@@ -8,7 +8,7 @@
 
 import { Link } from "@tanstack/react-router";
 import { CategoryChip } from "./CategoryChip";
-import type { Article } from "../../content/articles";
+import { articleSlug, type Article } from "../../content/articles";
 
 export type { Article };
 
@@ -60,7 +60,13 @@ export function ResourceSection({ title, description, to, articles }: ResourceSe
               className="font-['Instrument_Sans',sans-serif] font-semibold text-[20px] leading-[29px] text-black"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
-              {latest.title}
+              <Link
+                to={to}
+                hash={articleSlug(latest)}
+                className="hover:text-primary transition-colors"
+              >
+                {latest.title}
+              </Link>
             </h3>
 
             <p
@@ -110,7 +116,13 @@ export function ResourceSection({ title, description, to, articles }: ResourceSe
                     className="font-['Instrument_Sans',sans-serif] font-medium text-[15px] leading-[22px] text-black"
                     style={{ fontVariationSettings: "'wdth' 100" }}
                   >
-                    {article.title}
+                    <Link
+                      to={to}
+                      hash={articleSlug(article)}
+                      className="hover:text-primary transition-colors"
+                    >
+                      {article.title}
+                    </Link>
                   </h4>
                   <div className="flex items-center gap-[12px]">
                     <span
