@@ -14,6 +14,8 @@ export interface Channel {
   linkParams?: { projectId: string; buildUnitName: string; channelName: string };
   onClick?: () => void;
   properties?: Property[];
+  /** Whether the current user owns this channel — gates the delete affordance. */
+  canDelete?: boolean;
 }
 
 export interface ChannelsSectionProps {
@@ -23,9 +25,10 @@ export interface ChannelsSectionProps {
   addPending: (item: PendingItem) => void;
   removePending: (id: string) => void;
   onTrpcComplete: (id: string) => void;
+  onDeleteChannel?: (channel: Channel) => void;
 }
 
-export function ChannelsSection({ channels, buildUnitId, pendingIds, addPending, removePending, onTrpcComplete }: ChannelsSectionProps) {
+export function ChannelsSection({ channels, buildUnitId, pendingIds, addPending, removePending, onTrpcComplete, onDeleteChannel }: ChannelsSectionProps) {
   return (
     <div className="border-t border-gray-200 pt-6 mb-8">
       <div className="flex items-center justify-between mb-4">
@@ -52,6 +55,8 @@ export function ChannelsSection({ channels, buildUnitId, pendingIds, addPending,
             onClick={channel.onClick}
             isPending={pendingIds.has(channel.id)}
             properties={channel.properties}
+            canDelete={channel.canDelete}
+            onDelete={onDeleteChannel ? () => onDeleteChannel(channel) : undefined}
           />
         ))}
       </div>

@@ -65,16 +65,17 @@ describe("user-scoped shapes", () => {
 })
 
 describe("owner-escape shapes", () => {
-  it("projects ORs the member set with ownership", () => {
-    // Was: `id = ANY(...) OR owner_id = '...'` — same, now parenthesised.
+  it("projects ORs the member set with ownership and hides soft-deleted rows", () => {
+    // The OR is parenthesised and notDeleted is AND-ed outside it, so an owned
+    // project that has been soft-deleted still falls out of the shape.
     expect(whereOf(shapes.projectsShape)).toBe(
-      `(id = ANY(ARRAY['${PR}']::text[]) OR owner_id = '${ME}')`,
+      `(id = ANY(ARRAY['${PR}']::text[]) OR owner_id = '${ME}') AND deleted_at IS NULL`,
     )
   })
 
-  it("channels ORs the member set with ownership", () => {
+  it("channels ORs the member set with ownership and hides soft-deleted rows", () => {
     expect(whereOf(shapes.channelsShape)).toBe(
-      `(id = ANY(ARRAY['${CH}']::text[]) OR owner_id = '${ME}')`,
+      `(id = ANY(ARRAY['${CH}']::text[]) OR owner_id = '${ME}') AND deleted_at IS NULL`,
     )
   })
 
@@ -82,7 +83,7 @@ describe("owner-escape shapes", () => {
     // The whole point of the escape hatch: you see what you own before anyone
     // grants you membership. Must NOT collapse to `1 = 0`.
     expect(whereOf(shapes.projectsShape, { scope: emptyScope })).toBe(
-      `owner_id = '${ME}'`,
+      `owner_id = '${ME}' AND deleted_at IS NULL`,
     )
   })
 
@@ -90,7 +91,7 @@ describe("owner-escape shapes", () => {
     // Precedence is the thing under test: the OR must be grouped, or the
     // project filter would leak every owned build unit past the boundary.
     expect(whereOf(shapes.buildUnitsShape, { query: `?project_id=${PR}` })).toBe(
-      `(id = ANY(ARRAY['${BU}']::text[]) OR owner_id = '${ME}') AND project_id = '${PR}'`,
+      `(id = ANY(ARRAY['${BU}']::text[]) OR owner_id = '${ME}') AND project_id = '${PR}' AND deleted_at IS NULL`,
     )
   })
 
@@ -99,7 +100,7 @@ describe("owner-escape shapes", () => {
       query: `?project_id='; DROP TABLE build_units;--`,
     })
     expect(where).not.toContain("DROP")
-    expect(where).toBe(`(id = ANY(ARRAY['${BU}']::text[]) OR owner_id = '${ME}')`)
+    expect(where).toBe(`(id = ANY(ARRAY['${BU}']::text[]) OR owner_id = '${ME}') AND deleted_at IS NULL`)
   })
 })
 

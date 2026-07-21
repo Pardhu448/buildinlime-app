@@ -1,12 +1,14 @@
 import { router, authedProcedure, generateTxId } from "../lib/trpc"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
-import { eq, and, sql } from "drizzle-orm"
+import { eq, and, sql, isNull } from "drizzle-orm"
 import {
   channelsTable,
   buildUnitsTable,
   projectsTable,
   membershipTable,
+  tasksTable,
+  resourcesTable,
 } from "../../database/schema/admin-schema"
 import {
   createChannelInput,
@@ -201,27 +203,49 @@ export const channelsRouter = router({
       return result
     }),
 
+  /**
+   * SOFT delete, owner-only, cascading to its tasks and resources. Same design as
+   * projects.delete — see the long note there. Messages in the channel are left
+   * intact (redacted-in-place elsewhere) and become unreachable once the channel
+   * drops out of channelsShape.
+   */
   delete: authedProcedure
     .input(deleteChannelInput)
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db.transaction(async (tx) => {
         const txid = await generateTxId(tx)
-        const [deletedItem] = await tx
-          .delete(channelsTable)
-          .where(
-            and(
-              eq(channelsTable.id, input.id),
-              eq(channelsTable.owner_id, ctx.session.user.id)
-            )
-          )
-          .returning()
 
-        if (!deletedItem) {
+        const [channel] = await tx
+          .select()
+          .from(channelsTable)
+          .where(eq(channelsTable.id, input.id))
+
+        if (!channel || channel.owner_id !== ctx.session.user.id) {
           throw new TRPCError({
             code: `NOT_FOUND`,
             message: `Channel not found or you do not have permission to delete it`,
           })
         }
+
+        if (channel.deleted_at) return { item: channel, txid }
+
+        const stamp = { deleted_at: new Date(), deleted_by_id: ctx.session.user.id }
+
+        const [deletedItem] = await tx
+          .update(channelsTable)
+          .set(stamp)
+          .where(eq(channelsTable.id, input.id))
+          .returning()
+
+        await tx
+          .update(tasksTable)
+          .set(stamp)
+          .where(and(eq(tasksTable.channel_id, input.id), isNull(tasksTable.deleted_at)))
+
+        await tx
+          .update(resourcesTable)
+          .set(stamp)
+          .where(and(eq(resourcesTable.channel_id, input.id), isNull(resourcesTable.deleted_at)))
 
         return { item: deletedItem, txid }
       })

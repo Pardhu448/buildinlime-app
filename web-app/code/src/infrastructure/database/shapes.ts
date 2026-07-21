@@ -87,11 +87,18 @@ export const readsShape: ShapeDef = {
 // grants you membership. ARCHITECTURE.md §4.
 // ---------------------------------------------------------------------------
 
+// notDeleted is AND-ed OUTSIDE the owner/member `or(...)` on all three so it can
+// only ever remove rows: a soft-deleted project you own must still fall out of the
+// shape, and without the outer AND the `owner_id = me` escape hatch would keep
+// resurfacing it. Deleting an entity cascades the soft-delete to its descendants
+// (see the routers), because these child shapes don't check a parent's deleted
+// state — an undeleted build unit under a deleted project would otherwise stay
+// visible via its own owner/member match.
 export const projectsShape: ShapeDef = {
   table: `projects`,
   scope: `member`,
   where: ({ userId, scope }) =>
-    or(idSetOrOmit(`id`, scope.projectIds), isMe(`owner_id`, userId)),
+    and(or(idSetOrOmit(`id`, scope.projectIds), isMe(`owner_id`, userId)), notDeleted),
 }
 
 export const buildUnitsShape: ShapeDef = {
@@ -105,7 +112,7 @@ export const buildUnitsShape: ShapeDef = {
     // Optional narrowing filter (a specific project). AND-ed with the access
     // boundary above, so it can only restrict — never broaden — visibility.
     const projectId = url.searchParams.get(`project_id`)
-    return and(visible, projectId && UUID_REGEX.test(projectId) && `project_id = '${projectId}'`)
+    return and(visible, projectId && UUID_REGEX.test(projectId) && `project_id = '${projectId}'`, notDeleted)
   },
 }
 
@@ -114,7 +121,7 @@ export const channelsShape: ShapeDef = {
   table: `channels`,
   scope: `member`,
   where: ({ userId, scope }) =>
-    or(idSetOrOmit(`id`, scope.channelIds), isMe(`owner_id`, userId)),
+    and(or(idSetOrOmit(`id`, scope.channelIds), isMe(`owner_id`, userId)), notDeleted),
 }
 
 // ---------------------------------------------------------------------------

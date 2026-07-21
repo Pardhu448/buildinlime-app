@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Sidebar, NewProjectButton, RoutePendingComponent, ProjectsTable } from "../../../components/buildInlime";
+import { ConfirmDeleteModal } from "../../../components/buildInlime/shared/ConfirmDeleteModal";
 // import { DisplayButton } from "../../../components/buildInlime";
 // import { FilterButton } from "../../../components/buildInlime";
 import { projectsCollection, usersCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
+import { useSession } from '%/infrastructure/auth/client'
 
 import { useLiveQuery } from "@tanstack/react-db"
 import { toDate } from "@buildinlime/contracts"
@@ -14,6 +17,9 @@ export const Route = createFileRoute('/_authenticated/projects/')({
 
 function ProjectsRoute() {
   const navigate = useNavigate()
+  const { data: session } = useSession()
+  // The project awaiting delete confirmation — drives the modal. null = closed.
+  const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null)
 
   const { data: projectsFromDB } = useLiveQuery((q) => q.from({ projectsCollection }), [])
   const { data: usersFromDB } = useLiveQuery((q) => q.from({ usersCollection }), [])
@@ -33,12 +39,24 @@ function ProjectsRoute() {
       name: p.name,
       createdBy: creator?.name || creator?.email || "Unknown",
       createdAt: p.created_at ? toDate(p.created_at).toLocaleDateString() : "—",
+      canDelete: !!session?.user && p.owner_id === session.user.id,
     }
   })
 
   const onProjectClick = (project: { id: string; name: string }) => {
     // `state: { projectName }` removed — never read; see use-project-build-units.
     navigate({ to: '/projects/$projectId', params: { projectId: project.id } })
+  }
+
+  // Soft delete, owner-only. The project and its whole subtree (build units,
+  // channels, tasks, resources) fall out of their Electric shapes — the server
+  // cascades the soft-delete in one transaction (projects.delete). Deleting from
+  // the collection triggers its onDelete → trpc.projects.delete. The trash button
+  // opens the confirmation modal; the actual delete runs on confirm below.
+  const confirmDeleteProject = () => {
+    if (!projectToDelete) return
+    projectsCollection.delete(projectToDelete.id)
+    setProjectToDelete(null)
   }
 
 return (
@@ -86,9 +104,17 @@ return (
         {projectsFromDB === undefined ? (
           <div className="flex flex-1 items-center justify-center text-muted-foreground">Loading projects…</div>
         ) : (
-          <ProjectsTable projects={projects} onProjectClick={onProjectClick} />
+          <ProjectsTable projects={projects} onProjectClick={onProjectClick} onDeleteProject={(p) => setProjectToDelete({ id: p.id, name: p.name })} />
         )}
       </div>
+
+      <ConfirmDeleteModal
+        open={!!projectToDelete}
+        onClose={() => setProjectToDelete(null)}
+        onConfirm={confirmDeleteProject}
+        entityName={projectToDelete?.name ?? ""}
+        constituents="build units, channels and tasks"
+      />
     </div>
   );
 }

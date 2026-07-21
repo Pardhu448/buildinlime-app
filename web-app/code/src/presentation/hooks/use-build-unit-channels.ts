@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef } from 'react'
 import { useLiveQuery, eq, inArray } from "@tanstack/react-db"
 import { ClipboardCheck } from 'lucide-react'
 import { channelsCollection, propertiesCollection } from '%/infrastructure/database/tanstack-db-electric/admincollections'
+import { useSession } from '%/infrastructure/auth/client'
 import type { CHANNEL_NAMES } from '%/domain/shared/types'
 import { CHANNEL_ICONS } from '%/presentation/lib/channelIcons'
 import { unwrapJsonb, mapPropertyRow } from '%/presentation/lib/utils'
@@ -14,6 +15,7 @@ export type BuildUnitChannelsStatus = 'loading' | 'ready'
 // buildUnitId is pre-resolved by the $buildUnitName layout route via BuildUnitContext —
 // no need to re-query buildUnitsCollection or projectsCollection here.
 export function useBuildUnitChannels(buildUnitId: string, projectId: string, buildUnitName: string) {
+  const { data: session } = useSession()
   const { pendingItems: pendingChannels, pendingIds: pendingChannelIds, addPending, removePending } = usePendingItems()
   const pendingChannelIdsRef = useRef(pendingChannelIds)
   pendingChannelIdsRef.current = pendingChannelIds
@@ -73,6 +75,8 @@ export function useBuildUnitChannels(buildUnitId: string, projectId: string, bui
       icon: CHANNEL_ICONS[name] ?? ClipboardCheck,
       linkParams: { projectId, buildUnitName, channelName: name },
       properties: channelPropsByEntity.get(channel.id) ?? [],
+      // Owner-only delete — server-enforced (channels.delete); the button is courtesy.
+      canDelete: !!session?.user && channel.owner_id === session.user.id,
     }
   })
 
@@ -87,11 +91,21 @@ export function useBuildUnitChannels(buildUnitId: string, projectId: string, bui
       icon: CHANNEL_ICONS[p.name as typeof CHANNEL_NAMES[number]] ?? ClipboardCheck,
       linkParams: undefined,
       properties: [],
+      // A ghost channel is still reconciling its create — never offer to delete it.
+      canDelete: false,
     }))
 
   const channels = [...dbChannelList, ...ghostChannels]
 
   const properties: Property[] = (dbProperties ?? []).map(mapPropertyRow)
+
+  // Soft delete, owner-only. The channel and its tasks/resources fall out of their
+  // Electric shapes — the server cascades the soft-delete (channels.delete). The
+  // collection.delete triggers onDelete → trpc.channels.delete. Confirmation is the
+  // page's job (ConfirmDeleteModal); this is the raw action run once confirmed.
+  const deleteChannel = (id: string) => {
+    channelsCollection.delete(id)
+  }
 
   return {
     status: 'ready' as const,
@@ -101,5 +115,6 @@ export function useBuildUnitChannels(buildUnitId: string, projectId: string, bui
     addPending,
     removePending,
     onChannelTrpcComplete,
+    deleteChannel,
   }
 }

@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { Property } from "%/domain/communication/types";
@@ -24,6 +25,8 @@ interface ChannelCardProps {
   onClick?: () => void;
   isPending?: boolean;
   properties?: Property[];
+  canDelete?: boolean;
+  onDelete?: () => void;
 }
 
 export function ChannelCard({
@@ -34,6 +37,8 @@ export function ChannelCard({
   onClick,
   isPending,
   properties,
+  canDelete,
+  onDelete,
 }: ChannelCardProps) {
   const content = (
     <>
@@ -41,8 +46,8 @@ export function ChannelCard({
         <div className="w-10 h-10 rounded bg-icon-chip border border-card-border flex items-center justify-center">
           <Icon className="w-5 h-5 text-primary" />
         </div>
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-foreground">{title}</h3>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <h3 className="font-semibold text-foreground truncate">{title}</h3>
           {isPending && (
             <svg
               className="animate-spin w-3 h-3 text-primary shrink-0"
@@ -55,6 +60,23 @@ export function ChannelCard({
             </svg>
           )}
         </div>
+        {!isPending && onDelete && canDelete && (
+          <button
+            type="button"
+            // preventDefault stops the enclosing Link from navigating; stopPropagation
+            // stops the div-variant onClick — the card is clickable either way.
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete();
+            }}
+            title="Delete this channel"
+            aria-label={`Delete ${title} channel`}
+            className="p-1.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 transition-all shrink-0"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
       <p className="text-sm text-muted-foreground">{description}</p>
       {properties && properties.filter((p) => p.type !== "taskStatus").length > 0 && (
@@ -74,7 +96,7 @@ export function ChannelCard({
       <Link
         to="/projects/$projectId/$buildUnitName/$channelName"
         params={linkParams}
-        className="bg-card-surface border border-card-border rounded-lg p-4 hover:bg-icon-chip transition-colors cursor-pointer block"
+        className="group bg-card-surface border border-card-border rounded-lg p-4 hover:bg-icon-chip transition-colors cursor-pointer block"
       >
         {content}
       </Link>
@@ -84,7 +106,7 @@ export function ChannelCard({
   return (
     <div
       onClick={!isPending ? onClick : undefined}
-      className={`bg-card-surface border border-card-border rounded-lg p-4 transition-colors ${isPending ? "opacity-70 cursor-default" : "hover:bg-icon-chip cursor-pointer"}`}
+      className={`group bg-card-surface border border-card-border rounded-lg p-4 transition-colors ${isPending ? "opacity-70 cursor-default" : "hover:bg-icon-chip cursor-pointer"}`}
     >
       {content}
     </div>

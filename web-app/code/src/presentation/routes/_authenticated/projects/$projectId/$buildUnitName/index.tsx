@@ -18,7 +18,7 @@ function BuildUnitIndexRoute() {
     return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading…</div>
   }
 
-  const { channels, properties, pendingChannelIds, addPending, removePending, onChannelTrpcComplete } = result
+  const { channels, properties, pendingChannelIds, addPending, removePending, onChannelTrpcComplete, deleteChannel } = result
 
   return (
     <BuildUnitPage
@@ -33,6 +33,7 @@ function BuildUnitIndexRoute() {
       addPendingChannel={addPending}
       removePendingChannel={removePending}
       onChannelTrpcComplete={onChannelTrpcComplete}
+      deleteChannel={deleteChannel}
     />
   )
 }
