@@ -5,17 +5,17 @@ const slides = [
   {
     heading: "Organization based on BuildUnits",
     description:
-      "Organize your project with BuildUnits which directly correspond to the units of construction",
+      "Organize your project into BuildUnits which directly correspond to the units of construction",
   },
   {
     heading: "Real-time Collaboration",
     description:
-      "Connect clients, architects, and site-supervisors in one unified platform for seamless communication",
+      "Organize communication among clients, architects and site-supervisors across different aspects of the construction project",
   },
   {
-    heading: "Document Tracking",
+    heading: "Documentation and Tracking",
     description:
-      "Out-of-the-box project documentation and tracking for all your construction needs",
+      "Out-of-the-box documentation, ledger keeping and tracking at different levels of granularity",
   },
 ];
 

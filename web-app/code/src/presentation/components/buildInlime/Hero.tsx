@@ -15,7 +15,8 @@ export function Hero() {
           style={{ fontVariationSettings: "'wdth' 100" }}
         >
           streamlined communication between client, architect and
-          site-supervisors. out-of-the-box project documentation and tracking
+          site-supervisors. out-of-the-box data collation, project documentation
+          and realtime-tracking
         </p>
 
         {/* CTA Buttons */}
@@ -27,12 +28,13 @@ export function Hero() {
           >
             Start Building
           </Link>
-          <button
+          <Link
+            to="/features"
             className="bg-white border-[1.833px] border-border text-primary px-[33.833px] py-[17.833px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[18px] leading-[28px] hover:bg-card-surface transition-colors"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             Learn More
-          </button>
+          </Link>
         </div>
       </div>
     </section>
