@@ -35,11 +35,12 @@ the tree — three items in the original draft were stale; see Revision notes at
 
 ## Blockers to fix before the first upload (repo-specific)
 
-1. **Application ID is the Expo placeholder.** `app.json` → `android.package` is
-   `com.anonymous.BuildInLimeMobile`. Google Play **permanently binds** the app to
-   this ID on first upload — it can never be changed afterward. **DECISION PENDING**
-   (see Open Decisions). Also revisit `expo.name` (currently `BuildInLimeMobile`),
-   which becomes the on-device label / listing title.
+1. ~~**Application ID is the Expo placeholder.**~~ **SETTLED 2026-07-22.**
+   `android.package` is now `com.buildinlime.mobile` and `expo.name` is
+   `BuildInLime`. Google Play **permanently binds** the application ID on first
+   upload — it can never be changed afterward, so this must not be edited again
+   once anything is submitted. `slug` deliberately stays `BuildInLimeMobile`
+   (see Open Decisions).
 2. **Production API URL must be baked in.** The prod API is live at
    **`https://app.buildinlime.com`** (deployed 2026-07-20, per
    `agentGuides/deploymentPlan.md`). `EXPO_PUBLIC_*` is inlined into the
@@ -148,14 +149,29 @@ build setup** — not after it.
 
 ## Open decisions (blocking Phase 1/2 file edits)
 
-| Decision | Current | Proposed | Status |
-|---|---|---|---|
-| Android application ID (permanent) | `com.anonymous.BuildInLimeMobile` | `com.buildinlime.mobile` | **PENDING** |
-| Display name / listing title | `BuildInLimeMobile` | `BuildInLime` | **PENDING** |
-| `versionCode` owner | unset | EAS `autoIncrement` | **PENDING** |
+| Decision | Value | Status |
+|---|---|---|
+| Android application ID (permanent) | `com.buildinlime.mobile` | **SETTLED** 2026-07-22 |
+| Display name / listing title | `BuildInLime` | **SETTLED** 2026-07-22 |
+| `versionCode` owner | EAS `autoIncrement` proposed | **PENDING** |
+| `slug` | `BuildInLimeMobile` (unchanged) | **PENDING** — see below |
+| iOS `bundleIdentifier` | unset | **PENDING** — see below |
 
-Once these are settled, the next edits are: update `app.json` identity fields and
-author `eas.json` with the three build profiles.
+Two identity fields were **left alone deliberately** and are worth a decision
+before `eas init` runs:
+
+- **`slug` is still `BuildInLimeMobile`.** It is the EAS/Expo project identifier
+  and appears in `expo.dev` URLs, not in anything user-facing. It is free to
+  change *now*, but `eas init` binds it to the Expo project, so changing it after
+  that is disruptive. Purely cosmetic — the argument for changing it is
+  consistency, not correctness.
+- **`scheme` is still `buildinlimemobile`.** Do **not** change this casually: it
+  is the deep-link scheme `better-auth` redirects through, so it must stay in
+  sync with the production OAuth redirect configuration.
+- **iOS `bundleIdentifier` is unset.** iOS is not shipping, but setting it now is
+  cheaper than a second identity migration later.
+
+Next edits: author `eas.json` with the three build profiles (Phase 2).
 
 ## Revision notes (2026-07-22)
 

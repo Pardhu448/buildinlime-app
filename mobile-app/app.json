@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "BuildInLimeMobile",
+    "name": "BuildInLime",
     "slug": "BuildInLimeMobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -29,7 +29,7 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ],
-      "package": "com.anonymous.BuildInLimeMobile"
+      "package": "com.buildinlime.mobile"
     },
     "web": {
       "bundler": "metro",
