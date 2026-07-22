@@ -225,12 +225,57 @@ export async function serveResourceFile(
   }
   const raw = rawRecords[0]
 
-  const totalSize = Number(raw.file_size_bytes)
-  const range = parseRangeHeader(request.headers.get("range"), totalSize)
+  // THE SIZE WE SERVE MUST BE THE STORE'S, NOT THE DATABASE'S.
+  //
+  // `resources_raw.file_size_bytes` is a number recorded at upload time; the object
+  // is the thing actually being streamed. They can drift — a row predating the
+  // object-storage migration, a re-upload over the same key (`put` is deliberately
+  // idempotent), a truncated write. When they do and we trust the DB:
+  //   db > real  → we declare a content-length larger than the bytes we send, and an
+  //                HTTP/1.1 client waits forever for a remainder that never comes.
+  //                On mobile that is a socket held open inside OkHttp.
+  //   db < real  → ranges clamp short and seeking past the DB's idea of EOF returns
+  //                416 for bytes that exist. Playback truncates.
+  // Neither is visible while the two agree, which is exactly what makes it a trap.
+  //
+  // Both drivers already stat/getMetadata before opening the stream (local.ts,
+  // gcs.ts), so `obj.size` is authoritative and costs nothing extra.
+  const dbSize = Number(raw.file_size_bytes)
+  const rangeHeader = request.headers.get("range")
+
+  // Provisional parse, against the DB number, for one purpose only: to ask storage
+  // for a slice instead of the whole object. The authoritative parse is below.
+  const provisional = parseRangeHeader(rangeHeader, dbSize)
+  const provisionalRange = provisional === "unsatisfiable" ? null : provisional
+
+  let obj = await getStorage().get(
+    raw.storage_path,
+    provisionalRange ? { range: provisionalRange } : undefined,
+  )
+  if (!obj) {
+    return new Response(JSON.stringify({ error: "File not found on server" }), {
+      status: 404,
+      headers: { "content-type": "application/json" },
+    })
+  }
+
+  const totalSize = obj.size
+  if (totalSize !== dbSize) {
+    // Loud, because it means a row and its object have diverged. Serving is still
+    // correct from here — the store wins — but something upstream needs a look.
+    console.warn(
+      `[storage] size mismatch for resource ${resourceId} (${raw.storage_path}): ` +
+        `db=${dbSize} storage=${totalSize} — serving the storage size`,
+    )
+  }
+
+  // Authoritative parse. Pure function, no I/O, so re-running it is free.
+  const range = parseRangeHeader(rangeHeader, totalSize)
 
   // A range that names bytes outside the file gets 416 + the file's true size, so
   // the client can retry with a valid one (RFC 9110 §15.5.17).
   if (range === "unsatisfiable") {
+    await obj.stream.cancel().catch(() => {})
     return new Response(null, {
       status: 416,
       headers: {
@@ -240,14 +285,26 @@ export async function serveResourceFile(
     })
   }
 
-  // Fetch only the requested slice off storage when a range was asked for — the
-  // player never has to pull the whole file just to seek near the end.
-  const obj = await getStorage().get(raw.storage_path, range ? { range } : undefined)
-  if (!obj) {
-    return new Response(JSON.stringify({ error: "File not found on server" }), {
-      status: 404,
-      headers: { "content-type": "application/json" },
-    })
+  // Only when the two parses disagree — i.e. the sizes really had drifted — is the
+  // slice already in hand the wrong one. Re-fetch with the correct bounds. This
+  // costs a second round trip in the broken case and nothing at all in the normal
+  // one, which is the trade option 2 (a `head` on every request) gets backwards.
+  const sameSlice =
+    (provisionalRange === null && range === null) ||
+    (provisionalRange !== null &&
+      range !== null &&
+      provisionalRange.start === range.start &&
+      provisionalRange.end === range.end)
+  if (!sameSlice) {
+    await obj.stream.cancel().catch(() => {})
+    const corrected = await getStorage().get(raw.storage_path, range ? { range } : undefined)
+    if (!corrected) {
+      return new Response(JSON.stringify({ error: "File not found on server" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      })
+    }
+    obj = corrected
   }
 
   // `attachment` is what the download path relies on; native media players read
