@@ -55,9 +55,14 @@ const stamp = () => new Date().toISOString().slice(11, 23)
  * regression: the shape is dead for the session and messages will start vanishing
  * again. Check `abort-signal-reason.ts` is still installed ahead of collection init.
  *
- * A GAP that aborts nothing at all is normal and not a pass — it means no stream
- * happened to be mid-poll at that instant (§11.4). Wait 25s+ while backgrounded so
- * every stream is definitely parked before drawing a conclusion.
+ * A GAP that aborts nothing at all is normal and NOT a pass. The abort only fires on
+ * a request that is still open, and the server releases a long-poll after ~20s — so
+ * the window is "older than 6s and younger than ~20s". Backgrounding for 30s or a
+ * minute measures the timer freeze but exercises nothing, because every poll has
+ * already been answered by the time you return (§11.4a).
+ *
+ * To make it fire: Home for ~10s and return (flushes the stale polls, issues fresh
+ * ones), then Home again for ~10s within the next ~15s. The second trip is the test.
  */
 export function startWakeProbe(): void {
   if (!__DEV__ || timer) return

@@ -688,16 +688,57 @@ seconds apart: one gap aborted nothing, the next aborted exactly one stream. Tha
 
 Caveat on what this does and does not prove: a Metro reload alone has always restored
 sync (§1.4), so "it works after a reload" is worth nothing on its own. What proves it
-is the abort→restart pair above, captured *after* the reload. Note also that the
-capture caught an in-flight abort by luck rather than by design — the picker flow
-backgrounds the app in rapid bursts (`active → background → active` within ~200ms,
-then a 13s gap), and whether a stream is mid-poll at that moment is chance.
+is the abort→restart pair above, captured *after* the reload.
 
-**Still worth running deliberately** (which is why the probe stays, §11.5): press
-Home, wait 25s+ so every stream is definitely mid-poll, return, and check that each
-`AbortError` line is followed by a re-issued `GET` for the same path. If a message
-still vanishes *while* shape GETs resume, the sync layer recovered and the UI did not
-— that is §9.3 (no txid handshake), not this.
+### 11.4a The reproduction window is 6–20s — longer does NOT work
+
+A 2026-07-22 run pressed Home and waited 71 seconds. It measured the mechanism
+beautifully and exercised **nothing**:
+
+```
+06:18:38.239  appstate active → background
+06:19:49.495  appstate background → active
+06:19:49.505  GAP 72048ms
+[net#254] ← /api/messages 200 90678ms (inflight 12)
+… all 13 return 200, inflight drains 13 → 0, all 13 re-issue …
+```
+
+Zero aborts. The log is also completely silent for those 71 seconds — not one interval
+tick — which is `JavaTimerManager.onHostPause` stopping JS timers, confirmed by direct
+measurement rather than inference.
+
+**Why nothing aborted, and why it matters:** the wake abort is guarded by
+`if (… && this.#requestAbortController)` — it only fires on a request that is still
+open. The server releases a long-poll after **~20s**. Background for longer than that
+and every request has already been answered before you return; the responses sit in
+the native layer waiting for JS, and aborting a settled request is a no-op. Note the
+GAP line lands *after* the first response was processed — the event loop was already
+draining resolutions when the timer fired.
+
+So the window in which a stream can actually be killed is:
+
+> **older than 6s** (`INTERVAL_MS + WAKE_THRESHOLD_MS`, or the timer never fires)
+> **and younger than ~20s** (or the poll has already been answered)
+
+This also retires the "caught it by luck" reading of §11.4. That capture's gaps were
+13.6s and 14.6s — both inside the window. The first aborted nothing because its polls
+had *just* been answered; the second caught `/api/resources` 15.4s into a fresh poll.
+Not luck: the right duration.
+
+**Recipe — two short trips.** One trip is not enough, because the first gap's job is
+to flush the stale polls and issue fresh ones:
+
+1. Press Home, wait **~10s**, return. Drains the old polls; 13 fresh ones go out.
+2. Within the next ~15s, press Home again, wait **~10s**, return. Those polls are now
+   mid-flight, so the wake timer aborts them.
+
+Watch the second trip for `AbortError` immediately followed by a re-issued `GET` on
+the same path. If a path aborts and never returns, the polyfill is not working. If a
+message vanishes *while* shape GETs resume, the sync layer recovered and the UI did
+not — that is §9.3, not this.
+
+Incidentally this is why the bug felt so erratic in normal use: the camera and picker
+flows produce exactly these short, repeated backgrounds.
 
 ### 11.5 Still outstanding, independent of this
 
