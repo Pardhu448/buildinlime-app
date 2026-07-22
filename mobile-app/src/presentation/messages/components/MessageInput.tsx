@@ -9,13 +9,21 @@ import {
 } from "react-native"
 import { useEffect, useState } from "react"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import * as DocumentPicker from "expo-document-picker"
 import * as Crypto from "expo-crypto"
 import { useSession } from "@/src/infrastructure/auth/client"
 import { colors } from "@/src/presentation/shared/colors"
 import { createMessageAction } from "@/src/application/actions/messages"
 import { usePendingUploads } from "@/src/presentation/resources/hooks/usePendingUploads"
 import { RenameFileModal } from "@/src/presentation/resources/components/RenameFileModal"
+import { AttachmentMenu, type AttachmentAction } from "./AttachmentMenu"
+import { AudioRecorderModal } from "./AudioRecorderModal"
+import {
+  captureFromCamera,
+  pickFromLibrary,
+  pickDocument,
+  PermissionDeniedError,
+  type CapturedFile,
+} from "@/src/presentation/messages/lib/capture"
 import type { Message } from "@buildinlime/domain-types"
 
 interface MessageInputProps {
@@ -71,43 +79,61 @@ export function MessageInput({
     name: string
   } | null>(null)
 
-  async function handleAttach() {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [recorderOpen, setRecorderOpen] = useState(false)
+
+  // Every capture source funnels through here: mint the draft message id (lazily,
+  // so files enqueue against the id BEFORE the message is sent) and queue the
+  // file. autoStart: false — the upload waits in `awaiting_schedule` until the
+  // message is sent (handleSend → start), so the server's 15s parent-poll finds
+  // the message row.
+  async function enqueueCaptured(file: CapturedFile) {
     const userId = session?.user?.id
     if (!userId) {
       Alert.alert("Cannot attach", "Your session is still loading — try again.")
       return
     }
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        copyToCacheDirectory: true,
-      })
-      if (result.canceled) return
-      const asset = result.assets[0]
-      if (!asset) return
+    let messageId = draftMessageId
+    if (!messageId) {
+      messageId = Crypto.randomUUID()
+      setDraftMessageId(messageId)
+    }
+    await enqueue(
+      file.uri,
+      {
+        name: file.name,
+        mimeType: file.mimeType,
+        channelId,
+        buildUnitId,
+        projectId,
+        createdById: userId,
+        messageId,
+      },
+      { autoStart: false },
+    )
+  }
 
-      let messageId = draftMessageId
-      if (!messageId) {
-        messageId = Crypto.randomUUID()
-        setDraftMessageId(messageId)
-      }
-      // autoStart: false — the upload waits in `awaiting_schedule` until the
-      // message is sent (handleSend → start), so the server's 15s parent-poll
-      // finds the message row.
-      await enqueue(
-        asset.uri,
-        {
-          name: asset.name,
-          mimeType: asset.mimeType ?? "application/octet-stream",
-          channelId,
-          buildUnitId,
-          projectId,
-          createdById: userId,
-          messageId,
-        },
-        { autoStart: false },
-      )
+  async function handleMenuSelect(action: AttachmentAction) {
+    setMenuOpen(false)
+    // The audio recorder is its own modal; open it and let it call back on save.
+    if (action === "audio") {
+      setRecorderOpen(true)
+      return
+    }
+    try {
+      const file =
+        action === "photo"
+          ? await captureFromCamera("images")
+          : action === "video"
+            ? await captureFromCamera("videos")
+            : action === "library"
+              ? await pickFromLibrary()
+              : await pickDocument()
+      if (file) await enqueueCaptured(file)
     } catch (err) {
-      Alert.alert("Attach failed", String(err))
+      // Permission denials get their own friendlier copy from the capture layer.
+      if (err instanceof PermissionDeniedError) Alert.alert("Permission needed", err.message)
+      else Alert.alert("Attach failed", String(err))
     }
   }
 
@@ -117,6 +143,16 @@ export function MessageInput({
     if ((!trimmed && pendingUploads.length === 0) || !userId) return
 
     const messageId = draftMessageId ?? Crypto.randomUUID()
+    // Snapshot the upload ids before clearing draft state — resetting
+    // draftMessageId re-filters usePendingUploads to empty, so `pendingUploads`
+    // is already gone by the time we release them below.
+    const uploadIds = pendingUploads.map((u) => u.id)
+
+    // Clear the composer immediately; the send proceeds in the background.
+    setText("")
+    setDraftMessageId(null)
+    onCancelReply?.()
+
     try {
       createMessageAction({
         id: messageId,
@@ -127,12 +163,25 @@ export function MessageInput({
         createdby_id: userId,
         parent_id: replyTo?.id ?? null,
       })
-      // Release the attachments now that the message transaction exists.
-      pendingUploads.forEach((u) => start(u.id))
-      setText("")
-      setDraftMessageId(null)
-      onCancelReply?.()
+
+      // Release the uploads as soon as the message transaction exists — the
+      // upload does NOT need the message row to have committed first. The server
+      // polls up to 15s for the parent before giving up (fileStorage.ts), which
+      // is precisely what makes an upload that overtakes its message safe.
+      //
+      // An earlier revision awaited `tx.isPersisted.promise` here, on the theory
+      // that a big upload starved the message's own tRPC POST. The device logs
+      // falsified it: the message was dropped after a 822ms POST, before a single
+      // byte had uploaded (DISAPPEARING_MESSAGES_INVESTIGATION.md §10.1). The real
+      // cause was RN's AbortController — see §11 and abort-signal-reason.ts.
+      if (__DEV__ && uploadIds.length > 0) {
+        console.log(`[msg-diag] send ${messageId.slice(0, 8)} with ${uploadIds.length} upload(s)`)
+      }
+      uploadIds.forEach((id) => start(id))
     } catch (err) {
+      // Release the uploads anyway so they aren't stranded — the upload's own
+      // parent-poll and retry reconcile if the message lands later.
+      uploadIds.forEach((id) => start(id))
       console.error("Failed to send message:", err)
     }
   }
@@ -190,7 +239,7 @@ export function MessageInput({
       <View style={styles.container}>
         <TouchableOpacity
           style={styles.attachButton}
-          onPress={handleAttach}
+          onPress={() => setMenuOpen(true)}
           activeOpacity={0.7}
         >
           <Text style={styles.attachIcon}>＋</Text>
@@ -214,6 +263,22 @@ export function MessageInput({
           <Text style={styles.sendButtonText}>Send</Text>
         </TouchableOpacity>
       </View>
+
+      <AttachmentMenu
+        visible={menuOpen}
+        onSelect={handleMenuSelect}
+        onClose={() => setMenuOpen(false)}
+      />
+
+      {/* Mounted only while open so the recorder hook (and its audio session)
+          tears down cleanly after each capture. */}
+      {recorderOpen && (
+        <AudioRecorderModal
+          visible
+          onSave={(file) => void enqueueCaptured(file)}
+          onClose={() => setRecorderOpen(false)}
+        />
+      )}
 
       {/* Rendered conditionally so it remounts per target and picks up that
           file's name as its initial value. */}

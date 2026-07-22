@@ -25,6 +25,18 @@ export type UploadStatus =
   | "uploading"
   | "awaiting_network"
   | "error"
+  // Terminal success. The POST landed, but the pending row is KEPT (showing its
+  // local file) as the optimistic stand-in until the synced `resources` row of
+  // the same id arrives in the collection — only then is it purged. Dropping the
+  // local file the instant the POST returns guarantees at least a brief blank
+  // while the row makes its way back through Electric; this bridges that gap.
+  // Never retried, never re-driven on hydration.
+  //
+  // The long blanking that motivated this (attachment gone until a reload) was
+  // the sync freeze of DISAPPEARING_MESSAGES_INVESTIGATION.md §11, now fixed —
+  // with healthy sync the gap is sub-second. Kept as ordinary optimistic UI, and
+  // because it degrades gracefully if sync ever stalls again.
+  | "synced"
 
 /** Auto-retry attempts before an upload is left for the user to retry by hand. */
 export const MAX_AUTO_RETRIES = 5

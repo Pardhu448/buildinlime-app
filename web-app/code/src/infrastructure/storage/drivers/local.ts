@@ -1,7 +1,7 @@
 import { promises as fs, createReadStream } from "node:fs"
 import { Readable } from "node:stream"
 import path from "node:path"
-import type { StorageObject, StorageProvider } from "../provider"
+import type { StorageObject, StorageProvider, StorageGetOptions } from "../provider"
 
 // Local-filesystem StorageProvider — the pre-migration behaviour, refactored behind
 // the interface. `baseDir` is the `uploads/` root; a key `resources/<id>/<file>`
@@ -32,7 +32,7 @@ export class LocalFsStorage implements StorageProvider {
     await fs.writeFile(full, body)
   }
 
-  async get(key: string): Promise<StorageObject | null> {
+  async get(key: string, opts?: StorageGetOptions): Promise<StorageObject | null> {
     const full = this.resolve(key)
     let stat
     try {
@@ -43,7 +43,13 @@ export class LocalFsStorage implements StorageProvider {
     if (!stat.isFile()) return null
     // Stream rather than read the whole file into a Buffer (the old serve path did
     // the latter — a memory footgun for large files this migration removes for free).
-    const stream = Readable.toWeb(createReadStream(full)) as unknown as ReadableStream
+    // `start`/`end` are inclusive, which is exactly fs.createReadStream's contract,
+    // so a Range request reads only the requested slice off disk.
+    const range = opts?.range
+    const readStream = range
+      ? createReadStream(full, { start: range.start, end: range.end })
+      : createReadStream(full)
+    const stream = Readable.toWeb(readStream) as unknown as ReadableStream
     return { stream, size: stat.size }
   }
 

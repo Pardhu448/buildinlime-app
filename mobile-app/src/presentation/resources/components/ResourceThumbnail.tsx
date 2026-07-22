@@ -2,27 +2,8 @@ import { useEffect, useState } from "react"
 import { View, Image, ActivityIndicator, StyleSheet } from "react-native"
 import * as VideoThumbnails from "expo-video-thumbnails"
 import { File, FileText, Music, Play } from "lucide-react-native"
-import { getAuthHeaders } from "@/src/infrastructure/auth/cookie-fetch"
 import { colors } from "@/src/presentation/shared/colors"
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://10.0.2.2:3000"
-
-// The file route is session-guarded (serveResourceFile 401s without a cookie),
-// so both the <Image> fetch and the video-thumbnail extraction must carry auth
-// headers — hence the async header load rather than a plain uri string.
-function useAuthHeaders() {
-  const [headers, setHeaders] = useState<Record<string, string> | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    void getAuthHeaders().then((h) => {
-      if (!cancelled) setHeaders(h as Record<string, string>)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-  return headers
-}
+import { API_URL, useAuthHeaders } from "@/src/presentation/resources/lib/media-source"
 
 /** First frame of the video, pulled from the actual uploaded file. */
 function VideoThumb({ url, size }: { url: string; size: number }) {

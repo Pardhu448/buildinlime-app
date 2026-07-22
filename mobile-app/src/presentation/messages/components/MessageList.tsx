@@ -4,8 +4,8 @@ import { useLiveQuery, eq } from "@tanstack/react-db"
 import { MessageItem } from "./MessageItem"
 import { resourcesCollection } from "@/src/application/collections/communication"
 import { useChannelMessageUploads } from "@/src/presentation/resources/hooks/usePendingUploads"
+import { confirmSynced } from "@/src/infrastructure/offline/upload-manager"
 import { colors } from "@/src/presentation/shared/colors"
-import type { PendingUpload } from "@/src/infrastructure/offline/upload-manager"
 import type { Message, Resource } from "@buildinlime/domain-types"
 
 interface MessageListProps {
@@ -60,10 +60,33 @@ export function MessageList({
   )
   const messageUploads = useChannelMessageUploads(channelId)
 
+  // DIAGNOSTIC (dev-only): log the exact moment a message id enters or LEAVES the
+  // live collection, plus the current counts. A message that "flashes and
+  // disappears" shows up here as `-<id> LEFT` with no reload in between — that
+  // pins the drop to the messages stream rather than the upload/render path.
+  // Remove once the disappearing-message bug is resolved.
+  const prevMsgIds = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (!__DEV__) return
+    const now = new Set(messages.map((m) => m.id))
+    const prev = prevMsgIds.current
+    for (const id of now) if (!prev.has(id)) console.log(`[msg-diag] +${id.slice(0, 8)} ENTERED (total ${now.size})`)
+    for (const id of prev) if (!now.has(id)) console.log(`[msg-diag] -${id.slice(0, 8)} LEFT (total ${now.size}, resources ${(resourceData ?? []).length})`)
+    prevMsgIds.current = now
+  }, [messages, resourceData])
+
   const resourcesByMessage = useMemo(
     () => groupBy((resourceData ?? []) as Resource[], (r) => r.message_id),
     [resourceData]
   )
+
+  // Once a resource has synced, retire its optimistic upload stand-in (same id):
+  // the manager kept the local file on screen to bridge the Electric replay gap,
+  // and this is the signal that the synced row has taken over. A no-op for every
+  // id that isn't a `synced` pending upload, so it's safe to run over them all.
+  useEffect(() => {
+    for (const r of (resourceData ?? []) as Resource[]) void confirmSynced(r.id)
+  }, [resourceData])
   const uploadsByMessage = useMemo(
     () => groupBy(messageUploads, (u) => u.messageId),
     [messageUploads]

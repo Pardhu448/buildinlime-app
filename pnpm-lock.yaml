@@ -119,6 +119,9 @@ importers:
       expo-symbols:
         specifier: ~55.0.7
         version: 55.0.7(expo-font@55.0.6)(expo@55.0.15)(react-native@0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0))(react@19.1.0)
+      expo-video:
+        specifier: ~55.0.19
+        version: 55.0.19(expo@55.0.15)(react-native@0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0))(react@19.1.0)
       expo-video-thumbnails:
         specifier: ~55.0.16
         version: 55.0.16(expo@55.0.15)
@@ -5387,6 +5390,13 @@ packages:
     resolution: {integrity: sha512-vQY/b1zlbGIi6wghKDQHbtd6fhWG3jPR7FUr7cynf8PnvUr6tb0UW1+C1kcCas5a5EITRIR6m+QMP+i8wt1U8g==}
     peerDependencies:
       expo: '*'
+
+  expo-video@55.0.19:
+    resolution: {integrity: sha512-/B3aDy+cAGYdtpQa2RSxZGnm2kj53iEKKsZUwaA1I959bkeWFxrjQw0L58RGQhorS5PAImNWH4GSA9b5IslOyg==}
+    peerDependencies:
+      expo: '*'
+      react: 19.1.0
+      react-native: '*'
 
   expo-web-browser@55.0.14:
     resolution: {integrity: sha512-bTDkBSQBnrlnYcM7Aak72AOvJuvdgA3M8p//Lazrm0Nfa77T9cRXzQ6KhLrB08V39n1+00d1dvuTWznJslkmdg==}
@@ -13344,6 +13354,11 @@ snapshots:
       shebang-command: 2.0.0
       which: 2.0.2
 
+  crossws@0.4.4(srvx@0.11.12):
+    optionalDependencies:
+      srvx: 0.11.12
+    optional: true
+
   crossws@0.4.4(srvx@0.9.8):
     optionalDependencies:
       srvx: 0.9.8
@@ -14344,6 +14359,12 @@ snapshots:
     dependencies:
       expo: 55.0.15(@babel/core@7.29.0)(@expo/dom-webview@55.0.5)(@expo/metro-runtime@55.0.9)(expo-router@55.0.12)(react-dom@19.1.0(react@19.1.0))(react-native-worklets@0.7.2(@babel/core@7.29.0)(react-native@0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0))(react@19.1.0))(react-native@0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
 
+  expo-video@55.0.19(expo@55.0.15)(react-native@0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0))(react@19.1.0):
+    dependencies:
+      expo: 55.0.15(@babel/core@7.29.0)(@expo/dom-webview@55.0.5)(@expo/metro-runtime@55.0.9)(expo-router@55.0.12)(react-dom@19.1.0(react@19.1.0))(react-native-worklets@0.7.2(@babel/core@7.29.0)(react-native@0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0))(react@19.1.0))(react-native@0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
+      react: 19.1.0
+      react-native: 0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0)
+
   expo-web-browser@55.0.14(expo@55.0.15)(react-native@0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0)):
     dependencies:
       expo: 55.0.15(@babel/core@7.29.0)(@expo/dom-webview@55.0.5)(@expo/metro-runtime@55.0.9)(expo-router@55.0.12)(react-dom@19.1.0(react@19.1.0))(react-native-worklets@0.7.2(@babel/core@7.29.0)(react-native@0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0))(react@19.1.0))(react-native@0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
@@ -14773,9 +14794,9 @@ snapshots:
       rou3: 0.8.1
       srvx: 0.11.12
     optionalDependencies:
-      crossws: 0.4.4(srvx@0.9.8)
+      crossws: 0.4.4(srvx@0.11.12)
 
-  h3@2.0.1-rc.5(crossws@0.4.4(srvx@0.9.8)):
+  h3@2.0.1-rc.5(crossws@0.4.4(srvx@0.11.12)):
     dependencies:
       rou3: 0.7.12
       srvx: 0.9.8
@@ -15852,7 +15873,7 @@ snapshots:
       consola: 3.4.2
       crossws: 0.4.4(srvx@0.9.8)
       db0: 0.3.4(drizzle-orm@0.41.0(@types/pg@8.20.0)(expo-sqlite@55.0.15(expo@55.0.15)(react-native@0.83.4(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.1.0))(react@19.1.0))(kysely@0.28.14)(pg@8.20.0))
-      h3: 2.0.1-rc.5(crossws@0.4.4(srvx@0.9.8))
+      h3: 2.0.1-rc.5(crossws@0.4.4(srvx@0.11.12))
       jiti: 2.6.1
       nf3: 0.1.12
       ofetch: 2.0.0-alpha.3

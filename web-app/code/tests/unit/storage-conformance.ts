@@ -45,6 +45,21 @@ export function runStorageConformance(label: string, getProvider: () => StorageP
       expect(await getProvider().get(`${prefix}does-not-exist-${Math.random()}.bin`)).toBeNull()
     })
 
+    it("streams only the requested byte range, reporting the full size", async () => {
+      const key = `${prefix}ranged.bin`
+      const body = Buffer.from("0123456789")
+      await getProvider().put(key, body, { contentType: "application/octet-stream" })
+
+      // A mid-file inclusive slice [2, 5] → "2345".
+      const mid = await getProvider().get(key, { range: { start: 2, end: 5 } })
+      expect(mid!.size).toBe(body.length) // full object size, not the slice length
+      expect((await readAll(mid!.stream)).toString()).toBe("2345")
+
+      // The tail [7, 9] → "789".
+      const tail = await getProvider().get(key, { range: { start: 7, end: 9 } })
+      expect((await readAll(tail!.stream)).toString()).toBe("789")
+    })
+
     it("deletes idempotently", async () => {
       const key = `${prefix}delete-me.bin`
       await getProvider().put(key, Buffer.from("x"), { contentType: "application/octet-stream" })

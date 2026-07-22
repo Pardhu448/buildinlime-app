@@ -19,3 +19,26 @@ export function splitExtension(name: string): [string, string] {
   if (dot <= 0 || dot === name.length - 1) return [name, ""]
   return [name.slice(0, dot), name.slice(dot)]
 }
+
+export type MediaKind = "image" | "video" | "audio"
+
+/**
+ * The kind of inline player a mime type gets in a message bubble, or null for
+ * the download-chip fallback (pdf, docs, anything not media). Picture/audio/video
+ * render inline; everything else stays a tappable file chip.
+ */
+export function mediaKind(mimeType: string): MediaKind | null {
+  if (mimeType.startsWith("image/")) return "image"
+  if (mimeType.startsWith("video/")) return "video"
+  if (mimeType.startsWith("audio/")) return "audio"
+  return null
+}
+
+/** mm:ss for a seconds value; used by the audio/video scrubbers. */
+export function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00"
+  const total = Math.floor(seconds)
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${s.toString().padStart(2, "0")}`
+}
