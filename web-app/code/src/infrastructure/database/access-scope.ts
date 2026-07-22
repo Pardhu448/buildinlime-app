@@ -60,9 +60,27 @@ export async function resolveMemberScope(userId: string): Promise<MemberScope> {
     buildunitIds.add(c.buildunit_id)
   }
 
+  // SORTED, and that is load-bearing — do not "simplify" it back to [...set].
+  //
+  // These arrays are interpolated positionally by idSetWhere into
+  // `col = ANY(ARRAY['a','b',…])`, and that string IS the Electric shape's
+  // identity. A different string is a new shape, a new handle, and a FULL REFETCH
+  // of messages/tasks/resources/properties for every affected client at once.
+  //
+  // Set insertion order is deterministic given the row order, but the two queries
+  // above have no ORDER BY, and Postgres guarantees nothing there: a plan flip to
+  // an index scan, autovacuum relocating tuples, or an UPDATE rewriting a row to a
+  // new page is enough to reorder them. The set is identical either way, so this
+  // is not an authorization issue — it is a thundering-herd refetch triggered by
+  // something as mundane as vacuum, and near-impossible to attribute afterwards.
+  //
+  // Sorting makes shape identity deterministic by construction instead of by
+  // luck. The mobile client already does this to the ids it puts in the shape URL
+  // (collections/init.ts — uniqSorted / [...new Set(…)].sort()); this is the
+  // server side of the same invariant.
   return {
-    channelIds: [...channelIds],
-    buildunitIds: [...buildunitIds],
-    projectIds: [...projectIds],
+    channelIds: [...channelIds].sort(),
+    buildunitIds: [...buildunitIds].sort(),
+    projectIds: [...projectIds].sort(),
   }
 }

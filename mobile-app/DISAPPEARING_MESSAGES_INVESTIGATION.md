@@ -802,9 +802,10 @@ so `installAbortSignalReasonPolyfill()` ran twice. The second call found
 ### 11.5 Still outstanding, independent of this
 
 - ~~**§9.3 — no txid handshake.**~~ **DONE — §13.**
-- **§9.4 — `content-length` from `raw.file_size_bytes` instead of `obj.size`.**
-- **§10.6 — `resolveMemberScope` has no `ORDER BY`**, so the shape `where` string
-  is not order-stable.
+- ~~**§10.6 — `resolveMemberScope` has no `ORDER BY`.**~~ **DONE — §14.**
+- ~~**§9.4 — `content-length` from `raw.file_size_bytes` instead of `obj.size`.**~~
+  **DONE, but on a different branch** — `fix/range-content-length`, which is a
+  sibling of this one rather than an ancestor, so the fix is not in this tree.
 - ~~**Diagnostics stay until the deliberate run.**~~ **DONE — the deliberate run is
   in §11.4b and all instrumentation was removed in §15.**
 
@@ -931,6 +932,38 @@ doing, but it should not be smuggled in here.
 Verification: mobile 38/38, web 112/112 (6 new), both typechecks clean. No import
 cycle introduced — `collections/communication` reaches neither app's
 `infrastructure/offline`.
+
+---
+
+## 14. Shape `where` order stability (§10.6), fixed
+
+`resolveMemberScope` now sorts its three id arrays before returning them.
+
+The arrays are interpolated **positionally** by `idSetWhere` into
+`col = ANY(ARRAY['a','b',…])`, and that string is the Electric shape's identity —
+`shape-where.ts` says so itself: *"a changed string is a new Electric shape, a new
+handle, and a full refetch for every client."* But the two `SELECT`s behind them
+carry no `ORDER BY`, and Postgres guarantees nothing there. A plan flip to an index
+scan, an autovacuum relocating tuples, or an `UPDATE` rewriting a row to a new page
+reorders them, and every connected client refetches messages, tasks, resources and
+properties at once.
+
+Not an authorization bug — the *set* is identical either way, so the same rows are
+authorized. It is a thundering-herd refetch triggered by something as mundane as
+vacuum, and essentially unattributable after the fact.
+
+**The mobile client already did this** (`collections/init.ts` — `uniqSorted` at 127,
+`[...new Set(…)].sort()` at 220) for the ids it puts in the shape URL. The server
+was the missing half of the same invariant, which is decent evidence this was an
+oversight rather than a decision.
+
+`tests/unit/access-scope-order.test.ts` (4 tests) feeds identical rows back in
+different orders and asserts the output does not move, covering the
+membership/owned-channel union as well as the simple case. Verified to FAIL without
+the sort — its two ordering tests break while the de-dup and empty-scope tests keep
+passing, which is the discrimination that makes it worth having.
+
+Web 116/116, typecheck clean.
 
 ---
 
