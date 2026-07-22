@@ -47,9 +47,12 @@ the tree — three items in the original draft were stale; see Revision notes at
    bundle at build time, and `.env` is gitignored (`.gitignore:18`, `*.env` at `:27`),
    so there is no committed file EAS could read this from — it **must** come from an
    EAS build-profile `env` block (Phase 2).
-3. **`android.versionCode` is unset.** Nothing in `app.json` defines it. Pick exactly
-   one owner — EAS `autoIncrement` or CI — and stick to it; mixing the two produces
-   duplicate-version upload rejections.
+3. ~~**`android.versionCode` is unset.**~~ **SETTLED 2026-07-22.** `eas.json` sets
+   `cli.appVersionSource: "remote"` and `autoIncrement: true` on the `production`
+   profile, so **EAS owns the version counter on its servers**. `android.versionCode`
+   is deliberately absent from `app.json` — under `remote` it would be ignored, and
+   having a stale number sitting there invites someone to "fix" it by hand. Do not
+   add a competing CI increment; two owners produce duplicate-version rejections.
 4. **Sensitive-permission justification.** `RECORD_AUDIO` + foreground-service media
    playback require a Data Safety declaration and often a written justification in
    the Play listing. Draft the copy before submission. `FOREGROUND_SERVICE_MEDIA_PLAYBACK`
@@ -153,7 +156,7 @@ build setup** — not after it.
 |---|---|---|
 | Android application ID (permanent) | `com.buildinlime.mobile` | **SETTLED** 2026-07-22 |
 | Display name / listing title | `BuildInLime` | **SETTLED** 2026-07-22 |
-| `versionCode` owner | EAS `autoIncrement` proposed | **PENDING** |
+| `versionCode` owner | EAS `autoIncrement`, `appVersionSource: remote` | **SETTLED** 2026-07-22 |
 | `slug` | `BuildInLimeMobile` (unchanged) | **PENDING** — see below |
 | iOS `bundleIdentifier` | `com.buildinlime.mobile` | **SETTLED** 2026-07-22 |
 
