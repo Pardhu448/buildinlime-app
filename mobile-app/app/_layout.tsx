@@ -1,11 +1,18 @@
 import "react-native-get-random-values"
 import "../global.css"
 import * as ExpoCrypto from "expo-crypto"
+import { installAbortSignalReasonPolyfill } from "@/src/infrastructure/polyfills/abort-signal-reason"
 
 // Polyfill crypto.randomUUID — TanStack DB's collection insert calls this internally.
 if (typeof crypto !== "undefined" && !crypto.randomUUID) {
   ;(crypto as any).randomUUID = ExpoCrypto.randomUUID
 }
+
+// Polyfill AbortSignal.reason. MUST run before any Electric ShapeStream is
+// constructed: without it every wake/refresh abort permanently kills the shape's
+// long-poll. This is the disappearing-message fix — see the module's header and
+// DISAPPEARING_MESSAGES_INVESTIGATION.md §11.
+installAbortSignalReasonPolyfill()
 import "react-native-gesture-handler"
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
