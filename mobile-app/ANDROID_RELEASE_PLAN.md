@@ -2,7 +2,7 @@
 
 Roadmap for shipping the Expo / React Native app in `mobile-app/` to the Google
 Play Store. **Web app and server productionizing are assumed handled elsewhere**
-(see `web-app/code/agentGuides/deploymentPlan.md`); this doc covers only the
+(see `agentGuides/deploymentPlan.md`); this doc covers only the
 mobile client and the Play release path.
 
 Drafted 2026-07-19 against `chore/mobile-eas-android-release` (branched off `main`).
@@ -42,7 +42,7 @@ the tree — three items in the original draft were stale; see Revision notes at
    which becomes the on-device label / listing title.
 2. **Production API URL must be baked in.** The prod API is live at
    **`https://app.buildinlime.com`** (deployed 2026-07-20, per
-   `web-app/code/agentGuides/deploymentPlan.md`). `EXPO_PUBLIC_*` is inlined into the
+   `agentGuides/deploymentPlan.md`). `EXPO_PUBLIC_*` is inlined into the
    bundle at build time, and `.env` is gitignored (`.gitignore:18`, `*.env` at `:27`),
    so there is no committed file EAS could read this from — it **must** come from an
    EAS build-profile `env` block (Phase 2).
