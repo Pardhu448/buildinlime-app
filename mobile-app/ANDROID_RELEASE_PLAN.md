@@ -155,7 +155,7 @@ build setup** — not after it.
 | Display name / listing title | `BuildInLime` | **SETTLED** 2026-07-22 |
 | `versionCode` owner | EAS `autoIncrement` proposed | **PENDING** |
 | `slug` | `BuildInLimeMobile` (unchanged) | **PENDING** — see below |
-| iOS `bundleIdentifier` | unset | **PENDING** — see below |
+| iOS `bundleIdentifier` | `com.buildinlime.mobile` | **SETTLED** 2026-07-22 |
 
 Two identity fields were **left alone deliberately** and are worth a decision
 before `eas init` runs:
@@ -168,8 +168,11 @@ before `eas init` runs:
 - **`scheme` is still `buildinlimemobile`.** Do **not** change this casually: it
   is the deep-link scheme `better-auth` redirects through, so it must stay in
   sync with the production OAuth redirect configuration.
-- **iOS `bundleIdentifier` is unset.** iOS is not shipping, but setting it now is
-  cheaper than a second identity migration later.
+iOS `bundleIdentifier` is set to `com.buildinlime.mobile` — the same string as
+the Android application ID. The two namespaces are independent, so matching them
+is a convention, not a requirement; it is done here so one identity covers both
+stores. Apple binds a bundle ID to an App Store record on first submission, the
+same way Play binds the application ID.
 
 Next edits: author `eas.json` with the three build profiles (Phase 2).
 
