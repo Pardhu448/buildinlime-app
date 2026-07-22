@@ -332,6 +332,9 @@ read `inflight` as total device network load.
 
 ### 9.3 ROOT CAUSE of the *visible* symptom: there is no txid handshake
 
+> **RESOLVED — see §13.** The handshake is implemented in both apps on branch
+> `fix/message-txid-handshake`. The analysis below stands as written.
+
 Independent of why sync stalls, this is why a stall shows up as the bubble
 **vanishing** rather than the attachment merely being late.
 
@@ -798,12 +801,11 @@ so `installAbortSignalReasonPolyfill()` ran twice. The second call found
 
 ### 11.5 Still outstanding, independent of this
 
-- **§9.3 — no txid handshake.** Worth doing on its own merits: it converts a silent
-  vanish into a bounded wait, so any future stall is legible instead of looking
-  like data loss.
-- **§9.4 — `content-length` from `raw.file_size_bytes` instead of `obj.size`.**
-- **§10.6 — `resolveMemberScope` has no `ORDER BY`**, so the shape `where` string
-  is not order-stable.
+- ~~**§9.3 — no txid handshake.**~~ **DONE — §13.**
+- ~~**§10.6 — `resolveMemberScope` has no `ORDER BY`.**~~ **DONE — §14.**
+- ~~**§9.4 — `content-length` from `raw.file_size_bytes` instead of `obj.size`.**~~
+  **DONE, but on a different branch** — `fix/range-content-length`, which is a
+  sibling of this one rather than an ancestor, so the fix is not in this tree.
 - ~~**Diagnostics stay until the deliberate run.**~~ **DONE — the deliberate run is
   in §11.4b and all instrumentation was removed in §15.**
 
@@ -851,6 +853,117 @@ diagnostics — `[msg-diag]`, `[net#]`, `wake-probe.ts` — which stay until the
 deliberate long-background re-test in §11.4 is clean. See §11.5.
 
 Verification after cleanup: mobile 38/38, mobile and web typecheck clean.
+
+---
+
+## 13. The txid handshake (§9.3), implemented
+
+Branch `fix/message-txid-handshake`, stacked on the §11 fix.
+
+### 13.1 What changed
+
+`createMessage` no longer resolves when tRPC returns 200. It captures the `txid`
+the router already returns and waits for Electric to deliver the row carrying it,
+so the optimistic row is held until the synced row exists to replace it. The
+window §9.3 describes is closed rather than narrowed.
+
+Nothing new had to be built server-side: every mutation router already calls
+`generateTxId(tx)` and returns `{ item, txid }`. The client was discarding it.
+
+### 13.2 The wiring, and why it is a function
+
+`sync-core` is framework-free and cannot import either app's collections, so the
+capability is injected, exactly as `fetchClient` and `retryOnError` already are:
+
+```ts
+makeCoreMutationFns(trpc, {
+  awaitTxId: { messages: (txid) => messagesCollection.utils.awaitTxId(txid) },
+})
+```
+
+**It must be an arrow function, not a captured collection.** Both apps export
+collections as `export let` and REASSIGN them on project switch / resync; a
+captured value pins a stale, cleaned-up instance whose shape is gone. This mirrors
+the `getCollection: () => xCollection` idiom already used in `actions/*`, and it is
+the same by-value hazard §10.5 flagged for the offline executor.
+
+The hook map is keyed by entity (`messages | tasks | resources | properties |
+teams` — all five routers return a txid), so wiring another later needs no API
+change: capture `result.txid`, then `await settleTxId("<entity>", txid)` after the
+try/catch. Only `messages` is wired today; every other entity keeps the old
+settle-on-200 behaviour.
+
+Wired on **both** apps. Web never exhibited the vanish, but its projects /
+build-units / channels have always run this same handshake — leaving messages out
+would be an asymmetry with no principle behind it.
+
+### 13.3 The three rules, and the one that bites
+
+Recorded in the `mutation-fns.ts` header and pinned by
+`web-app/code/tests/unit/mutation-txid-handshake.test.ts` (6 tests):
+
+1. **The await sits OUTSIDE the retriable try/catch.** A timeout carries no
+   `.data.code`, so routing it through `wrapTrpcError` marks it retriable, the
+   executor re-runs the whole mutation-fn, **re-issues the tRPC write**, and times
+   out again forever. This is not hypothetical — it is how the original pilot
+   jammed. The guard is the "mutate called exactly once" assertion; it looks
+   redundant next to the "doesn't throw" test and is not.
+2. **A timeout is swallowed, never thrown.** Past the tRPC call the server has
+   committed; throwing rolls back a write that succeeded.
+3. **It needs a live shape to carry the txid.** `messages` is `IDLE_GC_MS` and GC
+   aborts the stream — safe here because GC only fires with no mounted live query,
+   sending only happens from the channel screen where one is mounted, and the 60s
+   tier dwarfs `awaitTxId`'s 5s default. Re-check if either constant moves.
+
+### 13.4 What this does and does not buy
+
+**Does:** the bubble survives the reconciliation window. Any stall shorter than 5s
+is now invisible instead of fatal.
+
+**Does not:** survive a real stall. After the 5s timeout the row still drops and
+the message still disappears. This converts an unbounded, silent,
+indistinguishable-from-data-loss failure into a bounded one — it is not a
+persistent outbox UI.
+
+Making the message visibly persist as "sending…" means surfacing the pending
+transaction in `MessageList`, which is a genuinely separate piece of work. Worth
+doing, but it should not be smuggled in here.
+
+Verification: mobile 38/38, web 112/112 (6 new), both typechecks clean. No import
+cycle introduced — `collections/communication` reaches neither app's
+`infrastructure/offline`.
+
+---
+
+## 14. Shape `where` order stability (§10.6), fixed
+
+`resolveMemberScope` now sorts its three id arrays before returning them.
+
+The arrays are interpolated **positionally** by `idSetWhere` into
+`col = ANY(ARRAY['a','b',…])`, and that string is the Electric shape's identity —
+`shape-where.ts` says so itself: *"a changed string is a new Electric shape, a new
+handle, and a full refetch for every client."* But the two `SELECT`s behind them
+carry no `ORDER BY`, and Postgres guarantees nothing there. A plan flip to an index
+scan, an autovacuum relocating tuples, or an `UPDATE` rewriting a row to a new page
+reorders them, and every connected client refetches messages, tasks, resources and
+properties at once.
+
+Not an authorization bug — the *set* is identical either way, so the same rows are
+authorized. It is a thundering-herd refetch triggered by something as mundane as
+vacuum, and essentially unattributable after the fact.
+
+**The mobile client already did this** (`collections/init.ts` — `uniqSorted` at 127,
+`[...new Set(…)].sort()` at 220) for the ids it puts in the shape URL. The server
+was the missing half of the same invariant, which is decent evidence this was an
+oversight rather than a decision.
+
+`tests/unit/access-scope-order.test.ts` (4 tests) feeds identical rows back in
+different orders and asserts the output does not move, covering the
+membership/owned-channel union as well as the simple case. Verified to FAIL without
+the sort — its two ordering tests break while the de-dup and empty-scope tests keep
+passing, which is the discrimination that makes it worth having.
+
+Web 116/116, typecheck clean.
 
 ---
 
