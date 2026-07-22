@@ -11,7 +11,7 @@
 #   --target runtime  (default) the server. `node dist/server/server.js`.
 #   --target tools    same tree + devDeps, for `pnpm migrate` / `pnpm purge:resources`.
 #
-# See web-app/code/agentGuides/deploymentPlan.md §5.1.
+# See agentGuides/deploymentPlan.md §5.1.
 
 FROM node:22-slim AS base
 ENV PNPM_HOME=/pnpm

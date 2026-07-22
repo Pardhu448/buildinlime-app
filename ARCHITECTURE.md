@@ -2,7 +2,7 @@
 
 > Status: **proof of concept.** This document describes the system **as it is built today**, derived from the code, not from an aspirational design. Where the implementation makes a deliberate compromise, it is called out in [Known constraints](#known-constraints).
 >
-> Earlier design-phase documents live in `web-app/design/` and `web-app/code/agentGuides/`. They describe the intended target; where they disagree with this document, this document reflects what actually runs.
+> Earlier design-phase documents live in `design/` and `agentGuides/`. They describe the intended target; where they disagree with this document, this document reflects what actually runs.
 
 ---
 
@@ -38,7 +38,7 @@ A pnpm workspace with five members:
 | `packages/contracts` | `@buildinlime/contracts` | The wire contract, both directions: pure-zod tRPC input schemas for what a client **sends** (the server validates against them), pure-zod row schemas for what a shape **streams back** (both clients validate against them), plus a type-only tRPC router whose `typeof` is the `AppRouter` type mobile imports. See §5. |
 | `packages/sync-core` | `@buildinlime/sync-core` | One copy of the client write layer — the optimistic action factories and the offline outbox's mutation-fns — plus the collection-options factory the read layer is built from. All parameterized by injected platform primitives. See §5 and §10. |
 
-The `android/` and `ios/` directories at the **repo root are stale** — the live native projects are `mobile-app/android` and `mobile-app/ios`. Run Expo commands from `mobile-app/`.
+The native projects are `mobile-app/android` and `mobile-app/ios`. Both are **gitignored and generated** — this is a managed (CNG) project, so `expo prebuild` regenerates them from `app.json` and the config plugins, and a hand-edit to either is wiped by the next run. Run Expo commands from `mobile-app/`.
 
 Both clients follow the same four-layer internal structure, which is the main reason a developer can move between them:
 

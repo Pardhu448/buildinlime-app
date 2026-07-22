@@ -30,7 +30,7 @@
 //                /_server* (TanStack server functions)
 //   3. shell   — every other path, so direct URLs and refreshes boot the client
 //
-// See web-app/code/agentGuides/deploymentPlan.md §5.1.
+// See agentGuides/deploymentPlan.md §5.1.
 
 import { readFileSync } from "node:fs"
 import { serve } from "srvx"
