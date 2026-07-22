@@ -156,6 +156,13 @@ jobs:
       - name: Quality ratchet (typecheck + lint vs baseline)
         run: bash .github/scripts/ratchet.sh
 
+      # deploy.sh is the one script whose failure mode is a wedged production
+      # box, and it is the only thing here CI never otherwise exercises — the
+      # deploy job runs it on the VM, where a bug has already cost a release.
+      # Fully stubbed: no registry, database or VM is touched.
+      - name: Deploy script failure-handling tests
+        run: bash deploy/deploy.test.sh
+
   # ---------------------------------------------------------------------------
   # Deploy — main only, and only when every gate above is green.
   #
