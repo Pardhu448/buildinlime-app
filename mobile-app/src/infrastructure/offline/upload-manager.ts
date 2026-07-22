@@ -311,6 +311,22 @@ export function startUpload(id: string): void {
   void doUpload(id)
 }
 
+/**
+ * Purge an upload whose synced `resources` row has landed in the collection.
+ * The message list calls this off resourceData: an upload POSTs its own id as
+ * `resourceId`, so the synced resource shares that id and identifies exactly the
+ * pending stand-in it supersedes. No-ops unless the upload is in `synced` — a
+ * still-uploading id must never be dropped. Removes the local file and the row.
+ */
+export async function confirmSynced(id: string): Promise<void> {
+  const upload = uploads.get(id)
+  if (!upload || upload.status !== "synced") return
+  uploads.delete(id)
+  notify()
+  await remove(id).catch(() => {})
+  await FileSystem.deleteAsync(upload.uri, { idempotent: true }).catch(() => {})
+}
+
 // ---------------------------------------------------------------------------
 // Upload
 // ---------------------------------------------------------------------------
@@ -376,13 +392,26 @@ async function doUpload(id: string): Promise<void> {
       throw new Error(err.error ?? `Upload failed (${res.status})`)
     }
 
-    // Success — drop the row and the local file. Electric syncs the new
-    // `resources` row into resourcesCollection on its own.
-    uploads.delete(id)
     retryAttempts.delete(id)
-    notify()
-    await remove(id).catch(() => {})
-    await FileSystem.deleteAsync(upload.uri, { idempotent: true }).catch(() => {})
+    if (upload.messageId) {
+      // Message attachment: do NOT drop the row or the local file yet. Hold it on
+      // screen as the optimistic stand-in until the synced `resources` row (same
+      // id) actually lands in resourcesCollection. Deleting here bets Electric
+      // replays the insert before the eye notices, and even on a healthy stream
+      // that bet is a coin flip. confirmSynced() purges it once the resource
+      // arrives — the message list drives that off resourceData
+      // (resource.id === this upload id).
+      setStatus(id, "synced")
+      await updateStatus(id, "synced").catch(() => {})
+    } else {
+      // Standalone / task uploads render in the Resources sheet, which has no
+      // synced-row reconciler — keep the original behaviour: drop the row and the
+      // local file, and let Electric bring the resource in on its own.
+      uploads.delete(id)
+      notify()
+      await remove(id).catch(() => {})
+      await FileSystem.deleteAsync(upload.uri, { idempotent: true }).catch(() => {})
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Upload failed"
     // Offline isn't really a failure — surface a calmer "awaiting network"

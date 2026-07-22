@@ -16,15 +16,34 @@
 export interface StorageObject {
   /** Web ReadableStream of the object's bytes, for piping into a Response. */
   stream: ReadableStream
-  /** Byte length as reported by the store (callers may prefer the DB's own count). */
+  /**
+   * Full byte length of the object as reported by the store — the whole file,
+   * NOT the length of a ranged slice (callers may prefer the DB's own count).
+   */
   size: number
+}
+
+/** Inclusive byte range `[start, end]` — the same convention as the HTTP Range header. */
+export interface ByteRange {
+  start: number
+  end: number
+}
+
+export interface StorageGetOptions {
+  /**
+   * When set, the returned stream carries only bytes `[start, end]` (inclusive)
+   * rather than the whole object — drives HTTP Range / 206 responses so video and
+   * audio can seek without downloading the entire file. `size` is still the full
+   * object length regardless.
+   */
+  range?: ByteRange
 }
 
 export interface StorageProvider {
   /** Write `body` at `key`. Idempotent — overwriting the same key is fine. */
   put: (key: string, body: Buffer, meta: { contentType: string }) => Promise<void>
-  /** Stream the object back, or `null` if the key does not exist. */
-  get: (key: string) => Promise<StorageObject | null>
+  /** Stream the object back (optionally a byte range), or `null` if the key does not exist. */
+  get: (key: string, opts?: StorageGetOptions) => Promise<StorageObject | null>
   /** Best-effort delete. A missing key is success, never an error. */
   delete: (key: string) => Promise<void>
   /**

@@ -10,27 +10,72 @@ const ORIGIN = new URL(API_URL).origin
 
 type CookieMap = Record<string, string>
 
-async function loadCookies(): Promise<CookieMap> {
-  try {
-    const raw = await SecureStore.getItemAsync(SECURE_STORE_KEY)
-    if (!raw) return {}
-    return JSON.parse(raw) as CookieMap
-  } catch {
-    return {}
+// ---------------------------------------------------------------------------
+// In-memory cookie jar.
+//
+// The jar is the single source of truth in memory; SecureStore is only its
+// durable backing. The previous implementation went to SecureStore on EVERY
+// request — a decrypt-read before each fetch (getAuthHeaders) AND a read+write
+// after every Set-Cookie response, with the response held OPEN until that
+// encrypted write finished. On the sync hot path that is wasteful: the app holds
+// 13 Electric long-polls open, each re-issues every ~20s, and Better Auth's
+// cookieCache (maxAge 50) re-stamps Set-Cookie on them regularly — so every
+// shape response paid for a serialized Android-Keystore round trip.
+//
+// Fix: read SecureStore ONCE, serve every request from memory, and write back
+// only when a cookie value actually changes — serialized and OFF the response's
+// critical path, so a shape response never waits on the encrypted store again.
+//
+// This was written while chasing the disappearing-message bug, on the theory
+// that the keystore churn was stalling shape responses badly enough to wedge
+// sync. It was NOT the cause (see DISAPPEARING_MESSAGES_INVESTIGATION.md §11 —
+// RN's AbortController has no `signal.reason`), and it is kept purely as the
+// efficiency win it turned out to be.
+// ---------------------------------------------------------------------------
+
+let cache: CookieMap | null = null
+let loadOnce: Promise<CookieMap> | null = null
+// Serialize writes so overlapping Set-Cookie responses can't lost-update the jar
+// or run concurrent SecureStore writes over each other.
+let writeChain: Promise<void> = Promise.resolve()
+
+async function ensureLoaded(): Promise<CookieMap> {
+  if (cache) return cache
+  if (!loadOnce) {
+    loadOnce = (async () => {
+      try {
+        const raw = await SecureStore.getItemAsync(SECURE_STORE_KEY)
+        cache = raw ? (JSON.parse(raw) as CookieMap) : {}
+      } catch {
+        cache = {}
+      }
+      return cache
+    })()
   }
+  return loadOnce
 }
 
-async function saveCookies(cookies: CookieMap): Promise<void> {
-  await SecureStore.setItemAsync(SECURE_STORE_KEY, JSON.stringify(cookies))
+// Update the in-memory jar immediately, then persist in the background. Never
+// awaited by a request, so an encrypted write can't hold a response open.
+function persist(next: CookieMap): void {
+  cache = next
+  const snapshot = JSON.stringify(next)
+  writeChain = writeChain
+    .then(() => SecureStore.setItemAsync(SECURE_STORE_KEY, snapshot))
+    .catch(() => {})
 }
 
 export async function clearAuthCookies(): Promise<void> {
-  await SecureStore.deleteItemAsync(SECURE_STORE_KEY)
+  cache = {}
+  writeChain = writeChain
+    .then(() => SecureStore.deleteItemAsync(SECURE_STORE_KEY))
+    .catch(() => {})
+  await writeChain
 }
 
 /** Returns the stored session cookies as a Cookie header string. */
 export async function getAuthCookieHeader(): Promise<string> {
-  const cookieMap = await loadCookies()
+  const cookieMap = await ensureLoaded()
   return Object.entries(cookieMap)
     .map(([k, v]) => `${k}=${v}`)
     .join("; ")
@@ -68,12 +113,14 @@ function parseSetCookieHeader(raw: string): { name: string; value: string } | nu
 
 /**
  * Returns a fetch-compatible function that attaches stored cookies to every
- * request and persists any Set-Cookie values from every response.
+ * request and persists any Set-Cookie values from every response. All instances
+ * share the module-level in-memory jar, so the Electric fetchClient, the upload
+ * manager and getAuthHeaders can never drift apart on the current cookies.
  */
 export function createCookieFetch(): typeof fetch {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     // 1. Attach stored cookies + Origin (the latter so Better Auth's CSRF
-    //    check passes in React Native). Shared builder — see getAuthHeaders.
+    //    check passes in React Native). Served from memory after the first load.
     const headers = new Headers(init?.headers)
     for (const [key, value] of Object.entries(await getAuthHeaders())) {
       headers.set(key, value)
@@ -82,24 +129,27 @@ export function createCookieFetch(): typeof fetch {
     // 2. Make the actual request
     const response = await fetch(input, { ...init, headers })
 
-    // 3. Parse Set-Cookie headers and persist them
+    // 3. Persist any Set-Cookie values — but only when something actually
+    //    changed, and never blocking the response on the write.
     // In React Native, Headers.getAll is not available; we use get() which
     // returns a comma-joined string for multi-value headers, but Set-Cookie
     // values can contain commas in Expires dates. Better Auth typically sends
     // one session cookie, so we handle the common case.
     const setCookieRaw = response.headers.get("set-cookie")
     if (setCookieRaw) {
-      const newCookies = await loadCookies()
+      const current = await ensureLoaded()
+      const next = { ...current }
+      let changed = false
       // Split on ", " only when followed by a cookie name (word=)
-      // Simple heuristic: split on "; " boundaries per cookie
       const cookieStrings = setCookieRaw.split(/,(?=[^;]+=)/)
       for (const cookieStr of cookieStrings) {
         const parsed = parseSetCookieHeader(cookieStr.trim())
-        if (parsed) {
-          newCookies[parsed.name] = parsed.value
+        if (parsed && next[parsed.name] !== parsed.value) {
+          next[parsed.name] = parsed.value
+          changed = true
         }
       }
-      await saveCookies(newCookies)
+      if (changed) persist(next)
     }
 
     return response

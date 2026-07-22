@@ -1,6 +1,6 @@
 import { Readable } from "node:stream"
 import { Storage } from "@google-cloud/storage"
-import type { StorageObject, StorageProvider } from "../provider"
+import type { StorageObject, StorageProvider, StorageGetOptions } from "../provider"
 
 export interface GcsStorageConfig {
   bucket: string
@@ -41,7 +41,7 @@ export class GcsStorage implements StorageProvider {
     })
   }
 
-  async get(key: string): Promise<StorageObject | null> {
+  async get(key: string, opts?: StorageGetOptions): Promise<StorageObject | null> {
     const file = this.file(key)
     let size: number
     try {
@@ -52,7 +52,12 @@ export class GcsStorage implements StorageProvider {
       throw err
     }
     // Stream rather than buffer the whole object into memory; pipes into a Response.
-    const stream = Readable.toWeb(file.createReadStream()) as unknown as ReadableStream
+    // createReadStream's `start`/`end` are inclusive (matching HTTP Range), so a
+    // ranged read pulls only the requested slice from GCS.
+    const range = opts?.range
+    const stream = Readable.toWeb(
+      file.createReadStream(range ? { start: range.start, end: range.end } : undefined)
+    ) as unknown as ReadableStream
     return { stream, size }
   }
 

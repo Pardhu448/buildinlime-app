@@ -91,6 +91,8 @@ const STATUS_LABEL: Record<PendingUpload["status"], string> = {
   uploading: "Uploading…",
   awaiting_network: "Waiting for network",
   error: "Upload failed",
+  // Uploaded; kept briefly as the local stand-in until its synced row arrives.
+  synced: "Sent",
 }
 
 interface PendingUploadRowProps {

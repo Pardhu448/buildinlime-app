@@ -10,6 +10,9 @@ import {
   tasksTable,
 } from "%/infrastructure/database/schema/admin-schema"
 import { sql, eq, and } from "drizzle-orm"
+// Pure Range-header parsing lives in its own module so it can be unit-tested
+// without importing this file — which pulls in auth and a PG pool. See range.ts.
+import { parseRangeHeader } from "./range"
 
 export async function handleFileUpload(request: Request): Promise<Response> {
   const session = await auth.api.getSession({ headers: request.headers })
@@ -222,7 +225,24 @@ export async function serveResourceFile(
   }
   const raw = rawRecords[0]
 
-  const obj = await getStorage().get(raw.storage_path)
+  const totalSize = Number(raw.file_size_bytes)
+  const range = parseRangeHeader(request.headers.get("range"), totalSize)
+
+  // A range that names bytes outside the file gets 416 + the file's true size, so
+  // the client can retry with a valid one (RFC 9110 §15.5.17).
+  if (range === "unsatisfiable") {
+    return new Response(null, {
+      status: 416,
+      headers: {
+        "content-range": `bytes */${totalSize}`,
+        "accept-ranges": "bytes",
+      },
+    })
+  }
+
+  // Fetch only the requested slice off storage when a range was asked for — the
+  // player never has to pull the whole file just to seek near the end.
+  const obj = await getStorage().get(raw.storage_path, range ? { range } : undefined)
   if (!obj) {
     return new Response(JSON.stringify({ error: "File not found on server" }), {
       status: 404,
@@ -230,14 +250,34 @@ export async function serveResourceFile(
     })
   }
 
+  // `attachment` is what the download path relies on; native media players read
+  // the bytes off the URL directly and ignore the disposition, so it is safe here too.
   const disposition = `attachment; filename="${encodeURIComponent(raw.original_filename)}"`
+  const commonHeaders: Record<string, string> = {
+    "content-type": raw.mime_type,
+    "content-disposition": disposition,
+    "cache-control": "private, max-age=3600",
+    // Advertised on every response so a client knows it may issue Range requests.
+    "accept-ranges": "bytes",
+  }
+
+  if (range) {
+    const length = range.end - range.start + 1
+    return new Response(obj.stream, {
+      status: 206,
+      headers: {
+        ...commonHeaders,
+        "content-length": String(length),
+        "content-range": `bytes ${range.start}-${range.end}/${totalSize}`,
+      },
+    })
+  }
+
   return new Response(obj.stream, {
     status: 200,
     headers: {
-      "content-type": raw.mime_type,
-      "content-length": String(raw.file_size_bytes),
-      "content-disposition": disposition,
-      "cache-control": "private, max-age=3600",
+      ...commonHeaders,
+      "content-length": String(totalSize),
     },
   })
 }

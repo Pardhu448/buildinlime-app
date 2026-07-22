@@ -134,6 +134,48 @@ describe("enqueue + start", () => {
   })
 })
 
+describe("message attachment success (synced bridge)", () => {
+  it("keeps the upload as a synced stand-in until confirmSynced purges it", async () => {
+    const um = await load()
+    h.cookieFetch.mockResolvedValue(okResponse())
+
+    const id = await um.enqueueUpload(
+      "file:///picked",
+      { ...OPTS, messageId: "msg-1" },
+      { autoStart: false },
+    )
+    um.startUpload(id)
+
+    // Uploaded, but the row SURVIVES as the optimistic stand-in (status "synced")
+    // and the local file is kept on screen — this is the Electric-replay bridge.
+    await vi.waitFor(() => expect(um.getUploads()[0]?.status).toBe("synced"))
+    expect(um.getUploads()).toHaveLength(1)
+    expect(h.rows.size).toBe(1)
+    expect(h.fs.deleteAsync).not.toHaveBeenCalled()
+
+    // The synced `resources` row lands → the message list confirms it, and now
+    // the stand-in row and its local file are dropped.
+    await um.confirmSynced(id)
+    expect(um.getUploads()).toHaveLength(0)
+    expect(h.rows.size).toBe(0)
+    expect(h.fs.deleteAsync).toHaveBeenCalled()
+  })
+
+  it("confirmSynced is a no-op for an upload that has not finished uploading", async () => {
+    const um = await load()
+    const id = await um.enqueueUpload(
+      "file:///picked",
+      { ...OPTS, messageId: "msg-1" },
+      { autoStart: false },
+    )
+
+    // Still awaiting_schedule — a premature confirm must never drop it.
+    await um.confirmSynced(id)
+    expect(um.getUploads()).toHaveLength(1)
+    expect(um.getUploads()[0]?.status).toBe("awaiting_schedule")
+  })
+})
+
 describe("online failure backoff", () => {
   it("marks error and retries on an exponential (1s, 2s) schedule", async () => {
     const um = await load()

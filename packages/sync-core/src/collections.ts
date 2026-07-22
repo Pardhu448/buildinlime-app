@@ -52,11 +52,30 @@ export const IDLE_GC_MS = 60_000
 // reports its errors here, and the bootstrap treats "ready + zero rows + errored"
 // as NOT LOADED (a clean empty sync is trusted immediately — a new user really has
 // no memberships). See ARCHITECTURE.md §6.
+// electric-db-collection's onError contract: return an object (RetryOpts, or an
+// empty `{}` for "retry with the SAME params/headers") to keep syncing; return
+// void/undefined and it TEARS THE SHAPE DOWN for good. So the handler MUST return
+// `{}` — a bare `await delay` that returns undefined silently kills the shape on
+// the first error electric's own internal retries didn't resolve, and nothing
+// restarts it until a full reload. Verified in @electric-sql/client's `#start`:
+// a non-object return falls through to `#sendErrorToSubscribers` + `#teardown`.
+//
+// NOTE: this is NOT what caused the disappearing-message bug, despite being
+// found while chasing it — that was RN's AbortController lacking `signal.reason`
+// (mobile-app/src/infrastructure/polyfills/abort-signal-reason.ts, and §11 of
+// DISAPPEARING_MESSAGES_INVESTIGATION.md). Aborts never reach `onError` at all,
+// which is why this fix changed nothing on its own. It is kept because the
+// contract violation was real and would bite on the next genuine shape error.
+export type ShapeRetryDecision = {
+  params?: Record<string, string>
+  headers?: Record<string, string>
+}
+
 export interface ShapeRetry {
-  /** Electric shape onError handler: retry after a delay (401 → 2s, else 5s). */
-  retryOnError: (error: Error) => Promise<void>
+  /** Electric shape onError handler: wait (401 → 2s, else 5s) then RETRY (return `{}`). */
+  retryOnError: (error: Error) => Promise<ShapeRetryDecision>
   /** As retryOnError, but also records the error for the memberships shape. */
-  retryOnMembershipsError: (error: Error) => Promise<void>
+  retryOnMembershipsError: (error: Error) => Promise<ShapeRetryDecision>
   membershipsShapeErrored: () => boolean
   clearMembershipsShapeError: () => void
 }
@@ -68,13 +87,16 @@ export interface ShapeRetry {
 export function makeShapeRetry(log?: (message: string) => void): ShapeRetry {
   let membershipsError: Error | null = null
 
-  const retryOnError = async (error: Error) => {
+  const retryOnError = async (error: Error): Promise<ShapeRetryDecision> => {
     log?.(`[shape-retry] ${error?.message ?? String(error)}`)
     const delay = error.message.includes(`401`) ? 2000 : 5000
     await new Promise((resolve) => setTimeout(resolve, delay))
+    // Return `{}` (NOT undefined) so electric retries the shape with the same
+    // params/headers. Returning void here tears the shape down permanently.
+    return {}
   }
 
-  const retryOnMembershipsError = async (error: Error) => {
+  const retryOnMembershipsError = async (error: Error): Promise<ShapeRetryDecision> => {
     membershipsError = error
     return retryOnError(error)
   }
@@ -145,7 +167,7 @@ export interface CollectionRuntime {
   /** Mobile only: RN's fetch has no cookie jar, so shapes need the wrapped client. */
   fetchClient?: (input: never, init?: never) => Promise<Response>
   /** Default shape onError. Memberships overrides it — see makeShapeRetry. */
-  retryOnError: (error: Error) => Promise<void>
+  retryOnError: (error: Error) => Promise<ShapeRetryDecision>
 }
 
 export interface CollectionSpec {
@@ -166,7 +188,7 @@ export interface CollectionSpec {
   /** NEVER_GC or IDLE_GC_MS — see the tier note above. */
   gcTime: number
   /** Overrides runtime.retryOnError (memberships reports before retrying). */
-  onError?: (error: Error) => Promise<void>
+  onError?: (error: Error) => Promise<ShapeRetryDecision>
   /**
    * The app's persistence handle. Per-call rather than on the runtime because web
    * resolves it asynchronously and mobile synchronously.
