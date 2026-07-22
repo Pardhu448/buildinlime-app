@@ -33,6 +33,7 @@ import "react-native-reanimated"
 import { useSession, signOutAndDispose, clearAuthCookies } from "@/src/infrastructure/auth/client"
 import { ProjectProvider, useProjectContext } from "@/src/application/context/ProjectContext"
 import { waitForLiveQueryRelease } from "@/src/application/collections/live-query-release"
+import { startWakeProbe } from "@/src/infrastructure/offline/wake-probe"
 import { colors } from "@/src/presentation/shared/colors"
 
 export { ErrorBoundary } from "expo-router"
@@ -45,6 +46,11 @@ export const unstable_settings = {
 }
 
 SplashScreen.preventAutoHideAsync()
+
+// DIAGNOSTIC (dev-only, no-ops in production) — see wake-probe.ts and
+// DISAPPEARING_MESSAGES_INVESTIGATION.md §11.4. Armed at module load so a
+// background trip is measured even if it happens before the first screen mounts.
+startWakeProbe()
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
