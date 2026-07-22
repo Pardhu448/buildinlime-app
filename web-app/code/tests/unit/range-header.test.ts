@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest"
-import { parseRangeHeader } from "%/infrastructure/storage/fileStorage"
+import { parseRangeHeader } from "%/infrastructure/storage/range"
 
 // parseRangeHeader turns a `Range` request header into the slice serveResourceFile
 // should stream (206), the sentinel for an out-of-bounds range (416), or null when
 // there is no usable range and the whole file should go back (200).
+//
+// Imported from storage/range, NOT storage/fileStorage. fileStorage imports
+// auth/server and database/connection, and connection.ts throws at module load
+// without DATABASE_URL — so importing it here passed locally (a .env is present)
+// and failed in CI, whose unit job is deliberately env-free.
 
 const SIZE = 1000
 

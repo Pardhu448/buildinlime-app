@@ -10,43 +10,9 @@ import {
   tasksTable,
 } from "%/infrastructure/database/schema/admin-schema"
 import { sql, eq, and } from "drizzle-orm"
-import type { ByteRange } from "./provider"
-
-// Parse a single-range HTTP `Range` header against a known object size.
-//   - null            → no (usable) Range header; serve the whole object (200).
-//   - "unsatisfiable" → a syntactically valid range that falls outside the file (416).
-//   - ByteRange       → the inclusive slice to serve (206).
-// Only single ranges are handled; a multi-range header (a comma) is treated as
-// absent and the full object is served — media players only ever ask for one.
-export function parseRangeHeader(
-  header: string | null,
-  size: number
-): ByteRange | "unsatisfiable" | null {
-  if (!header) return null
-  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim())
-  if (!match) return null
-  const [, startStr, endStr] = match
-  if (startStr === "" && endStr === "") return null
-
-  let start: number
-  let end: number
-  if (startStr === "") {
-    // Suffix form `bytes=-N`: the last N bytes.
-    const suffix = Number(endStr)
-    if (suffix === 0) return "unsatisfiable"
-    start = Math.max(0, size - suffix)
-    end = size - 1
-  } else {
-    start = Number(startStr)
-    end = endStr === "" ? size - 1 : Number(endStr)
-  }
-
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return null
-  // A start at or past EOF cannot be served; an empty file satisfies no range.
-  if (size === 0 || start >= size || start > end) return "unsatisfiable"
-  if (end >= size) end = size - 1
-  return { start, end }
-}
+// Pure Range-header parsing lives in its own module so it can be unit-tested
+// without importing this file — which pulls in auth and a PG pool. See range.ts.
+import { parseRangeHeader } from "./range"
 
 export async function handleFileUpload(request: Request): Promise<Response> {
   const session = await auth.api.getSession({ headers: request.headers })
