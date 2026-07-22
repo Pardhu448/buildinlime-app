@@ -8,6 +8,8 @@ import {
   initProjectCollections,
   membershipSetsChanged,
   resyncProjectCollections,
+  hasStrandedProjectCollections,
+  recoverStrandedProjectCollections,
 } from "@/src/application/collections/init"
 import { membershipsCollection } from "@/src/application/collections/organization"
 import { waitForLiveQueryRelease } from "@/src/application/collections/live-query-release"
@@ -32,6 +34,14 @@ export default function DrawerLayout() {
   // the Drawer so remounted live queries read the freshly-built collections.
   const [resyncing, setResyncing] = useState(false)
   const [dataVersion, setDataVersion] = useState(0)
+
+  // Fresh-login recovery (persistence hydration race). When a rebuild is requested
+  // because collections synced empty rather than because the scope changed,
+  // recoverRef routes the shared resync effect down the recovery rebuild instead of
+  // resyncProjectCollections. recoverAttempts caps retries so a genuinely-empty
+  // state can never loop. See hasStrandedProjectCollections.
+  const recoverRef = useRef(false)
+  const recoverAttempts = useRef(0)
 
   // Phase 1: Bootstrap collections (memberships + projects + users)
   //
@@ -128,6 +138,52 @@ export default function DrawerLayout() {
     }
   }, [projectReady, projectId])
 
+  // Backstop for the persistence hydration race: after project collections are
+  // ready, poll for an owner-escape ORG collection that Electric marked up-to-date
+  // (isReady) yet left empty despite the membership scope proving it must hold rows.
+  //
+  // isReady() only flips true AFTER Electric commits its snapshot batch (deferred
+  // behind persistence hydration), so in a healthy load `size` is already non-zero
+  // by the time isReady() is true — isReady() && empty is NOT a normal mid-load
+  // state. The remaining ways to be isReady() && empty are the stranded-hydration
+  // bug (permanent) and a shape error just before its retry delivers (transient).
+  // To ignore the transient we require the condition to hold on TWO consecutive
+  // polls (~600ms apart); the stranded state holds forever and trips it at once,
+  // while an error window clears when the retry lands. When confirmed, route the
+  // shared resync effect through the recovery rebuild. Re-runs after each rebuild
+  // (dataVersion) so a recovery that itself raced is caught, bounded by
+  // recoverAttempts. See recoverStrandedProjectCollections.
+  useEffect(() => {
+    if (!projectReady || !projectId || resyncing) return
+    if (recoverAttempts.current >= 2) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let checks = 0
+    let consecutive = 0
+    const tick = () => {
+      if (cancelled) return
+      checks++
+      if (hasStrandedProjectCollections(projectId)) {
+        consecutive++
+        if (consecutive >= 2) {
+          if (__DEV__) console.log("[layout] Stranded-empty collections confirmed — recovering")
+          recoverRef.current = true
+          recoverAttempts.current += 1
+          setResyncing(true)
+          return
+        }
+      } else {
+        consecutive = 0
+      }
+      if (checks < 12) timer = setTimeout(tick, 600)
+    }
+    timer = setTimeout(tick, 600)
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [projectReady, projectId, resyncing, dataVersion])
+
   // Run the resync only AFTER the content has unmounted (resyncing=true renders
   // the spinner), so cleanup() never runs against collections a mounted live
   // query still references. Rebind the offline executor to the freshly-built
@@ -145,7 +201,13 @@ export default function DrawerLayout() {
         // ("… cleaned up while live query depends on it"). Same guard sign-out uses.
         await waitForLiveQueryRelease()
         if (cancelled) return
-        const changed = await resyncProjectCollections(projectId)
+        // recoverRef routes this rebuild: a stranded-empty recovery (fresh-login
+        // hydration race) rebuilds the whole scope; otherwise a scope-change resync.
+        const recovering = recoverRef.current
+        recoverRef.current = false
+        const changed = recovering
+          ? await recoverStrandedProjectCollections(projectId)
+          : await resyncProjectCollections(projectId)
         if (cancelled) return
         if (changed) {
           resetAllOfflineActions()
