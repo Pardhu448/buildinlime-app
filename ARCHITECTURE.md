@@ -2,7 +2,7 @@
 
 > Status: **proof of concept.** This document describes the system **as it is built today**, derived from the code, not from an aspirational design. Where the implementation makes a deliberate compromise, it is called out in [Known constraints](#known-constraints).
 >
-> Earlier design-phase documents live in `web-app/design/` and `web-app/code/agentGuides/`. They describe the intended target; where they disagree with this document, this document reflects what actually runs.
+> Earlier design-phase documents live in `design/` and `agentGuides/`. They describe the intended target; where they disagree with this document, this document reflects what actually runs.
 
 ---
 

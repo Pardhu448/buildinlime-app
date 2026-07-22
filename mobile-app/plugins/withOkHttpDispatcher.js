@@ -21,7 +21,7 @@ const { mergeContents } = require("@expo/config-plugins/build/utils/generateCode
  * the next `expo prebuild --clean`, and it fails silently when it goes — the JS
  * keeps working and sync just quietly gets slow again.
  *
- * See web-app/code/agentGuides/shapeConcurrencyAndLazySync.md §1.
+ * See agentGuides/shapeConcurrencyAndLazySync.md §1.
  */
 
 // Generous rather than exact: the ceiling only needs to exceed
