@@ -174,9 +174,6 @@ export function MessageInput({
       // falsified it: the message was dropped after a 822ms POST, before a single
       // byte had uploaded (DISAPPEARING_MESSAGES_INVESTIGATION.md §10.1). The real
       // cause was RN's AbortController — see §11 and abort-signal-reason.ts.
-      if (__DEV__ && uploadIds.length > 0) {
-        console.log(`[msg-diag] send ${messageId.slice(0, 8)} with ${uploadIds.length} upload(s)`)
-      }
       uploadIds.forEach((id) => start(id))
     } catch (err) {
       // Release the uploads anyway so they aren't stranded — the upload's own

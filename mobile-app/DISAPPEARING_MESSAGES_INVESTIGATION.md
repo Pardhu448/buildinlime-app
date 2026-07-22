@@ -1,14 +1,21 @@
 # Investigation: mobile messages disappear when sending media attachments
 
-**Status: ROOT CAUSE FOUND, FIX APPLIED, CONFIRMED ON DEVICE 2026-07-22 (§11.4).**
+**Status: RESOLVED. Root cause found, fixed, and confirmed on device 2026-07-22 —
+all 13 shapes aborted and all 13 restarted (§11.4b).**
+
 React Native's `AbortController` polyfill has no `signal.reason`, which disables
 `@electric-sql/client`'s own restart-after-abort path — so the wake-detection
-abort described in §10 killed every in-flight shape long-poll permanently. Read
-**§11 first**; §§2–9 are the trail that led there and several of their
-conclusions are superseded.
+abort described in §10 killed every in-flight shape long-poll permanently.
 
-Branch: `feat/mobile-audio-video-picture-message`. All changes below are
-currently **uncommitted** (working tree) against `main`.
+**Read §11 first.** §§2–9 are the trail that led there and several of their
+conclusions are superseded — §2d, §6.1 and §9.1 in particular chase a "selective
+freeze" that turned out to be nothing but which requests happened to be in flight.
+They are kept because knowing what was ruled out, and why the wrong readings were
+plausible, is most of the value if this ever recurs.
+
+Branch `feat/mobile-audio-video-picture-message` (the fix is commit `e2cff9f`),
+with §9.3 and §10.6 on `fix/message-txid-handshake` and §9.4 on
+`fix/range-content-length`.
 
 ---
 
@@ -32,7 +39,8 @@ Web (same server, same architecture) does **not** exhibit this.
 
 ## 2. What the data proves (from on-device logs)
 
-Three diagnostics were added (still in the code — see §5):
+Three diagnostics produced everything below. They have since been REMOVED (§5, §15);
+reproducing any of these captures means restoring them from git history:
 
 - `[msg-diag]` — logs when a message id ENTERS / LEAVES the live `messages`
   collection, and send/commit timing. (`MessageList.tsx`, `MessageInput.tsx`)
@@ -144,14 +152,21 @@ Typechecks clean across sync-core / mobile / web; mobile 33/33 unit tests pass.
 
 ---
 
-## 5. Diagnostic instrumentation still in the tree (remove when resolved)
+## 5. Diagnostic instrumentation — ALL REMOVED (§15)
 
-- `mobile-app/src/presentation/messages/components/MessageList.tsx` — `[msg-diag]`
-  ENTER/LEAVE effect (dev-only).
-- `mobile-app/src/presentation/messages/components/MessageInput.tsx` — `[msg-diag]`
-  send/commit logs (dev-only).
-- `mobile-app/src/infrastructure/auth/cookie-fetch.ts` — `[net#N]` request +
-  in-flight logging (dev-only).
+These carried the whole investigation and are gone as of §15. Listed because every
+log excerpt in this document came from one of them, and reproducing any of it means
+putting them back:
+
+- `MessageList.tsx` — `[msg-diag]` ENTER/LEAVE effect. Which id left the live
+  collection, and when.
+- `MessageInput.tsx` — `[msg-diag]` send log.
+- `cookie-fetch.ts` — `[net#N]` request + in-flight counter. Every `[net#…]` line
+  quoted below. NOTE it only ever saw traffic through `cookieFetch`: image, video
+  and audio bytes were invisible to it (§9.2).
+- `infrastructure/offline/wake-probe.ts` — `[wake]` AppState transitions and the
+  JS-timer gap, mirroring `@electric-sql/client`'s own wake-detection constants.
+  Deleted; recover from git history if the mechanism ever needs re-measuring.
 
 ---
 
@@ -740,6 +755,47 @@ not — that is §9.3, not this.
 Incidentally this is why the bug felt so erratic in normal use: the camera and picker
 flows produce exactly these short, repeated backgrounds.
 
+### 11.4b DELIBERATE confirmation — all 13 shapes aborted and all 13 restarted
+
+Ran the two-trip recipe on 2026-07-22. This is the decisive result; §11.4 was the
+same thing caught opportunistically on one stream.
+
+**Trip 2 — the test.** Backgrounded 06:26:48 → 06:26:59:
+
+```
+[wake] 06:26:59.476 GAP 12007ms
+[net#564] ✗ /api/my-tasks    THREW after 12290ms: AbortError: Aborted
+[net#576] → GET /api/my-tasks (inflight 13)
+[net#554] ✗ /api/memberships THREW after 12705ms: AbortError: Aborted
+[net#577] → GET /api/memberships (inflight 13)
+[net#553] ✗ /api/projects    THREW after 13678ms: AbortError: Aborted
+[net#578] → GET /api/projects (inflight 13)
+```
+
+**All 13 shapes aborted, all 13 re-issued on the same path**, `inflight` never below
+12 and straight back to 13. Poll ages 12.3–13.7s — squarely in the window. This is
+`isRestartAbort` firing: the branch that was unreachable before the polyfill, in
+exactly the scenario `mobileUiAndShapeBudget.md` §7 recorded as *"all ten shapes
+aborted at the same instant and not one reconnected"*.
+
+**Trip 3 confirmed the other half by accident.** A third background (`GAP 13938ms`)
+aborted nothing, because the polls restarted in trip 2 were ~29.8s old by then —
+past the 20s hold, already answered:
+
+```
+[net#566] ← /api/users 200 29878ms   … all 13 return 200, zero aborts
+```
+
+So one capture contains both predicted cases. Sync then settled back to a clean 20s
+cadence at `inflight` 13.
+
+**Incidental: the polyfill's self-disabling guard turned out to be load-bearing.**
+The `[wake]` lines came out doubled — two `appstate` lines per transition, two GAP
+lines with different elapsed values (12007 / 11169) — i.e. two live module instances,
+so `installAbortSignalReasonPolyfill()` ran twice. The second call found
+`signal.reason` already working and returned early rather than double-wrapping
+`abort`. That guard was written speculatively; keep it.
+
 ### 11.5 Still outstanding, independent of this
 
 - **§9.3 — no txid handshake.** Worth doing on its own merits: it converts a silent
@@ -748,13 +804,8 @@ flows produce exactly these short, repeated backgrounds.
 - **§9.4 — `content-length` from `raw.file_size_bytes` instead of `obj.size`.**
 - **§10.6 — `resolveMemberScope` has no `ORDER BY`**, so the shape `where` string
   is not order-stable.
-- **Diagnostics: `wake-probe.ts` STAYS for now.** §11.4 confirmed the fix, but it
-  caught the in-flight abort by chance; the probe is what makes the deliberate
-  long-background re-test readable, and it is the only way to correlate a JS-timer
-  gap with an abort. Remove it — and the §5 `[msg-diag]` / `[net#]` instrumentation
-  — once that deliberate run is clean and the branch is ready to merge. All three
-  are `__DEV__`-gated and no-op in production, so carrying them costs nothing but
-  log noise.
+- ~~**Diagnostics stay until the deliberate run.**~~ **DONE — the deliberate run is
+  in §11.4b and all instrumentation was removed in §15.**
 
 ---
 
@@ -800,3 +851,39 @@ diagnostics — `[msg-diag]`, `[net#]`, `wake-probe.ts` — which stay until the
 deliberate long-background re-test in §11.4 is clean. See §11.5.
 
 Verification after cleanup: mobile 38/38, mobile and web typecheck clean.
+
+---
+
+## 15. Instrumentation removed (2026-07-22)
+
+With §11.4b confirming the fix deliberately, all four diagnostics are out:
+
+| Removed | Was |
+|---|---|
+| `infrastructure/offline/wake-probe.ts` (deleted) + its call in `app/_layout.tsx` | `[wake]` AppState transitions and the JS-timer gap |
+| `infrastructure/auth/cookie-fetch.ts` | `[net#N]` request/in-flight counter |
+| `messages/components/MessageList.tsx` | `[msg-diag]` ENTER/LEAVE effect |
+| `messages/components/MessageInput.tsx` | `[msg-diag]` send log |
+
+All were `__DEV__`-gated, so this changes no production behaviour — it removes log
+noise and, in `cookie-fetch`, a wrapper around every request on the sync hot path.
+
+**Everything they were watching is still watchable**, which is why removing them is
+safe: a stalled shape shows up as `GET /api/<x>` no longer cycling in any network
+trace, and a vanished message shows up as the bubble vanishing. The instrumentation
+made those things *precise*, not *visible*.
+
+If any of it is ever needed again, `git show <this-commit>^:<path>` has each file
+intact; `wake-probe.ts` in particular is worth recovering wholesale rather than
+rewriting, because its constants are a deliberate mirror of
+`@electric-sql/client`'s private `#subscribeToWakeDetection` (`INTERVAL_MS = 2000`,
+`WAKE_THRESHOLD_MS = 4000`) and a drift there makes the probe lie.
+
+What stays, and is NOT diagnostic:
+- `infrastructure/polyfills/abort-signal-reason.ts` — the fix itself.
+- `[shape-retry]` in `makeShapeRetry` — pre-existing, and the only outward sign a
+  shape is stuck retrying.
+- `[collections]` / `[layout]` / `[SQLite]` boot lines — pre-existing lifecycle logs.
+
+Verification: mobile 38/38, web 116/116, both typechecks clean, lint clean on every
+touched file.

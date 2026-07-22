@@ -117,18 +117,6 @@ function parseSetCookieHeader(raw: string): { name: string; value: string } | nu
  * share the module-level in-memory jar, so the Electric fetchClient, the upload
  * manager and getAuthHeaders can never drift apart on the current cookies.
  */
-// DIAGNOSTIC (dev-only): count in-flight requests through the shared fetch and
-// time each one. Every Electric shape long-poll and every upload passes through
-// here, so a sync freeze shows up as shape polls that stop being re-issued, or
-// an in-flight count that climbs and stays pinned. Remove once the disappearing-
-// message bug is resolved.
-let netInFlight = 0
-let netSeq = 0
-function shortPath(input: RequestInfo | URL): string {
-  const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url
-  return url.replace(API_URL, "").split("?")[0]
-}
-
 export function createCookieFetch(): typeof fetch {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     // 1. Attach stored cookies + Origin (the latter so Better Auth's CSRF
@@ -139,20 +127,7 @@ export function createCookieFetch(): typeof fetch {
     }
 
     // 2. Make the actual request
-    const id = ++netSeq
-    netInFlight++
-    const t0 = Date.now()
-    if (__DEV__) console.log(`[net#${id}] → ${init?.method ?? "GET"} ${shortPath(input)} (inflight ${netInFlight})`)
-    let response: Response
-    try {
-      response = await fetch(input, { ...init, headers })
-    } catch (err) {
-      netInFlight--
-      if (__DEV__) console.log(`[net#${id}] ✗ ${shortPath(input)} THREW after ${Date.now() - t0}ms (inflight ${netInFlight}):`, String(err))
-      throw err
-    }
-    netInFlight--
-    if (__DEV__) console.log(`[net#${id}] ← ${shortPath(input)} ${response.status} ${Date.now() - t0}ms (inflight ${netInFlight})`)
+    const response = await fetch(input, { ...init, headers })
 
     // 3. Persist any Set-Cookie values — but only when something actually
     //    changed, and never blocking the response on the write.

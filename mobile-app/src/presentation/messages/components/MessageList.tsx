@@ -60,21 +60,6 @@ export function MessageList({
   )
   const messageUploads = useChannelMessageUploads(channelId)
 
-  // DIAGNOSTIC (dev-only): log the exact moment a message id enters or LEAVES the
-  // live collection, plus the current counts. A message that "flashes and
-  // disappears" shows up here as `-<id> LEFT` with no reload in between — that
-  // pins the drop to the messages stream rather than the upload/render path.
-  // Remove once the disappearing-message bug is resolved.
-  const prevMsgIds = useRef<Set<string>>(new Set())
-  useEffect(() => {
-    if (!__DEV__) return
-    const now = new Set(messages.map((m) => m.id))
-    const prev = prevMsgIds.current
-    for (const id of now) if (!prev.has(id)) console.log(`[msg-diag] +${id.slice(0, 8)} ENTERED (total ${now.size})`)
-    for (const id of prev) if (!now.has(id)) console.log(`[msg-diag] -${id.slice(0, 8)} LEFT (total ${now.size}, resources ${(resourceData ?? []).length})`)
-    prevMsgIds.current = now
-  }, [messages, resourceData])
-
   const resourcesByMessage = useMemo(
     () => groupBy((resourceData ?? []) as Resource[], (r) => r.message_id),
     [resourceData]
