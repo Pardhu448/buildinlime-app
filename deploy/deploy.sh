@@ -13,10 +13,21 @@
 #   4. up -d     — Compose recreates only changed services, leaving Electric's
 #                  replication slot alone (verified §12)
 #   5. smoke     — and roll back the tag if it fails
+#   6. prune     — evict superseded images; the boot disk is finite (see below)
 #
+# Failure handling is a single EXIT trap, NOT per-step cleanup. Step 1 rewrites
+# compose.env before anything else runs, so ANY later failure used to leave the
+# file pointing at a tag that may not even be on the box — while the rollback
+# lived only inside the smoke-test branch and so never ran for an earlier
+# failure. That is exactly what happened when a full disk killed the pull: the
+# containers kept serving the old image (correct), but compose.env named the new
+# one, so the next `compose up` or a reboot would have tried to start a tag that
+# was never fully pulled.
 set -euo pipefail
 
-APP_DIR=/opt/buildinlime
+# Overridable only so deploy.test.sh can point it at a scratch directory. In
+# production CI always leaves it unset, and the default is what runs.
+APP_DIR="${APP_DIR:-/opt/buildinlime}"
 IMAGE_TAG="${IMAGE_TAG:?set IMAGE_TAG}"
 REGION="${REGION:-asia-south1}"
 PROJECT="${PROJECT:-buildinlime}"
@@ -29,23 +40,69 @@ COMPOSE=(docker compose --env-file compose.env --env-file .env -f docker-compose
 
 step() { printf '\n\033[1;36m▸ %s\033[0m\n' "$*"; }
 
-# Remember the current tag so a failed smoke test can roll back.
+# Remember the current tag so any failure can roll back to it.
 PREV_TAG=$(grep -oP '(?<=/app:).*' compose.env || echo "")
 step "deploying ${IMAGE_TAG} (previous: ${PREV_TAG:-none})"
 
-step "1/5 point compose at the new tag"
-sed -i "s|/app:.*|/app:${IMAGE_TAG}|" compose.env
-sed -i "s|/tools:.*|/tools:${IMAGE_TAG}|" compose.env
+# Set once the smoke test has passed; tells the trap there is nothing to undo.
+DEPLOY_OK=false
+# Set the moment `up -d` has run. Before that point the containers are still on
+# PREV_TAG and rolling back means editing compose.env and NOTHING ELSE — calling
+# `up -d` there would recreate containers this deploy never touched.
+CONTAINERS_RECREATED=false
+
+point_compose_at() {
+  sed -i "s|/app:.*|/app:${1}|" compose.env
+  sed -i "s|/tools:.*|/tools:${1}|" compose.env
+}
+
+on_exit() {
+  local rc=$?
+  trap - EXIT
+  # Explicit `if`, not `$DEPLOY_OK && exit 0`: the && form leans on set -e's
+  # exemption for non-final commands in a list, which is exactly the kind of
+  # subtlety that should not decide whether production rolls back.
+  if $DEPLOY_OK; then
+    exit 0
+  fi
+
+  printf '\n\033[1;31m✗ deploy FAILED (exit %s)\033[0m\n' "$rc"
+
+  if [[ -z "$PREV_TAG" ]]; then
+    # First-ever deploy, or compose.env had no tag to read. Nothing to go back
+    # to, so say so loudly rather than pretending we recovered.
+    echo "  no previous tag recorded — compose.env still names ${IMAGE_TAG}."
+    echo "  Fix the cause, then re-run; do not 'compose up' until you do."
+    exit "$rc"
+  fi
+
+  echo "  restoring compose.env to ${PREV_TAG}"
+  point_compose_at "$PREV_TAG"
+
+  if $CONTAINERS_RECREATED; then
+    echo "  containers were already recreated — bringing ${PREV_TAG} back up"
+    "${COMPOSE[@]}" up -d 2>&1 | tail -3 || true
+    echo "  rolled back. NOTE: migrations are NOT reverted — if this deploy applied"
+    echo "  a schema change, the previous image may not be compatible with it."
+  else
+    echo "  containers were never recreated; they are still serving ${PREV_TAG}."
+  fi
+  exit "$rc"
+}
+trap on_exit EXIT
+
+step "1/6 point compose at the new tag"
+point_compose_at "$IMAGE_TAG"
 grep -E '^(APP|TOOLS)_IMAGE=' compose.env
 
-step "2/5 pull"
+step "2/6 pull"
 "${COMPOSE[@]}" pull -q app 2>&1 | tail -2
 "${COMPOSE[@]}" --profile tools pull -q app-tools 2>&1 | tail -2
 
-step "3/5 migrate"
+step "3/6 migrate"
 "${COMPOSE[@]}" --profile tools run --rm app-tools pnpm migrate 2>&1 | tail -5
 
-step "4/5 electric ownership sweep"
+step "4/6 electric ownership sweep"
 # MUST run after every migration. drizzle-kit runs as the app role, so any table
 # a migration creates is owned by `app` and Electric cannot add it to its
 # publication or set REPLICA IDENTITY FULL on it. Electric configures tables
@@ -54,8 +111,10 @@ step "4/5 electric ownership sweep"
 DB_URL=$(grep -oP '(?<=^DATABASE_URL=).*' .env)
 psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f "${APP_DIR}/sql/02-electric-own-tables.sql"
 
-step "5/5 restart"
+step "5/6 restart"
 "${COMPOSE[@]}" up -d 2>&1 | tail -5
+# From here on a rollback means more than editing compose.env.
+CONTAINERS_RECREATED=true
 "${COMPOSE[@]}" ps --format 'table {{.Service}}\t{{.Status}}'
 
 step "smoke test"
@@ -100,15 +159,45 @@ fi
 
 if ! $ok; then
   printf '\n\033[1;31m✗ smoke test FAILED\033[0m\n'
-  if [[ -n "$PREV_TAG" ]]; then
-    echo "  rolling back to ${PREV_TAG}"
-    sed -i "s|/app:.*|/app:${PREV_TAG}|" compose.env
-    sed -i "s|/tools:.*|/tools:${PREV_TAG}|" compose.env
-    "${COMPOSE[@]}" up -d 2>&1 | tail -3
-    echo "  rolled back. NOTE: migrations are NOT reverted — if this deploy applied"
-    echo "  a schema change, the previous image may not be compatible with it."
-  fi
+  # The rollback itself lives in the EXIT trap, so this path and an earlier
+  # failure recover identically. Keeping a second copy here is how the pull
+  # failure ended up with no rollback at all.
   exit 1
 fi
 
+# ---------------------------------------------------------------------------
+step "6/6 prune superseded images"
+# The boot disk is 30 GB and shared with the OS (deploymentPlan.md §4.6.2), while
+# every merge to main pulls TWO new images (app + tools). Nothing used to evict
+# the old ones, so the disk filled and a deploy died mid-`pull` with
+# "no space left on device" — after compose.env had already been rewritten.
+#
+# Deliberately NOT `docker image prune -a`: that would take PREV_TAG's images
+# with it, and PREV_TAG is exactly what the trap above rolls back to. Keep the
+# tag being deployed, the one before it, and `latest`; drop the rest of this
+# repo's tags. Anything still referenced by a running container is refused by
+# `docker rmi` anyway, so this cannot pull the floor out from under the app.
+#
+# Never fatal: a deploy that worked must not be reported as failed because a
+# cleanup did not.
+KEEP="${IMAGE_TAG}|latest"
+if [[ -n "$PREV_TAG" ]]; then
+  KEEP="${KEEP}|${PREV_TAG}"
+fi
+STALE=$(docker images --format '{{.Repository}}:{{.Tag}}' \
+  | grep -E "^${REGISTRY}/(app|tools):" \
+  | grep -vE ":(${KEEP})$" || true)
+if [[ -n "$STALE" ]]; then
+  echo "  keeping: ${IMAGE_TAG}, ${PREV_TAG:-none}, latest"
+  echo "$STALE" | sed 's/^/  removing /'
+  echo "$STALE" | xargs -r docker rmi >/dev/null 2>&1 || true
+else
+  echo "  nothing to remove"
+fi
+# Dangling layers left behind by `docker build`/failed pulls. Safe by definition:
+# untagged and unreferenced.
+docker image prune -f >/dev/null 2>&1 || true
+df -h / | awk 'NR==2 {printf "  boot disk: %s used of %s (%s)\n", $3, $2, $5}'
+
+DEPLOY_OK=true
 printf '\n\033[1;32m✓ deployed %s\033[0m\n' "$IMAGE_TAG"

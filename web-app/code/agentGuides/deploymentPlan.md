@@ -556,6 +556,26 @@ the OS, and so it can be snapshotted and resized independently.
 much storage you need is highly application dependent. We encourage you to test with
 your own workload."* 50 GB is a guess; measure it.
 
+**And alarm the BOOT disk too — that is the one that has actually filled.** Every merge
+to main pulls two new images (`app` + `tools`, tagged by SHA) onto the 30 GB boot disk,
+which is also the OS disk. Nothing evicted the old ones, so on 2026-07-22 a deploy died
+mid-`pull` with:
+
+```
+failed to extract layer … to overlayfs:
+write /var/lib/containerd/…/snapshots/192/fs/…: no space left on device
+```
+
+`deploy.sh` step 6/6 now prunes superseded tags after a successful deploy. It
+deliberately does **not** use `docker image prune -a`: that would take `PREV_TAG`'s
+images with it, and `PREV_TAG` is precisely what the script's rollback restores. It
+keeps the tag being deployed, the one before it, and `latest`.
+
+Note this failure mode is masked if the Electric disk is not mounted — `vm-bootstrap.sh`
+uses `nofail` by design, and `docker-compose.prod.yaml` warns that otherwise "shape logs
+land on the boot disk". When `/` fills, check `df -h / /var/lib/electric` before assuming
+it is images.
+
 #### 4.6.4 Firewall
 
 ```bash
