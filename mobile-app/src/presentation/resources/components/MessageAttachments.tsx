@@ -45,16 +45,19 @@ function InlineMedia({
   kind,
   remoteUrl,
   localUri,
+  mimeType,
   isOwn,
 }: {
   kind: "image" | "video" | "audio"
   remoteUrl?: string
   localUri?: string
+  mimeType?: string
   isOwn: boolean
 }) {
-  if (kind === "image") return <InlineImage remoteUrl={remoteUrl} localUri={localUri} />
+  if (kind === "image") return <InlineImage remoteUrl={remoteUrl} localUri={localUri} mimeType={mimeType} />
+  // Video posters are keyed by resource id alone, so the video path needs no mime.
   if (kind === "video") return <InlineVideo remoteUrl={remoteUrl} localUri={localUri} />
-  return <AudioPlayer remoteUrl={remoteUrl} localUri={localUri} isOwn={isOwn} />
+  return <AudioPlayer remoteUrl={remoteUrl} localUri={localUri} mimeType={mimeType} isOwn={isOwn} />
 }
 
 // ── Non-media: the existing download / status chips ─────────────────────────
@@ -111,7 +114,7 @@ function PendingMedia({ upload, isOwn }: { upload: PendingUpload; isOwn: boolean
   const kind = mediaKind(upload.mimeType)!
   return (
     <View style={styles.pendingMedia}>
-      <InlineMedia kind={kind} localUri={upload.uri} isOwn={isOwn} />
+      <InlineMedia kind={kind} localUri={upload.uri} mimeType={upload.mimeType} isOwn={isOwn} />
       {upload.status !== "synced" && (
         <Text
           style={[
@@ -148,7 +151,7 @@ export function MessageAttachments({ resources, pendingUploads, isOwn }: Message
       {resources.map((r) => {
         const kind = mediaKind(r.mime_type)
         return kind ? (
-          <InlineMedia key={r.id} kind={kind} remoteUrl={resourceUrl(r.file_location)} isOwn={isOwn} />
+          <InlineMedia key={r.id} kind={kind} remoteUrl={resourceUrl(r.file_location)} mimeType={r.mime_type} isOwn={isOwn} />
         ) : (
           <SyncedAttachment key={r.id} resource={r} isOwn={isOwn} />
         )

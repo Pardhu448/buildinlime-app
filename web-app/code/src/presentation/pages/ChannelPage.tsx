@@ -182,6 +182,8 @@ export function ChannelPage({
                 projectId={projectId}
                 currentUserId={currentUserId}
                 memberIds={channelMembers.map(u => u.id)}
+                buildUnitName={buildUnitName}
+                channelName={channelName}
                 focusMessageId={focusMessageId}
               />
             </div>

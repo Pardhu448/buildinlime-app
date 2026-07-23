@@ -3,6 +3,7 @@ import { useLiveQuery } from "@tanstack/react-db"
 import {
   messagesCollection,
   usersCollection,
+  tasksCollection,
 } from "%/infrastructure/database/tanstack-db-electric/admincollections"
 import { createMessageAction } from "%/application/actions/messages"
 import { usePendingResources } from "%/application/hooks/use-pending-resources"
@@ -17,6 +18,9 @@ export interface CommentsSectionProps {
   projectId: string
   currentUserId: string
   memberIds: string[]
+  /** Route names for this channel, so a status-note can link to its task. */
+  buildUnitName: string
+  channelName: string
   /** ?messageId= from the Inbox — scroll to and briefly highlight this message. */
   focusMessageId?: string
 }
@@ -27,12 +31,24 @@ export function CommentsSection({
   projectId,
   currentUserId,
   memberIds,
+  buildUnitName,
+  channelName,
   focusMessageId,
 }: CommentsSectionProps) {
   const { data: allMessages } = useLiveQuery((q) => q.from({ messagesCollection }), [channelId])
 
   const { data: allUsers } = useLiveQuery((q) => q.from({ usersCollection }), [])
   const users = (allUsers ?? []).filter((u) => memberIds.includes(u.id))
+
+  // task_id -> name, so a status-change note can link to its task. The task route
+  // is name-based, and the note only carries the id. The `| undefined` cast is
+  // load-bearing: useLiveQuery types data as a plain array, but it is undefined on
+  // the first render before the query resolves — so the `?? []` is necessary, not
+  // lint noise. Mirrors ResourceDisplay's pattern in this folder.
+  const { data: allTasks } = useLiveQuery((q) => q.from({ tasksCollection }), [])
+  const taskNameById = new Map(
+    ((allTasks as { id: string; name: string }[] | undefined) ?? []).map((t) => [t.id, t.name]),
+  )
 
   const { messagePending, addPending, scheduleUpload, retryUpload } = usePendingResources(channelId)
 
@@ -125,6 +141,9 @@ export function CommentsSection({
               onRetryUpload={retryUpload}
               focusMessageId={focusMessageId}
               currentUserId={currentUserId}
+              buildUnitName={buildUnitName}
+              channelName={channelName}
+              taskNameById={taskNameById}
             />
           ))}
         </div>

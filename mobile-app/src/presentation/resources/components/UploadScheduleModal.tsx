@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import {
   View,
   Text,
@@ -48,6 +48,7 @@ export function UploadScheduleModal({
 
   const [baseName, extension] = splitExtension(fileName)
   const [draftName, setDraftName] = useState(baseName)
+  const nameInputRef = useRef<TextInput>(null)
 
   const trimmed = draftName.trim()
   const nameValid = trimmed.length > 0
@@ -86,6 +87,8 @@ export function UploadScheduleModal({
         reset()
         onCancel()
       }}
+      // Focus AFTER present so the soft keyboard rises — see CenteredModal.onShow.
+      onShow={() => setTimeout(() => nameInputRef.current?.focus(), 50)}
     >
       <Text style={styles.title}>Upload file</Text>
 
@@ -93,6 +96,7 @@ export function UploadScheduleModal({
       <Text style={styles.fieldLabel}>File name</Text>
       <View style={styles.nameRow}>
         <TextInput
+          ref={nameInputRef}
           style={styles.nameInput}
           value={draftName}
           onChangeText={setDraftName}

@@ -1,7 +1,9 @@
 import { useState } from "react"
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native"
-import { MessageCircle, ChevronDown, ChevronRight, Trash2 } from "lucide-react-native"
+import { useRouter } from "expo-router"
+import { MessageCircle, ChevronDown, ChevronRight, Trash2, ListTodo } from "lucide-react-native"
 import { MessageAttachments } from "@/src/presentation/resources/components/MessageAttachments"
+import { LinkifiedText } from "@/src/presentation/shared/components/LinkifiedText"
 import { deleteMessageAction } from "@/src/application/actions/messages"
 import { formatDateTime } from "@/src/presentation/shared/lib/datetime"
 import { colors } from "@/src/presentation/shared/colors"
@@ -41,6 +43,7 @@ export function MessageItem({
   highlightId,
 }: MessageItemProps) {
   const [showReplies, setShowReplies] = useState(true)
+  const router = useRouter()
 
   const replies = repliesByParent.get(message.id) ?? EMPTY_MESSAGES
   const senderName = usersMap[message.createdby_id] ?? "Unknown"
@@ -84,8 +87,27 @@ export function MessageItem({
             // There is nothing to hide here: the server already cleared the text.
             <Text style={styles.deletedText}>This message was deleted</Text>
           ) : message.text?.trim() ? (
-            <Text style={styles.text}>{message.text}</Text>
+            <LinkifiedText style={styles.text}>{message.text}</LinkifiedText>
           ) : null}
+
+          {/* Status-change notes carry the task they describe (Message.task_id) —
+              surface a jump straight to it. */}
+          {!isDeleted && message.task_id && (
+            <TouchableOpacity
+              style={styles.taskLink}
+              onPress={() =>
+                router.push(
+                  `/(tabs)/project/${message.project_id}/${message.buildunit_id}/${message.channel_id}/${message.task_id}` as never,
+                )
+              }
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              activeOpacity={0.6}
+            >
+              <ListTodo size={12} color={colors.primary} strokeWidth={2} />
+              <Text style={styles.taskLinkText}>View task</Text>
+              <ChevronRight size={12} color={colors.primary} strokeWidth={2} />
+            </TouchableOpacity>
+          )}
 
           {!isDeleted && (
             <MessageAttachments
@@ -235,6 +257,22 @@ const styles = StyleSheet.create({
     fontFamily: "InstrumentSans_400Regular",
     color: colors.foreground,
     lineHeight: 19,
+  },
+  taskLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    marginTop: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: colors.iconChip,
+    borderRadius: 8,
+  },
+  taskLinkText: {
+    fontSize: 11,
+    fontFamily: "InstrumentSans_600SemiBold",
+    color: colors.primary,
   },
   actions: {
     flexDirection: "row",

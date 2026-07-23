@@ -31,6 +31,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler"
 import "react-native-reanimated"
 
 import { useSession, signOutAndDispose, clearAuthCookies } from "@/src/infrastructure/auth/client"
+import { clearResourceFileCache } from "@/src/infrastructure/resources/resource-file-cache"
 import { ProjectProvider, useProjectContext } from "@/src/application/context/ProjectContext"
 import { waitForLiveQueryRelease } from "@/src/application/collections/live-query-release"
 import { colors } from "@/src/presentation/shared/colors"
@@ -114,6 +115,9 @@ function AuthGuard() {
   useEffect(() => {
     if (!isSigningOut) return
     let cancelled = false
+    // Wipe the on-disk resource cache so the next user doesn't inherit this one's
+    // media. Fire-and-forget — it has no ordering dependency on the sync teardown.
+    void clearResourceFileCache()
     void (async () => {
       await clearProject()
       if (cancelled) return

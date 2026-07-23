@@ -1,28 +1,25 @@
-import { Modal, Image, TouchableOpacity, Text, StyleSheet } from "react-native"
+import { Modal, TouchableOpacity, Text, StyleSheet } from "react-native"
+import { Image } from "expo-image"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 // Full-screen viewer for a tapped inline image. A plain contained image on a
-// black backdrop — tap anywhere (or the ✕) to dismiss. Source carries the same
-// { uri, headers } the inline thumbnail used, so no second auth round-trip.
+// black backdrop — tap anywhere (or the ✕) to dismiss. `uri` is the local cached
+// file the inline thumbnail already resolved, so opening full-screen is instant and
+// needs no auth round-trip.
 
 interface ImageViewerModalProps {
   visible: boolean
   uri: string | null
-  headers?: Record<string, string>
   onClose: () => void
 }
 
-export function ImageViewerModal({ visible, uri, headers, onClose }: ImageViewerModalProps) {
+export function ImageViewerModal({ visible, uri, onClose }: ImageViewerModalProps) {
   const { top } = useSafeAreaInsets()
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose}>
         {uri ? (
-          <Image
-            source={headers ? { uri, headers } : { uri }}
-            style={styles.image}
-            resizeMode="contain"
-          />
+          <Image source={{ uri }} style={styles.image} contentFit="contain" cachePolicy="memory-disk" />
         ) : null}
         <TouchableOpacity
           style={[styles.close, { top: top + 8 }]}

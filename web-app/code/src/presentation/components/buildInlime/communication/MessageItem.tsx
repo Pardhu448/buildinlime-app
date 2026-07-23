@@ -1,6 +1,8 @@
 import { useState } from "react"
-import { MessageCircle, ChevronDown, ChevronRight, Send, X, Trash2 } from "lucide-react"
+import { Link } from "@tanstack/react-router"
+import { MessageCircle, ChevronDown, ChevronRight, Send, X, Trash2, ListTodo } from "lucide-react"
 import { deleteMessageAction } from "%/application/actions/messages"
+import { LinkifiedText } from "./LinkifiedText"
 import type { PendingResource } from "%/application/hooks/use-pending-resources"
 import { useMentions  } from "./use-mentions"
 import type {MentionUser} from "./use-mentions";
@@ -37,6 +39,11 @@ export interface MessageItemProps {
   depth?: number
   focusMessageId?: string
   currentUserId: string
+  /** Current channel's route names, so a status-note can link to its task. */
+  buildUnitName: string
+  channelName: string
+  /** task_id -> task name, for the "View task" link on status-change notes. */
+  taskNameById: Map<string, string>
 }
 
 export function MessageItem({
@@ -49,10 +56,16 @@ export function MessageItem({
   depth = 0,
   focusMessageId,
   currentUserId,
+  buildUnitName,
+  channelName,
+  taskNameById,
 }: MessageItemProps) {
   const isFocused = focusMessageId === message.id
   const isDeleted = !!message.deleted_at
   const isOwn = message.createdby_id === currentUserId
+  // Status-change notes carry the task they describe (Message.task_id); resolve
+  // its name so we can link to the name-based task route.
+  const taskName = message.task_id ? taskNameById.get(message.task_id) : undefined
 
   const confirmDelete = () => {
     if (
@@ -122,9 +135,28 @@ export function MessageItem({
                Nothing to hide: the server already cleared the text. */
             <p className="text-xs italic text-muted-foreground">This message was deleted</p>
           ) : (
-            <p className="text-xs text-foreground whitespace-pre-wrap break-words">
-              {message.text}
-            </p>
+            <LinkifiedText
+              className="text-xs text-foreground whitespace-pre-wrap break-words"
+              text={message.text}
+            />
+          )}
+
+          {/* Status-change note → jump straight to the task it describes. */}
+          {!isDeleted && taskName && (
+            <Link
+              to="/projects/$projectId/$buildUnitName/$channelName/$taskName"
+              params={{
+                projectId: message.project_id,
+                buildUnitName,
+                channelName,
+                taskName,
+              }}
+              className="mt-1 inline-flex items-center gap-1 rounded bg-card-border/40 px-1.5 py-0.5 text-xs font-medium text-primary hover:bg-card-border/70 transition-colors"
+            >
+              <ListTodo className="w-3 h-3" />
+              View task
+              <ChevronRight className="w-3 h-3" />
+            </Link>
           )}
 
           {/* Pending uploads for this message */}
@@ -229,6 +261,9 @@ export function MessageItem({
             depth={depth + 1}
             focusMessageId={focusMessageId}
             currentUserId={currentUserId}
+            buildUnitName={buildUnitName}
+            channelName={channelName}
+            taskNameById={taskNameById}
           />
         ))}
     </div>
