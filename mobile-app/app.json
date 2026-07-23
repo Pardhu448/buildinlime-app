@@ -26,9 +26,7 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "package": "com.buildinlime.mobile"
     },
@@ -52,7 +50,8 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "BuildInLime needs microphone access to record voice messages."
+          "microphonePermission": "BuildInLime needs microphone access to record voice messages.",
+          "enableBackgroundPlayback": false
         }
       ],
       "@react-native-community/datetimepicker",

@@ -26,14 +26,16 @@ are read straight off the code, the **server-side facts are marked to confirm**.
 | **Session cookie** | `expo-secure-store` (`src/infrastructure/auth/cookie-fetch.ts`). | Stored on-device; sent as an auth header. |
 | **Local cache DB** | `expo-sqlite` — synced rows cached for offline; wiped on sign-out (`signOutAndDispose`). | On-device only. |
 
-**No analytics, ad, tracking, or location SDK is present today.** A repo grep for
-`sentry|analytics|expo-insights|location` returns nothing in `app/` and `src/`.
+**No ad, tracking, analytics, or location SDK is active today.** Sentry crash
+reporting is wired (`@sentry/react-native`) but **DSN-gated and currently inert**:
+with no `EXPO_PUBLIC_SENTRY_DSN` set, `initSentry()` no-ops, so the shipping build
+collects and sends nothing.
 
-> ⚠️ **If crash reporting (Sentry) is wired** — which is in progress on this branch —
-> Sentry collects **crash logs / diagnostics** and typically a device/installation
-> identifier. That adds a "Crash logs" + "Diagnostics" row (and a "Device or other
-> IDs" row) to the form below. Update this doc and the Data Safety form when the DSN
-> goes live; do not leave it undeclared.
+> ⚠️ **The moment a Sentry DSN is configured** (Phase 6), Sentry begins collecting
+> **crash logs / diagnostics** and typically a device/installation identifier — which
+> adds "Crash logs", "Diagnostics", and "Device or other IDs" rows to the form below.
+> Update this doc and the Data Safety form in the *same* change that sets the DSN;
+> never ship a DSN with these undeclared.
 
 ---
 
@@ -93,12 +95,16 @@ one-line justification. Declared in `app.json` → `android.permissions`:
   the background."
 - **`MODIFY_AUDIO_SETTINGS`** — "Adjusts the audio route/volume while recording or
   playing back a voice message."
-- **`FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_MEDIA_PLAYBACK`** — "Keeps audio/video
-  playback alive while the user navigates the app." **← Re-audit before submission**
-  (`ANDROID_RELEASE_PLAN.md` Blocker 4): if playback is only ever foreground, dropping
-  `FOREGROUND_SERVICE_MEDIA_PLAYBACK` removes a Play review surface for free. This doc
-  does not assert it is needed — it is declared in `app.json` and must be justified or
-  removed, not left ambiguous.
+- **`FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_MEDIA_PLAYBACK`** — **REMOVED 2026-07-23,
+  so no justification / Play declaration is needed.** These were never a deliberate
+  choice: expo-audio's plugin defaults `enableBackgroundPlayback: true`, which added
+  both permissions *and* shipped an `AudioControlsService` (foreground-service type
+  `mediaPlayback`). The app only plays media in the foreground (short voice messages,
+  in-modal video), so `enableBackgroundPlayback` is now `false` and the two permissions
+  were dropped from `android.permissions`. A clean prebuild confirms the manifest no
+  longer declares the service or the permissions. Recording (`RECORD_AUDIO`) and
+  foreground playback are unaffected. **If background audio (lock-screen controls) is
+  ever wanted, re-enabling it means completing Play's Foreground Service declaration.**
 - **Photo library / camera** — handled by `expo-image-picker`'s runtime prompts; the
   user-facing strings are in `app.json` (`photosPermission`, `cameraPermission`).
 
@@ -108,7 +114,7 @@ one-line justification. Declared in `app.json` → `android.permissions`:
 
 - [ ] Privacy policy URL live, reachable, and covers every row above.
 - [ ] Server-side: retention window + deletion mechanism confirmed and documented.
-- [ ] Sentry decision made; if enabled, Crash logs / Diagnostics / Device-ID rows added.
-- [ ] `FOREGROUND_SERVICE_MEDIA_PLAYBACK` re-audited (keep + justify, or drop).
+- [ ] Sentry DSN still unset (inert). When a DSN is set, add Crash logs / Diagnostics / Device-ID rows.
+- [x] `FOREGROUND_SERVICE_MEDIA_PLAYBACK` re-audited → **dropped** (foreground-only playback).
 - [ ] "Encrypted in transit = Yes" backed by `verify-api-url.sh` passing on the shipped `.aab`.
 - [ ] Confirm the OTP email provider is treated as a processor, not a data "share".

@@ -53,12 +53,14 @@ the tree — three items in the original draft were stale; see Revision notes at
    is deliberately absent from `app.json` — under `remote` it would be ignored, and
    having a stale number sitting there invites someone to "fix" it by hand. Do not
    add a competing CI increment; two owners produce duplicate-version rejections.
-4. **Sensitive-permission justification.** `RECORD_AUDIO` + foreground-service media
-   playback require a Data Safety declaration and often a written justification in
-   the Play listing. **Draft copy is now in `PLAY_DATA_SAFETY.md`** (2026-07-23) —
-   still needs a live privacy-policy URL and server-side deletion/retention answers
-   confirmed. `FOREGROUND_SERVICE_MEDIA_PLAYBACK` is worth re-auditing — if playback
-   is foreground-only, dropping it removes a Play review surface for free.
+4. **Sensitive-permission justification.** `RECORD_AUDIO` requires a Data Safety
+   declaration and often a written justification in the Play listing. **Draft copy is
+   in `PLAY_DATA_SAFETY.md`** (2026-07-23) — still needs a live privacy-policy URL and
+   server-side deletion/retention answers confirmed. The
+   `FOREGROUND_SERVICE_MEDIA_PLAYBACK` re-audit is **done (2026-07-23): dropped.**
+   Playback is foreground-only, so expo-audio's `enableBackgroundPlayback` is now
+   `false`; the FGS permissions + `AudioControlsService` are gone (clean-prebuild
+   verified), so no Play foreground-service declaration is needed.
 5. ~~**No crash reporting.**~~ **WIRED 2026-07-23.** `@sentry/react-native` (~7.11.0,
    SDK-aligned) is installed, its config plugin is in `app.json`, and `initSentry()`
    runs from `app/_layout.tsx` with the tree wrapped in `Sentry.wrap`. It is
