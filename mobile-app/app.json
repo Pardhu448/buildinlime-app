@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "BuildInLime",
-    "slug": "BuildInLimeMobile",
+    "slug": "buildinlime",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -64,6 +64,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8413a5c9-f817-4ff8-8925-ae533f6ef932"
+      }
+    },
+    "owner": "buildinlime"
   }
 }

@@ -77,11 +77,13 @@ the tree — three items in the original draft were stale; see Revision notes at
 - Confirm production OAuth / deep-link redirects for `better-auth` match the
   `buildinlimemobile` scheme.
 
-## Phase 2 — EAS Build setup  ← START HERE
+## Phase 2 — EAS Build setup
 
-1. `npm i -g eas-cli`, then `eas login` and `eas init` (creates the Expo project,
-   writes `extra.eas.projectId` into `app.json`, scaffolds `eas.json`). `eas login`
-   / `eas init` are **interactive** — run them yourself (e.g. `! eas login`).
+1. ~~`eas login` + `eas init`.~~ **DONE 2026-07-23.** Expo project created under
+   owner `buildinlime`; `extra.eas.projectId` (`8413a5c9-…`) and `owner` written to
+   `app.json`. `eas init` also bound `slug` to `buildinlime` (was `BuildInLimeMobile`)
+   — now permanent. The `scheme` (`buildinlimemobile`) was left untouched, so the
+   `better-auth` deep-link redirects are unaffected.
 2. Define build profiles in `eas.json`:
    - `development` — dev client (`expo-dev-client` is not currently a dependency).
    - `preview` — internal `.apk`, `distribution: internal`,
@@ -167,17 +169,15 @@ build setup** — not after it.
 | Android application ID (permanent) | `com.buildinlime.mobile` | **SETTLED** 2026-07-22 |
 | Display name / listing title | `BuildInLime` | **SETTLED** 2026-07-22 |
 | `versionCode` owner | EAS `autoIncrement`, `appVersionSource: remote` | **SETTLED** 2026-07-22 |
-| `slug` | `BuildInLimeMobile` (unchanged) | **PENDING** — see below |
+| `slug` | `buildinlime` (bound by `eas init`) | **SETTLED** 2026-07-23 |
 | iOS `bundleIdentifier` | `com.buildinlime.mobile` | **SETTLED** 2026-07-22 |
 
-Two identity fields were **left alone deliberately** and are worth a decision
-before `eas init` runs:
+Two identity fields around `eas init`:
 
-- **`slug` is still `BuildInLimeMobile`.** It is the EAS/Expo project identifier
-  and appears in `expo.dev` URLs, not in anything user-facing. It is free to
-  change *now*, but `eas init` binds it to the Expo project, so changing it after
-  that is disruptive. Purely cosmetic — the argument for changing it is
-  consistency, not correctness.
+- **`slug` is now `buildinlime`.** `eas init` bound it to the Expo project (was
+  `BuildInLimeMobile`). It is the EAS/Expo project identifier, appears in `expo.dev`
+  URLs, and is not user-facing — but it is now fixed to the project and should not be
+  hand-edited.
 - **`scheme` is still `buildinlimemobile`.** Do **not** change this casually: it
   is the deep-link scheme `better-auth` redirects through, so it must stay in
   sync with the production OAuth redirect configuration.
@@ -187,7 +187,9 @@ is a convention, not a requirement; it is done here so one identity covers both
 stores. Apple binds a bundle ID to an App Store record on first submission, the
 same way Play binds the application ID.
 
-Next edits: author `eas.json` with the three build profiles (Phase 2).
+Next: run the `preview` build (Phase 2 step 4) to shake out the pnpm-monorepo
+resolution and the `withOkHttpDispatcher` prebuild survival, then `verify-api-url.sh`
+the artifact.
 
 ## Revision notes (2026-07-22)
 
