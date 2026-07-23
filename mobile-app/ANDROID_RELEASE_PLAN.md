@@ -55,11 +55,16 @@ the tree — three items in the original draft were stale; see Revision notes at
    add a competing CI increment; two owners produce duplicate-version rejections.
 4. **Sensitive-permission justification.** `RECORD_AUDIO` + foreground-service media
    playback require a Data Safety declaration and often a written justification in
-   the Play listing. Draft the copy before submission. `FOREGROUND_SERVICE_MEDIA_PLAYBACK`
-   is worth re-auditing — if playback is foreground-only, dropping it removes a Play
-   review surface for free.
-5. **No crash reporting.** No Sentry / expo-insights wired. Not a hard blocker, but
-   strongly recommended before a production rollout.
+   the Play listing. **Draft copy is now in `PLAY_DATA_SAFETY.md`** (2026-07-23) —
+   still needs a live privacy-policy URL and server-side deletion/retention answers
+   confirmed. `FOREGROUND_SERVICE_MEDIA_PLAYBACK` is worth re-auditing — if playback
+   is foreground-only, dropping it removes a Play review surface for free.
+5. ~~**No crash reporting.**~~ **WIRED 2026-07-23.** `@sentry/react-native` (~7.11.0,
+   SDK-aligned) is installed, its config plugin is in `app.json`, and `initSentry()`
+   runs from `app/_layout.tsx` with the tree wrapped in `Sentry.wrap`. It is
+   **DSN-gated**: no `EXPO_PUBLIC_SENTRY_DSN` → no-op (dev/tests untouched). Remaining:
+   create the Sentry project, put the DSN in the preview/production `eas.json` env
+   blocks, and (Phase 6) wire source-map upload for readable stack traces.
 
 ## Phase 1 — App identity & production config
 
@@ -85,7 +90,9 @@ the tree — three items in the original draft were stale; see Revision notes at
 3. **Verify the URL actually inlined** by inspecting the built bundle, not by
    launching the app. All 7 fallbacks silently resolve to the emulator alias
    `10.0.2.2:3000` if the inline fails — which builds, installs and opens fine, and
-   then cannot reach anything.
+   then cannot reach anything. Use **`scripts/verify-api-url.sh <artifact.apk>`**
+   (added 2026-07-23): it greps the Hermes bundle for the prod URL and exits non-zero
+   if only the fallback is present.
 4. **Do a `preview` build first**, before touching production, purely to shake out
    Risks 1 and 2 below.
 
@@ -139,7 +146,10 @@ the tree — three items in the original draft were stale; see Revision notes at
 
 ## Phase 6 — Post-release
 
-- Wire crash reporting (Sentry / `expo-insights`).
+- ~~Wire crash reporting~~ **done (Sentry, 2026-07-23)** — remaining: create the
+  Sentry project + DSN, and add **source-map upload** so stack traces de-minify.
+  `@sentry/cli`'s postinstall build script is currently ignored by pnpm; EAS uploads
+  maps during the build via `SENTRY_AUTH_TOKEN`, so wire that secret in EAS.
 - Decide on **EAS Update (OTA)** for JS-only fixes without store review
   (`expo-updates` is not currently a dependency).
 - Add an EAS build/submit job to `.github/workflows/ci.yml`, triggered on release tags.
