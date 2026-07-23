@@ -4,3 +4,8 @@
 
 expo-env.d.ts
 # @end expo-cli
+
+# EAS build artifacts downloaded for local inspection — never commit (100MB+).
+*.apk
+*.aab
+*.ipa
