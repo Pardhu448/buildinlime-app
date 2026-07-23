@@ -2,6 +2,10 @@ import "react-native-get-random-values"
 import "../global.css"
 import * as ExpoCrypto from "expo-crypto"
 import { installAbortSignalReasonPolyfill } from "@/src/infrastructure/polyfills/abort-signal-reason"
+import { Sentry, initSentry } from "@/src/infrastructure/observability/sentry"
+
+// Start crash reporting before anything else can throw. No-ops without a DSN.
+initSentry()
 
 // Polyfill crypto.randomUUID — TanStack DB's collection insert calls this internally.
 if (typeof crypto !== "undefined" && !crypto.randomUUID) {
@@ -47,7 +51,7 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync()
 
-export default function RootLayout() {
+function RootLayout() {
   const [loaded, error] = useFonts({
     InstrumentSans_400Regular,
     InstrumentSans_500Medium,
@@ -67,6 +71,10 @@ export default function RootLayout() {
 
   return <RootLayoutNav />
 }
+
+// Sentry.wrap installs the error boundary + native crash handlers around the
+// whole tree. Harmless when no DSN is configured (init was a no-op).
+export default Sentry.wrap(RootLayout)
 
 function RootLayoutNav() {
   const [queryClient] = useState(() => new QueryClient())

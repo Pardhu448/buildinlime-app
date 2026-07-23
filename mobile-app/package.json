@@ -27,6 +27,7 @@
     "@react-native-community/netinfo": "^11.4.1",
     "@react-navigation/drawer": "^7.5.0",
     "@react-navigation/native": "^7.1.8",
+    "@sentry/react-native": "~7.11.0",
     "@tanstack/electric-db-collection": "0.3.3",
     "@tanstack/expo-db-sqlite-persistence": "^0.1.9",
     "@tanstack/offline-transactions": "1.0.30",
