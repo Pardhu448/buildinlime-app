@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react"
-import { View, Image, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native"
+import { View, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native"
+import { Image } from "expo-image"
 import * as VideoThumbnails from "expo-video-thumbnails"
 import { Play } from "lucide-react-native"
-import { useAuthHeaders } from "@/src/presentation/resources/lib/media-source"
+import { useCachedVideoPoster } from "@/src/presentation/resources/lib/resource-cache"
 import { VideoPlayerModal } from "./VideoPlayerModal"
 
 // A video INSIDE a message bubble, rendered as a still POSTER (its first frame)
 // with a play button. Tapping opens VideoPlayerModal, which is the only place a
 // live expo-video player is mounted — the list itself never holds one, so it
 // can't churn expo-video's shared objects or exhaust the device's decoders.
-// Extracting the poster is a one-shot native call (expo-video-thumbnails), not a
-// live player, so N of them in a list is safe.
+//
+// The poster for a synced video is decoded ONCE from the cached file and reused on
+// every reopen (see resource-cache); a still-uploading video (localUri) decodes its
+// own frame directly, since it has no resource id to cache under yet.
 
 interface InlineVideoProps {
   remoteUrl?: string
@@ -21,41 +24,35 @@ const WIDTH = 240
 const HEIGHT = (WIDTH * 9) / 16
 
 export function InlineVideo({ remoteUrl, localUri }: InlineVideoProps) {
-  const headers = useAuthHeaders()
-  const [poster, setPoster] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
 
-  const uri = localUri ?? remoteUrl ?? null
-  const needsAuth = !localUri && !!remoteUrl
-
+  // Synced video: cached poster, keyed by resource id. Pending upload: decode the
+  // local frame directly (transient, no id to cache under).
+  const remotePoster = useCachedVideoPoster(localUri ? undefined : remoteUrl)
+  const [localPoster, setLocalPoster] = useState<string | null>(null)
   useEffect(() => {
-    if (!uri) return
-    // Remote frames need the session cookie; wait for it. Local files don't.
-    if (needsAuth && !headers) return
+    if (!localUri) return
     let cancelled = false
-    void (async () => {
-      try {
-        const { uri: thumb } = await VideoThumbnails.getThumbnailAsync(uri, {
-          time: 1000,
-          ...(needsAuth && headers ? { headers } : {}),
-        })
-        if (!cancelled) setPoster(thumb)
-      } catch {
-        // Extraction failed (codec/network) — the play button on a dark frame is
-        // still a perfectly usable affordance, so just leave the poster empty.
-      }
-    })()
+    void VideoThumbnails.getThumbnailAsync(localUri, { time: 1000 })
+      .then(({ uri }) => {
+        if (!cancelled) setLocalPoster(uri)
+      })
+      .catch(() => {
+        // Extraction failed — the play button on a dark frame is still usable.
+      })
     return () => {
       cancelled = true
     }
-  }, [uri, needsAuth, headers])
+  }, [localUri])
+
+  const poster = localUri ? localPoster : remotePoster.uri
 
   return (
     <>
       <TouchableOpacity activeOpacity={0.85} onPress={() => setOpen(true)}>
         <View style={styles.frame}>
           {poster ? (
-            <Image source={{ uri: poster }} style={styles.poster} resizeMode="cover" />
+            <Image source={{ uri: poster }} style={styles.poster} contentFit="cover" cachePolicy="memory-disk" />
           ) : (
             <ActivityIndicator size="small" color="#fff" />
           )}

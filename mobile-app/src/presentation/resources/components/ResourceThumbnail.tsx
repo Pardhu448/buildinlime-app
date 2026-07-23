@@ -1,41 +1,28 @@
-import { useEffect, useState } from "react"
-import { View, Image, ActivityIndicator, StyleSheet } from "react-native"
-import * as VideoThumbnails from "expo-video-thumbnails"
+import { View, ActivityIndicator, StyleSheet } from "react-native"
+import { Image } from "expo-image"
 import { File, FileText, Music, Play } from "lucide-react-native"
 import { colors } from "@/src/presentation/shared/colors"
-import { API_URL, useAuthHeaders } from "@/src/presentation/resources/lib/media-source"
+import { API_URL } from "@/src/presentation/resources/lib/media-source"
+import {
+  useCachedResourceFile,
+  useCachedVideoPoster,
+} from "@/src/presentation/resources/lib/resource-cache"
 
-/** First frame of the video, pulled from the actual uploaded file. */
+// Every thumbnail renders from a LOCAL file:// uri (see resource-cache): the file
+// is downloaded once, keyed by its immutable resource id, so reopening the sheet is
+// instant instead of re-fetching over the network. expo-image adds a memory cache
+// on top, which keeps scrolling smooth.
+
+/** First frame of the video — decoded once, then cached (keyed by resource id). */
 function VideoThumb({ url, size }: { url: string; size: number }) {
-  const headers = useAuthHeaders()
-  const [uri, setUri] = useState<string | null>(null)
-  const [failed, setFailed] = useState(false)
-
-  useEffect(() => {
-    if (!headers) return
-    let cancelled = false
-    void (async () => {
-      try {
-        const { uri: thumb } = await VideoThumbnails.getThumbnailAsync(url, {
-          time: 1000,
-          headers,
-        })
-        if (!cancelled) setUri(thumb)
-      } catch {
-        if (!cancelled) setFailed(true)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [url, headers])
+  const { uri, failed } = useCachedVideoPoster(url)
 
   if (failed) return <IconThumb mimeType="video/" size={size} />
 
   return (
     <View style={[styles.thumb, { width: size, height: size }]}>
       {uri ? (
-        <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+        <Image source={{ uri }} style={styles.image} contentFit="cover" cachePolicy="memory-disk" />
       ) : (
         <ActivityIndicator size="small" color={colors.primary} />
       )}
@@ -49,21 +36,15 @@ function VideoThumb({ url, size }: { url: string; size: number }) {
   )
 }
 
-function ImageThumb({ url, size }: { url: string; size: number }) {
-  const headers = useAuthHeaders()
-  const [failed, setFailed] = useState(false)
+function ImageThumb({ url, mimeType, size }: { url: string; mimeType: string; size: number }) {
+  const { uri, failed } = useCachedResourceFile(url, mimeType)
 
   if (failed) return <IconThumb mimeType="image/" size={size} />
 
   return (
     <View style={[styles.thumb, { width: size, height: size }]}>
-      {headers ? (
-        <Image
-          source={{ uri: url, headers }}
-          style={styles.image}
-          resizeMode="cover"
-          onError={() => setFailed(true)}
-        />
+      {uri ? (
+        <Image source={{ uri }} style={styles.image} contentFit="cover" cachePolicy="memory-disk" />
       ) : (
         <ActivityIndicator size="small" color={colors.primary} />
       )}
@@ -103,11 +84,11 @@ export function ResourceThumbnail({
   mimeType,
   size = 40,
 }: ResourceThumbnailProps) {
-  // A pending upload still lives on the device — no auth, no network needed.
+  // A pending upload still lives on the device — no auth, no network, no cache.
   if (localUri && mimeType.startsWith("image/")) {
     return (
       <View style={[styles.thumb, { width: size, height: size }]}>
-        <Image source={{ uri: localUri }} style={styles.image} resizeMode="cover" />
+        <Image source={{ uri: localUri }} style={styles.image} contentFit="cover" />
       </View>
     )
   }
@@ -115,7 +96,7 @@ export function ResourceThumbnail({
   if (!fileLocation) return <IconThumb mimeType={mimeType} size={size} />
 
   const url = `${API_URL}${fileLocation}`
-  if (mimeType.startsWith("image/")) return <ImageThumb url={url} size={size} />
+  if (mimeType.startsWith("image/")) return <ImageThumb url={url} mimeType={mimeType} size={size} />
   if (mimeType.startsWith("video/")) return <VideoThumb url={url} size={size} />
   return <IconThumb mimeType={mimeType} size={size} />
 }

@@ -4,7 +4,7 @@ import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio"
 import { Play, Pause } from "lucide-react-native"
 import { colors } from "@/src/presentation/shared/colors"
 import { formatDuration } from "@/src/presentation/resources/lib/attachment-format"
-import { useAuthHeaders } from "@/src/presentation/resources/lib/media-source"
+import { useCachedResourceFile } from "@/src/presentation/resources/lib/resource-cache"
 
 // A voice/audio clip rendered INSIDE a message bubble: play/pause, a scrubbable
 // progress bar, and elapsed/total time. `remoteUrl` is the session-guarded file
@@ -19,6 +19,7 @@ import { useAuthHeaders } from "@/src/presentation/resources/lib/media-source"
 interface AudioPlayerProps {
   remoteUrl?: string
   localUri?: string
+  mimeType?: string
   /** Flip the palette so the control stays legible on a dark own-bubble. */
   isOwn: boolean
 }
@@ -31,10 +32,10 @@ function palette(isOwn: boolean) {
   }
 }
 
-export function AudioPlayer({ remoteUrl, localUri, isOwn }: AudioPlayerProps) {
+export function AudioPlayer({ remoteUrl, localUri, mimeType, isOwn }: AudioPlayerProps) {
   const [activated, setActivated] = useState(false)
   if (activated) {
-    return <ActiveAudioPlayer remoteUrl={remoteUrl} localUri={localUri} isOwn={isOwn} />
+    return <ActiveAudioPlayer remoteUrl={remoteUrl} localUri={localUri} mimeType={mimeType} isOwn={isOwn} />
   }
   return <IdleAudioPlayer isOwn={isOwn} onActivate={() => setActivated(true)} />
 }
@@ -64,17 +65,15 @@ function IdleAudioPlayer({ isOwn, onActivate }: { isOwn: boolean; onActivate: ()
 
 // Playing state: holds the one live player for this clip. Auto-starts on mount
 // (the user tapped play to get here) and thereafter play/pause/seek in place.
-function ActiveAudioPlayer({ remoteUrl, localUri, isOwn }: AudioPlayerProps) {
-  const headers = useAuthHeaders()
-  const uri = localUri ?? remoteUrl ?? null
-  const needsAuth = !localUri && !!remoteUrl
-  // Hold the source until headers arrive so the remote request doesn't 401.
-  // Memoized so its identity is stable across renders — otherwise the play-once
-  // effect and the player would rebuild on every render.
-  const source = useMemo(
-    () => (uri && (!needsAuth || headers) ? { uri, headers: needsAuth ? headers! : undefined } : null),
-    [uri, needsAuth, headers]
-  )
+function ActiveAudioPlayer({ remoteUrl, localUri, mimeType, isOwn }: AudioPlayerProps) {
+  // Voice clips are small, so caching the whole file to disk on first play is cheap
+  // and makes every replay instant (no auth, no re-fetch). Local uploads play direct.
+  const cached = useCachedResourceFile(localUri ? undefined : remoteUrl, mimeType)
+  const uri = localUri ?? cached.uri
+  // Hold the source until the local file resolves. Memoized so its identity is
+  // stable across renders — otherwise the play-once effect and the player would
+  // rebuild on every render.
+  const source = useMemo(() => (uri ? { uri } : null), [uri])
 
   const player = useAudioPlayer(source)
   const status = useAudioPlayerStatus(player)
