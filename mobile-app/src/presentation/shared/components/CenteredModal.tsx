@@ -7,6 +7,10 @@ interface CenteredModalProps {
   /** Hardware back / system dismiss. The backdrop is not tap-to-dismiss —
       neither of the dialogs this was lifted from dismissed on an outside tap. */
   onRequestClose: () => void
+  /** Fires once the modal is fully presented. The reliable place to focus a
+      TextInput: `autoFocus` runs before the modal window attaches on Android, so
+      it grabs focus programmatically but never raises the soft keyboard. */
+  onShow?: () => void
   children: ReactNode
 }
 
@@ -20,9 +24,15 @@ interface CenteredModalProps {
  * children. The bottom sheets (TasksSheet, ResourcesSheet) are a different
  * shape — slide up, tap-to-dismiss — and are not this.
  */
-export function CenteredModal({ visible, onRequestClose, children }: CenteredModalProps) {
+export function CenteredModal({ visible, onRequestClose, onShow, children }: CenteredModalProps) {
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onRequestClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onRequestClose}
+      onShow={onShow}
+    >
       <View style={styles.backdrop}>
         <View style={styles.sheet}>{children}</View>
       </View>

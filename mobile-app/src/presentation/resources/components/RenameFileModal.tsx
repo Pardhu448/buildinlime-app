@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import {
   View,
   Text,
@@ -29,16 +29,24 @@ export function RenameFileModal({
 }: RenameFileModalProps) {
   const [baseName, extension] = splitExtension(fileName)
   const [draft, setDraft] = useState(baseName)
+  const inputRef = useRef<TextInput>(null)
 
   const trimmed = draft.trim()
   const valid = trimmed.length > 0
 
   return (
-    <CenteredModal visible={visible} onRequestClose={onCancel}>
+    <CenteredModal
+      visible={visible}
+      onRequestClose={onCancel}
+      // Focus AFTER the modal is presented — see CenteredModal.onShow. The small
+      // delay lets the fade animation settle so the soft keyboard reliably rises.
+      onShow={() => setTimeout(() => inputRef.current?.focus(), 50)}
+    >
       <Text style={styles.title}>Rename file</Text>
 
       <View style={styles.nameRow}>
         <TextInput
+          ref={inputRef}
           style={styles.nameInput}
           value={draft}
           onChangeText={setDraft}
@@ -46,7 +54,6 @@ export function RenameFileModal({
           placeholderTextColor={colors.mutedForeground}
           autoCapitalize="none"
           autoCorrect={false}
-          autoFocus
           selectTextOnFocus
           returnKeyType="done"
           onSubmitEditing={() => valid && onSave(`${trimmed}${extension}`)}
