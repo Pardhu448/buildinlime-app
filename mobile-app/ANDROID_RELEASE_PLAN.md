@@ -65,6 +65,14 @@ the tree — three items in the original draft were stale; see Revision notes at
    **DSN-gated**: no `EXPO_PUBLIC_SENTRY_DSN` → no-op (dev/tests untouched). Remaining:
    create the Sentry project, put the DSN in the preview/production `eas.json` env
    blocks, and (Phase 6) wire source-map upload for readable stack traces.
+   **Build gotcha (fixed 2026-07-23):** the Sentry Gradle integration
+   (`sentry.gradle`) adds a release-build task that runs `sentry-cli` to upload
+   source maps, and it hard-fails with *"An organization ID or slug is required"*
+   when no org/project/token is configured — which killed the first preview build at
+   `:app:…_SentryUpload_…`. Until the Sentry project exists, every `eas.json` build
+   profile sets `SENTRY_DISABLE_AUTO_UPLOAD=true`, which flips that task's `onlyIf`
+   off so it is skipped. Crash reporting itself is unaffected (that is the runtime
+   DSN, not the build-time upload).
 
 ## Phase 1 — App identity & production config
 
@@ -151,7 +159,10 @@ the tree — three items in the original draft were stale; see Revision notes at
 - ~~Wire crash reporting~~ **done (Sentry, 2026-07-23)** — remaining: create the
   Sentry project + DSN, and add **source-map upload** so stack traces de-minify.
   `@sentry/cli`'s postinstall build script is currently ignored by pnpm; EAS uploads
-  maps during the build via `SENTRY_AUTH_TOKEN`, so wire that secret in EAS.
+  maps during the build via `SENTRY_AUTH_TOKEN`, so wire that secret in EAS. **When
+  enabling upload, remove `SENTRY_DISABLE_AUTO_UPLOAD` from `eas.json` and set
+  `SENTRY_ORG` + `SENTRY_PROJECT` + `SENTRY_AUTH_TOKEN`** (org/project via env or the
+  `@sentry/react-native` plugin options; the token as an EAS secret, never committed).
 - Decide on **EAS Update (OTA)** for JS-only fixes without store review
   (`expo-updates` is not currently a dependency).
 - Add an EAS build/submit job to `.github/workflows/ci.yml`, triggered on release tags.
