@@ -139,8 +139,10 @@ export default function DrawerLayout() {
   }, [projectReady, projectId])
 
   // Backstop for the persistence hydration race: after project collections are
-  // ready, poll for an owner-escape ORG collection that Electric marked up-to-date
-  // (isReady) yet left empty despite the membership scope proving it must hold rows.
+  // ready, poll for a project collection (build-units / channels / roster, or
+  // properties) that Electric marked up-to-date (isReady) yet left empty despite the
+  // membership scope proving it should hold rows. Comm collections are repaired as
+  // recovery targets but never polled on — see hasStrandedProjectCollections.
   //
   // isReady() only flips true AFTER Electric commits its snapshot batch (deferred
   // behind persistence hydration), so in a healthy load `size` is already non-zero

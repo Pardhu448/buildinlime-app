@@ -386,13 +386,31 @@ function isReadyEmpty(
   return !!c && c.isReady() && c.size === 0
 }
 
-// True when an owner-escape ORG collection synced empty despite the membership
-// scope proving it must hold rows. These three are the only collections whose
-// emptiness is a RELIABLE stranded signal: being a member of a channel guarantees
-// that channel, its build unit, and its roster (you) come back — via the id set or
-// the server's owner_id escape. Channel-scoped comm collections (tasks/messages/…)
-// are deliberately NOT probed: a brand-new channel legitimately has zero of them,
-// so their emptiness is not diagnostic.
+// True when a collection synced empty despite the membership scope proving it
+// should hold rows. Four TRIGGERS, in descending order of how reliable "empty ==
+// stranded" is:
+//
+//   build_units / channels / channel_members — RELIABLE. Being a member of a
+//     channel guarantees that channel, its build unit, and its roster (you) come
+//     back, via the id set or the server's owner_id escape. Empty-when-ready here
+//     is unambiguously the race.
+//
+//   properties — WEAKER, but the reported symptom (build units render, their
+//     property pills are missing). A build unit CAN legitimately carry zero
+//     properties (they are created by explicit user action, not auto-seeded), so
+//     an empty properties collection is not a proof of stranding the way an empty
+//     build_units collection is. It is included anyway because it is the failure
+//     users actually hit, and the cost of a false positive is bounded: recovery
+//     runs at most `recoverAttempts` times (see the layout poll), so a genuinely
+//     property-less project pays a couple of extra login-time refetches, never a
+//     loop. Gated on memberBuildunitIds so a brand-new project with nothing at all
+//     never trips it.
+//
+// Channel-scoped comm collections (tasks / messages / resources) are deliberately
+// NOT triggers: a brand-new channel legitimately has zero of any of them, so their
+// emptiness is far too commonly legitimate to poll on without flashing a spinner on
+// nearly every login. They are still REPAIRED — as conservative recovery targets,
+// only when the whole batch stranded together — see recoverStrandedProjectCollections.
 //
 // LIMITATION: a pure owner with no memberships has empty member id sets, so a
 // stranding of their OWNED build-units/channels is not detectable here — the
@@ -404,31 +422,41 @@ export function hasStrandedProjectCollections(projectId: string | null): boolean
   return (
     (sets.memberBuildunitIds.length > 0 && isReadyEmpty(buildUnitsCollection)) ||
     (sets.memberChannelIds.length > 0 && isReadyEmpty(channelsCollection)) ||
-    (sets.memberChannelIds.length > 0 && isReadyEmpty(channelMembersCollection))
+    (sets.memberChannelIds.length > 0 && isReadyEmpty(channelMembersCollection)) ||
+    (sets.memberBuildunitIds.length > 0 && isReadyEmpty(propertiesCollection))
   )
 }
 
-// Rebuild ONLY the owner-escape ORG collections that are actually stranded
-// (isReady + empty). Each rebuild cleanup()s the stranded instance (releasing its
-// Electric shape + SQLite handle) before recreating it, and the fresh sync starts
-// from offset -1 — which is what the stranded collection never got.
+// Rebuild the collections that are actually stranded (isReady + empty). Each
+// rebuild cleanup()s the stranded instance (releasing its Electric shape + SQLite
+// handle) before recreating it, and the fresh sync starts from offset -1 — which is
+// what the stranded collection never got.
 //
-// Two scoping choices, both learned on device (see the fresh-login investigation):
+// Safety rule for EVERY rebuild here: only cleanup() a collection that is already
+// isReady(). Tearing down a collection whose deferred markReady is still in flight
+// throws "Invalid collection status transition from cleaned-up to ready" (an
+// uncaught rejection from the persistence wrapper). A stranded collection is isReady
+// by definition (that is how it was detected), so its own teardown is safe; the care
+// below is all about NOT tearing down a still-loading PARTNER in a shared rebuild.
 //
-//   - Rebuild ONLY org collections, never the channel-scoped comm collections
-//     (tasks/messages/resources/…) or properties. Those are usually NOT stranded —
-//     they synced fine — and tearing down a collection whose deferred markReady is
-//     still in flight throws "Invalid collection status transition from cleaned-up
-//     to ready" (an uncaught rejection from the persistence wrapper) AND needlessly
-//     refetches good data. The org collections rebuilt here have ALREADY fired
-//     markReady — that is how hasStranded (via isReady) detected them — so cleaning
-//     them up is safe.
-//   - Guard each rebuild on its own isReadyEmpty, so a still-loading org collection
-//     is never cleaned up mid-startup.
+// What gets repaired, and why the scoping differs:
+//   - build_units + channels — reliable stranded signal; rebuild the pair when
+//     BOTH are isReady (guard the partner).
+//   - channel_members (roster) — reliable; own rebuild helper.
+//   - properties — the reported symptom. Own rebuild helper, so it is repaired in
+//     isolation without disturbing anything else. isReadyEmpty guarantees isReady,
+//     so its cleanup is safe.
+//   - comm batch (tasks/messages/resources + the inbox/my-tasks badge slices) —
+//     a CONSERVATIVE target, never a trigger. Repaired only when the WHOLE batch is
+//     isReady+empty: a partial mix (say messages loaded, resources empty) is far
+//     more likely a legitimately-empty channel than a race, and the batch shares one
+//     initializer, so rebuilding on a partial would needlessly refetch the members
+//     that DID load. All-empty-and-ready is the recognisable co-stranding shape.
 //
-// LIMITATION: a co-stranded comm collection is not repaired here — only the upstream
-// persistence fix covers every collection. In practice the reported symptom is the
-// empty build-units / channels / roster, which this restores.
+// LIMITATION: a comm collection stranded ALONE (build_units/channels/properties all
+// fine) is not repaired — its emptiness is indistinguishable from a new empty
+// channel, so polling on it would flash a spinner every login. The upstream
+// persistence fix is the only complete cure; a relaunch remains the fallback there.
 //
 // MUST run while the authenticated content is unmounted and AFTER
 // waitForLiveQueryRelease() — same constraint as resyncProjectCollections — so
@@ -446,11 +474,23 @@ export async function recoverStrandedProjectCollections(
     sets.memberChannelIds.length > 0 && isReadyEmpty(channelsCollection)
   const strandedRoster =
     sets.memberChannelIds.length > 0 && isReadyEmpty(channelMembersCollection)
+  const strandedProperties =
+    sets.memberBuildunitIds.length > 0 && isReadyEmpty(propertiesCollection)
+
+  // Comm batch is stranded only when ALL of tasks/messages/resources are isReady+
+  // empty — see the header for why a partial mix is left alone.
+  const strandedCommBatch =
+    sets.memberChannelIds.length > 0 &&
+    isReadyEmpty(tasksCollection) &&
+    isReadyEmpty(messagesCollection) &&
+    isReadyEmpty(resourcesCollection)
 
   if (__DEV__) {
     console.log(
-      `[collections] Recovering stranded ORG collections (project=${projectId}): ` +
-        `build_units=${strandedBuildUnits} channels=${strandedChannels} channel_members=${strandedRoster}`,
+      `[collections] Recovering stranded collections (project=${projectId}): ` +
+        `build_units=${strandedBuildUnits} channels=${strandedChannels} ` +
+        `channel_members=${strandedRoster} properties=${strandedProperties} ` +
+        `comm_batch=${strandedCommBatch}`,
     )
   }
 
@@ -477,8 +517,41 @@ export async function recoverStrandedProjectCollections(
     channelMembersCollection.startSyncImmediate()
   }
 
+  // Properties rebuild in isolation (own initializer) — the reported symptom.
+  let rebuiltProperties = false
+  if (strandedProperties) {
+    initializePropertiesCollection({
+      memberProjectIds: [projectId],
+      memberBuildunitIds: sets.memberBuildunitIds,
+      memberChannelIds: sets.memberChannelIds,
+    })
+    propertiesCollection.startSyncImmediate()
+    rebuiltProperties = true
+  }
+
+  // Comm batch: initializeCommunicationCollections tears down and rebuilds all five
+  // channel-scoped collections together, so guard on EVERY one being isReady — the
+  // badge slices (inbox/my-tasks) are rebuilt alongside the three probed above but
+  // are not part of strandedCommBatch, so confirm their readiness explicitly.
+  const commAllReady =
+    !!tasksCollection && tasksCollection.isReady() &&
+    !!messagesCollection && messagesCollection.isReady() &&
+    !!resourcesCollection && resourcesCollection.isReady() &&
+    !!inboxMentionsCollection && inboxMentionsCollection.isReady() &&
+    !!myTasksCollection && myTasksCollection.isReady()
+  let rebuiltComm = false
+  if (strandedCommBatch && commAllReady) {
+    initializeCommunicationCollections({ memberChannelIds: sets.memberChannelIds })
+    tasksCollection.startSyncImmediate()
+    messagesCollection.startSyncImmediate()
+    resourcesCollection.startSyncImmediate()
+    inboxMentionsCollection.startSyncImmediate()
+    myTasksCollection.startSyncImmediate()
+    rebuiltComm = true
+  }
+
   _appliedSets = sets
-  return rebuiltPair || strandedRoster
+  return rebuiltPair || strandedRoster || rebuiltProperties || rebuiltComm
 }
 
 // ---------------------------------------------------------------------------
