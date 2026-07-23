@@ -41,9 +41,14 @@ export function CommentsSection({
   const users = (allUsers ?? []).filter((u) => memberIds.includes(u.id))
 
   // task_id -> name, so a status-change note can link to its task. The task route
-  // is name-based, and the note only carries the id.
+  // is name-based, and the note only carries the id. The `| undefined` cast is
+  // load-bearing: useLiveQuery types data as a plain array, but it is undefined on
+  // the first render before the query resolves — so the `?? []` is necessary, not
+  // lint noise. Mirrors ResourceDisplay's pattern in this folder.
   const { data: allTasks } = useLiveQuery((q) => q.from({ tasksCollection }), [])
-  const taskNameById = new Map((allTasks ?? []).map((t) => [t.id, t.name]))
+  const taskNameById = new Map(
+    ((allTasks as { id: string; name: string }[] | undefined) ?? []).map((t) => [t.id, t.name]),
+  )
 
   const { messagePending, addPending, scheduleUpload, retryUpload } = usePendingResources(channelId)
 
