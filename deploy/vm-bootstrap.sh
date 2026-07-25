@@ -2,7 +2,7 @@
 #
 # One-time VM bootstrap. Runs ON the VM, as root, after deploy/provision.sh.
 # Implements deploymentPlan.md §4.6.3 (data disk), §4.6.5 (secrets), §8 (purge timer),
-# §13.2 (replication-slot watchdog).
+# §13.2 (replication-slot watchdog, Ops Agent).
 #
 #   gcloud compute ssh buildinlime-app --zone us-central1-a --tunnel-through-iap
 #   sudo PROJECT=my-project PUBLIC_DOMAIN=app.example.com \
@@ -60,6 +60,41 @@ if ! command -v psql >/dev/null 2>&1; then
 else
   echo "  already installed: $(psql --version)"
 fi
+
+# ---------------------------------------------------------------------------
+step "Ops Agent — §13.2"
+# Ships /var/log/syslog to Cloud Logging, which is the ONLY path from a VM-side
+# condition to anything observable off the box. Without it the slot watchdog's
+# `logger -t slot-watch` output never leaves this machine, so a watchdog that
+# fails to recover Electric is as invisible as the original incident (§13.1).
+#
+# REQUIRES roles/logging.logWriter + roles/monitoring.metricWriter on the VM's
+# service account — granted in provision.sh. Without them the agent installs,
+# runs, reports healthy and silently ships nothing. If this box ever goes quiet
+# in Cloud Logging, check the IAM binding before debugging the agent.
+if ! systemctl is-active --quiet google-cloud-ops-agent 2>/dev/null; then
+  curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
+  bash add-google-cloud-ops-agent-repo.sh --also-install
+  rm -f add-google-cloud-ops-agent-repo.sh
+else
+  echo "  already running"
+fi
+# Costs ~190 MB RSS (otelopscol ~172, fluent-bit ~18) on top of ~490 MB of
+# containers. Fine on an e2-medium, but Electric logged
+# system_memory_high_watermark three times on 2026-07-25 — so this is headroom
+# spent, not free. Revisit if those alarms become frequent.
+echo "  $(systemctl is-active google-cloud-ops-agent 2>/dev/null || echo inactive)"
+
+# Default config already tails /var/log/syslog, so slot-watch needs no changes.
+# NOTE for querying: the agent writes STRUCTURED entries — the whole syslog line
+# lands in jsonPayload.message, NOT textPayload. A textPayload filter returns
+# empty and looks exactly like "no logs are arriving":
+#
+#   gcloud logging read 'resource.type="gce_instance"
+#     AND jsonPayload.message:"slot-watch:"' --project <p> --freshness=7d
+#
+# The trailing colon excludes the systemd unit start/stop lines the timer emits
+# every 5 minutes. Healthy output is EMPTY — the script logs only when it acts.
 
 # ---------------------------------------------------------------------------
 step "Electric data disk → ${ELECTRIC_MNT}"

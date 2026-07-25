@@ -140,6 +140,25 @@ run gcloud projects add-iam-policy-binding "$PROJECT" \
   --member "serviceAccount:${SA_EMAIL}" \
   --role roles/artifactregistry.reader --condition=None
 
+# Ops Agent telemetry — §13.2. Both are write-only and project-scoped; there is no
+# resource-scoped equivalent for logging/monitoring the way there is for the bucket
+# and the secrets above.
+#
+# WITHOUT THESE THE AGENT STILL INSTALLS, STILL REPORTS HEALTHY, AND SHIPS NOTHING.
+# That is the same failure shape as the Electric healthcheck in §13.1 — a component
+# that answers "I am fine" to a question nobody wanted the answer to — so grant them
+# BEFORE installing the agent, not after.
+#
+# They must also be granted by a principal with setIamPolicy on the project. Running
+# them ON the VM fails with PERMISSION_DENIED: gcloud there authenticates as this very
+# service account, and a service account cannot grant itself roles.
+for role in roles/logging.logWriter roles/monitoring.metricWriter; do
+  c_do "$role"
+  run gcloud projects add-iam-policy-binding "$PROJECT" \
+    --member "serviceAccount:${SA_EMAIL}" \
+    --role "$role" --condition=None
+done
+
 # ---------------------------------------------------------------------------
 c_step "Private services access — §4.2"
 if exists gcloud compute addresses describe "$PEERING_RANGE" --global --project "$PROJECT"; then
