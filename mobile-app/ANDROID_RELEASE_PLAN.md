@@ -102,7 +102,16 @@ the tree — three items in the original draft were stale; see Revision notes at
    (added 2026-07-23): it greps the Hermes bundle for the prod URL and exits non-zero
    if only the fallback is present.
 4. **Do a `preview` build first**, before touching production, purely to shake out
-   Risks 1 and 2 below.
+   Risks 1 and 2 below. **DONE 2026-07-25** — build `1511c8f4-…` succeeded (APK,
+   `distribution: internal`). Verified on the real artifact:
+   - `verify-api-url.sh` **PASS** — `https://app.buildinlime.com` inlined in the
+     Hermes bundle, emulator fallback absent (Blocker 2 closed on a real build).
+   - `withOkHttpDispatcher` **survived prebuild** (Risk 1) — the injected class
+     `com/buildinlime/mobile/BuildInLimeOkHttpClientFactory` and `setOkHttpClientFactory`
+     are compiled into the DEX.
+   - pnpm workspace resolution on EAS (Risk 2) held — the build would not have
+     succeeded otherwise.
+   - Sentry absent (`io/sentry` = 0 classes), matching the Data Safety declaration.
 
 ## Risks, ranked by what actually bites
 
@@ -126,9 +135,10 @@ the tree — three items in the original draft were stale; see Revision notes at
 
 ## Phase 3 — Signing
 
-- Let **EAS manage the Android keystore** (recommended); it generates and stores it.
-  **Back it up immediately** (`eas credentials`) — losing the keystore means you can
-  never update the app.
+- **DONE 2026-07-25.** EAS generated and stored the Android keystore on the first
+  `preview` build (`Build Credentials TPPEnuUdKg`), and it has been **backed up**
+  (`eas credentials` → download). Under Play App Signing (below), this keystore is
+  the *upload key*; losing it is recoverable via Google, but it is backed up anyway.
 - Enroll in **Play App Signing** (default for new apps) at listing creation.
 
 ## Phase 4 — Google Play Console setup (one-time)
@@ -196,9 +206,13 @@ is a convention, not a requirement; it is done here so one identity covers both
 stores. Apple binds a bundle ID to an App Store record on first submission, the
 same way Play binds the application ID.
 
-Next: run the `preview` build (Phase 2 step 4) to shake out the pnpm-monorepo
-resolution and the `withOkHttpDispatcher` prebuild survival, then `verify-api-url.sh`
-the artifact.
+Next (as of 2026-07-25): the engineering path is green — Phases 1–3 are done and
+verified on a real APK (see Phase 2 step 4). The remaining critical path is
+**Play Console (Phase 4)**, which is done in the Console web UI and is the schedule
+long pole (account verification + the ~14-day / 12-tester closed-testing gate). The
+inputs to paste into the Console — Data Safety answers, store listing copy, and the
+permission justification — are prepared in `PLAY_CONSOLE_INPUTS.md`. When ready for
+Phase 5, merge this branch to `main` and build `production` (`.aab`) from `main`.
 
 ## Revision notes (2026-07-22)
 

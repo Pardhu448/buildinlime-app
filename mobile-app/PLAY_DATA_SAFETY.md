@@ -5,11 +5,13 @@ justifications the review process asks for. Companion to `ANDROID_RELEASE_PLAN.m
 (Blocker 4). Drafted 2026-07-23 from the app source; the client-side facts below
 are read straight off the code, the **server-side facts are marked to confirm**.
 
-> Two things must be true before this is submittable:
-> 1. A **privacy policy URL** is live and reachable (Play requires it, and it must
->    describe exactly the collection below). Not yet located in the repo — confirm.
-> 2. The **server-side retention / deletion** answers are verified with whoever
->    owns the deployed API. This doc cannot read those from the mobile tree.
+> Both pre-submission conditions are now RESOLVED (2026-07-25):
+> 1. **Privacy policy URL is live:** `https://app.buildinlime.com/privacy` (DPDP v1.0,
+>    deployed from PR #72). It describes exactly the collection below.
+> 2. **Retention / deletion answered:** account + data deletion is requestable in-app
+>    (Account → Delete account & data → emails a request to support@buildinlime.com,
+>    actioned manually); data is deleted within **30 days** of the request, and
+>    backups are overwritten within 30 days (privacy policy clauses 10–11).
 
 ---
 
@@ -44,14 +46,15 @@ Google's form asks, per data type: **Collected?** / **Shared?** / **Processed
 ephemerally?** / **Required or optional?** / **Purposes**.
 
 ### Personal info → Email address
-- Collected: **Yes.** Shared: **No** (confirm no third-party auth/email vendor
-  re-shares it; OTP email delivery provider is a processor, not "sharing").
+- Collected: **Yes.** Shared: **No** — the OTP email provider (Resend) is a
+  processor/sub-processor, not a data "share" (privacy clauses 6–7).
 - Required: **Yes** (cannot use the app without an account).
 - Purposes: **App functionality**, **Account management**.
 
 ### Personal info → Name
 - Collected: **Yes (server-side account).** Shared: **No.**
-- Required/optional: **confirm** whether name is mandatory at account creation.
+- Required/optional: **Required** — a name is captured at account creation (the
+  signup form requires it).
 - Purposes: **App functionality**, **Account management**.
 
 ### Photos and videos
@@ -78,9 +81,11 @@ ephemerally?** / **Required or optional?** / **Purposes**.
 - **Encrypted in transit:** **Yes.** Production API is `https://app.buildinlime.com`
   (TLS); the emulator-only `http://10.0.2.2` path never ships (guarded by
   `scripts/verify-api-url.sh`).
-- **Users can request deletion:** **CONFIRM.** This depends on the server offering an
-  account-deletion path. If none exists, Play still wants a stated deletion mechanism
-  (e.g. an email request route) documented in the privacy policy.
+- **Users can request deletion:** **Yes.** In-app: Account → "Delete account & data"
+  (`/delete-account`) files a request to support@buildinlime.com; data is removed
+  within 30 days. Documented in the privacy policy (clauses 10–11) and the deletion
+  URL is the Account page. In the Data Safety form set "users can request data
+  deletion" = Yes and give the account-page/URL path.
 
 ---
 
@@ -111,9 +116,9 @@ one-line justification. Declared in `app.json` → `android.permissions`:
 
 ## Before-you-submit checklist
 
-- [ ] Privacy policy URL live, reachable, and covers every row above.
-- [ ] Server-side: retention window + deletion mechanism confirmed and documented.
+- [x] Privacy policy URL live, reachable, and covers every row above — `https://app.buildinlime.com/privacy` (DPDP v1.0).
+- [x] Server-side: retention window + deletion mechanism confirmed and documented — 30-day deletion, in-app request flow (privacy clauses 10–11).
 - [x] No crash-reporting/analytics SDK present (Sentry removed). If one is added, add Crash logs / Diagnostics / Device-ID rows.
 - [x] `FOREGROUND_SERVICE_MEDIA_PLAYBACK` re-audited → **dropped** (foreground-only playback).
-- [ ] "Encrypted in transit = Yes" backed by `verify-api-url.sh` passing on the shipped `.aab`.
-- [ ] Confirm the OTP email provider is treated as a processor, not a data "share".
+- [x] "Encrypted in transit = Yes" backed by `verify-api-url.sh` — PASS on the `preview` APK (build `1511c8f4-…`, 2026-07-25). Re-run on the production `.aab` before submit.
+- [x] OTP email provider (Resend) treated as a **processor/sub-processor**, not a data "share" — declared in the privacy policy (clauses 6–7).
