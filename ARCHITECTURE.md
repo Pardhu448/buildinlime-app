@@ -280,6 +280,10 @@ The tradeoff is documented candidly in `infrastructure/auth/server.ts` and is ac
 
 **Mobile has no cookie jar.** React Native's `fetch` neither persists cookies nor sends an `Origin` header (which Better Auth's CSRF protection requires). `infrastructure/auth/cookie-fetch.ts` supplies both: it stores session cookies in `expo-secure-store` and wraps `fetch` to attach `Cookie` + `Origin` on every request and to persist `Set-Cookie` from every response. `getAuthHeaders()` is exported as the single header-builder so the native file-transfer paths (`FileSystem.downloadAsync` / `uploadAsync`, which do their own networking and cannot use the wrapped fetch) cannot drift out of sync with it.
 
+**Account & data deletion is an email-request flow, not an automated purge.** The Account page (`presentation/pages/AccountPage.tsx`, at `/account`) links, below the user's name/email, to `/delete-account` (`presentation/pages/DeleteAccountPage.tsx`), a page that shows the signed-in email, offers two deletion modes — account-only, or account plus removal of the user's data from the Mozilla Data Collective — and a free-text reason. This satisfies the Play Store / privacy-policy requirement for a discoverable account-deletion path. Submitting calls `account.requestDeletion` (an **authed** tRPC procedure — the email/id come from the server session, never client input) which emails the request to **support@buildinlime.com** via Resend for **manual** action; the client also downloads a small JSON snapshot of the account (id/name/email). What is still missing is the automated backend: **no server-side purge** (no Better Auth `deleteUser`, no cascade over the user's rows), **no real data export** (the download is an account stub, not the user's messages/tasks/files), and **no Mozilla Data Collective integration**. The published privacy policy commits to deleting within 30 days of a request; honouring that is a manual operation until the purge script exists. Wiring those up is future work (§12.11).
+
+**Public transactional endpoints.** Two unauthenticated procedures back the marketing pages: `contact.send` (the `/contact` form → email to Barefoot Programmers) and, authed, `account.requestDeletion` above. Both are **web-only and deliberately not mirrored in `@buildinlime/contracts`** — mobile never calls them, and the parity test (§12.4) asserts only contract ⊆ server. Both send through Resend via lazily-constructed clients (`sendContactEmail.ts` / `sendDeletionRequestEmail.ts`), so importing the `appRouter` — as the parity test does without a mail key — has no construction side effect.
+
 ---
 
 ## 10. Web ↔ mobile: shared, parallel, divergent
@@ -416,6 +420,19 @@ These are the things to fix before this stops being a POC. Every one of them is 
 
     **Mobile only, deliberately.** Web has nothing equivalent to reclaim: it uploads straight through `FormData` with no queue, its resource previews are in-memory `URL.createObjectURL` blobs released on unload, and the service worker does not runtime-cache `/api/*`. Web's only device-side store is the OPFS replica, and clearing that forces a full re-sync and breaks offline use — a different feature with a real cost, not a cleanup. A "free up space" button on web would always reclaim zero bytes, so there deliberately isn't one.
 
+11. **Account deletion is a manual email flow; the automated backend is not built (§9).** The `/delete-account` page now files a real request — `account.requestDeletion` emails support@buildinlime.com for a human to action — and downloads a three-field JSON stub (id/name/email). But nothing is deleted *automatically*: the actual purge is a manual operation, and the "download" is not a real export. The published privacy policy promises deletion within 30 days of a request, so until the two pieces below exist, meeting that window depends on someone reading the mailbox and running the deletion by hand. Two backend pieces are future work.
+
+    **A real data-export script.** The download must return the user's *actual* data, not an account stub — their messages, tasks, resources, properties, seen-state, memberships, teams, and uploaded files — assembled server-side from Postgres (and the file store for resource bytes) into a downloadable archive, gated to the requesting session. This is the read side of the same authorization surface the shapes enforce (§4): the export must be scoped to what the user is entitled to, so it should reuse `resolveMemberScope()` rather than inventing a second access rule.
+
+    **A real deletion script.** A tRPC procedure (or a server-side job it enqueues) that actually removes the account and its data. This is where the system's own invariants make it hard, and none of it is decided yet:
+
+    - **Soft-delete semantics are non-uniform (§4).** Tasks and resources filter `deleted_at IS NULL` out of shapes and vanish; messages are redacted-in-place so replies are not orphaned. A deletion routine has to honour both, and decide whether a departing user's messages are hard-deleted (orphaning others' replies) or tombstoned like a normal message delete.
+    - **Membership is the authorization primitive (§1).** Deleting a user who is the `owner_id` of a project/build-unit/channel — the owner-escape hatch other members' access hangs off — can strand or expose data. Ownership transfer or cascade rules must be defined before anything is deleted.
+    - **Resource bytes need the purge path (§12.9), not a parallel one.** Files must be released through the existing `deleted_at` → `scripts/purge-resources.ts` mechanism so the retention/orphan-grace logic still applies; the deletion routine should stamp, not `unlink`.
+    - **The Mozilla Data Collective removal** (the second radio option) has no integration at all — no client, no endpoint, no defined contract. It is a named intent only.
+
+    Until this exists, the page must not imply completed deletion beyond what it does; the confirmation copy is deliberately phrased as a received *request*.
+
 ---
 
 ## Appendix — where things live
@@ -431,6 +448,9 @@ These are the things to fix before this stops being a POC. Every one of them is 
 | tRPC routers (write authorization) | `web-app/code/src/infrastructure/trpc/routers/` |
 | Electric proxy | `web-app/code/src/infrastructure/database/electric-proxy.ts` |
 | Auth config | `web-app/code/src/infrastructure/auth/server.ts` |
+| Account-deletion request page (email flow, §12.11) | `web-app/code/src/presentation/pages/DeleteAccountPage.tsx`, `routes/_authenticated/delete-account.tsx` |
+| Deletion-request / contact procedures + email senders | `web-app/code/src/infrastructure/trpc/routers/{account,contact}.ts`, `infrastructure/lib/utils/send{DeletionRequest,Contact}Email.ts` |
+| Marketing pages (privacy / support / contact) | `web-app/code/src/presentation/pages/{Privacy,Support,Contact}Page.tsx`, `content/privacy.ts` |
 | File storage | `web-app/code/src/infrastructure/storage/fileStorage.ts` |
 | Bootstrap / resync | `web-app/code/src/presentation/routes/_authenticated.tsx` |
 | Collection definitions (web / mobile, still per-app) | `*/src/application/collections/*.ts` |

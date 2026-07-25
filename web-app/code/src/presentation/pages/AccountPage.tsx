@@ -1,4 +1,5 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { Sidebar } from "../components/buildInlime";
 import { useSession } from "%/infrastructure/auth/client";
 
@@ -42,6 +43,24 @@ export function AccountPage() {
             <div className="max-w-2xl">
               <DetailRow label="Name" value={user.name || "—"} />
               <DetailRow label="Email" value={user.email || "—"} />
+
+              {/* Delete account & data — entry point to the deletion request flow */}
+              <div className="mt-8">
+                <h2 className="text-sm font-medium text-foreground mb-1">
+                  Delete account &amp; data
+                </h2>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Request deletion of your account and the data associated with
+                  it. You'll get a copy of your data as part of the request.
+                </p>
+                <Link
+                  to="/delete-account"
+                  className="inline-flex items-center gap-2 rounded-md border border-destructive/40 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/5 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete account &amp; data
+                </Link>
+              </div>
             </div>
           )}
         </div>
