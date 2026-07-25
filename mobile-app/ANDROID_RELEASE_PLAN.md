@@ -157,10 +157,43 @@ the tree — three items in the original draft were stale; see Revision notes at
 
 ## Phase 5 — Test tracks → Production
 
-1. `eas build --platform android --profile production` → `.aab`.
+1. ~~`eas build --platform android --profile production` → `.aab`.~~ **DONE
+   2026-07-25.** Built from `main` at `4a76119` (the PR #78 merge), so the artifact
+   comes from the branch Phase 5 requires, not a feature branch.
+
+   | | |
+   |---|---|
+   | Build ID | `499fdba4-15d3-4ace-9a86-0849c1234f69` |
+   | Version | `1.0.0`, **versionCode 2** (EAS `autoIncrement`; the preview build was 1) |
+   | Keystore | `Build Credentials TPPEnuUdKg` — the same one as preview, already backed up |
+   | Duration | 15m 27s |
+   | Archive | `https://expo.dev/artifacts/eas/WKvfY6vPf6Lxe1S3huzKMTdkOU2lj98GTYs8RXOkrDQ.aab` (69 MB) |
+
+   **Verified on the production `.aab` itself, not carried over from the preview** —
+   `production` is a different profile, so none of this transfers automatically:
+
+   - `verify-api-url.sh` **PASS** — `https://app.buildinlime.com` inlined in the Hermes
+     bundle, `10.0.2.2` fallback absent.
+   - **`withOkHttpDispatcher` survived prebuild** (Risk 1) — `BuildInLimeOkHttpClientFactory`
+     and `setOkHttpClientFactory` both present in the DEX. Checked independently because
+     its failure is silent: the app would work and just sync slowly.
+   - **Sentry absent** — `io/sentry` = 0 classes, matching `PLAY_DATA_SAFETY.md`.
+   - Application ID `com.buildinlime.mobile` confirmed in the DEX.
+
+   Note `eas build:version:get` showing `EXPO_PUBLIC_API_URL` resolved is **not**
+   sufficient evidence: it proves EAS holds the value, not that Metro inlined it. Only
+   the artifact shows that, which is the whole reason the verifier exists.
+
 2. `eas submit --platform android` → **Internal testing** track first.
 3. Promote to **Closed testing** to satisfy the tester / 14-day gate.
 4. Promote to **Production** with a staged rollout (e.g. 20% → 100%).
+
+> **`eas-cli` is not a project dependency.** It was installed globally
+> (`npm i -g eas-cli`, 21.2.0) to run this build. Anyone repeating Phase 5 needs it on
+> PATH first — `npx eas` fails, since the package is `eas-cli` and the binary is `eas`.
+> The alternative is the EAS console's GitHub integration, which needs the **base
+> directory set to `mobile-app`**: this is a pnpm workspace, so EAS otherwise looks for
+> `app.json` at the repo root and fails.
 
 ## Phase 6 — Post-release
 
@@ -206,13 +239,25 @@ is a convention, not a requirement; it is done here so one identity covers both
 stores. Apple binds a bundle ID to an App Store record on first submission, the
 same way Play binds the application ID.
 
-Next (as of 2026-07-25): the engineering path is green — Phases 1–3 are done and
-verified on a real APK (see Phase 2 step 4). The remaining critical path is
-**Play Console (Phase 4)**, which is done in the Console web UI and is the schedule
-long pole (account verification + the ~14-day / 12-tester closed-testing gate). The
-inputs to paste into the Console — Data Safety answers, store listing copy, and the
-permission justification — are prepared in `PLAY_CONSOLE_INPUTS.md`. When ready for
-Phase 5, merge this branch to `main` and build `production` (`.aab`) from `main`.
+Next (as of 2026-07-25): **the engineering path is finished.** Phases 1–3 are done,
+this branch is merged to `main` (PR #78), and Phase 5 step 1 has produced a
+**production `.aab` from `main`, verified on the artifact** — see Phase 5 above for
+the build id, versionCode and the three checks.
+
+**Everything remaining is Google Play Console work, and it is the schedule long
+pole**: account verification, then the ~14-day / 12-tester closed-testing gate before
+production access unlocks. None of it is engineering, and none of it can be
+parallelised away — start it immediately.
+
+The text to paste into the Console — store listing, content-rating answers, Data
+Safety responses, permission justification — is prepared in `PLAY_CONSOLE_INPUTS.md`.
+**The one gap that document cannot fill is graphics**: feature graphic 1024×500, icon
+512×512, and phone screenshots. Those are required to create the listing at all, so
+they block the closed-testing clock from even starting. Produce them first.
+
+With the listing created, upload the existing `.aab` to **Internal testing** (Phase 5
+step 2) — the artifact is already built and verified, so no rebuild is needed unless
+the code changes. A rebuild would consume another versionCode.
 
 ## Revision notes (2026-07-22)
 
