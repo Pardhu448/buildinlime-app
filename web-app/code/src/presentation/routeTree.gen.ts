@@ -9,12 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SupportRouteImport } from './routes/support'
 import { Route as ResourcesRouteImport } from './routes/resources'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as GetStartedRouteImport } from './routes/get-started'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as DocumentationRouteImport } from './routes/documentation'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as BlogRouteImport } from './routes/blog'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
@@ -36,6 +39,7 @@ import { Route as ApiChannelMembersRouteImport } from './routes/api/channel-memb
 import { Route as ApiBuildunitsRouteImport } from './routes/api/buildunits'
 import { Route as AuthenticatedMyTasksRouteImport } from './routes/_authenticated/my-tasks'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
+import { Route as AuthenticatedDeleteAccountRouteImport } from './routes/_authenticated/delete-account'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects/index'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
@@ -50,9 +54,19 @@ import { Route as AuthenticatedProjectsProjectIdBuildUnitNameChannelNameRouteImp
 import { Route as AuthenticatedProjectsProjectIdBuildUnitNameChannelNameIndexRouteImport } from './routes/_authenticated/projects/$projectId/$buildUnitName/$channelName/index'
 import { Route as AuthenticatedProjectsProjectIdBuildUnitNameChannelNameTaskNameRouteImport } from './routes/_authenticated/projects/$projectId/$buildUnitName/$channelName/$taskName'
 
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResourcesRoute = ResourcesRouteImport.update({
   id: '/resources',
   path: '/resources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PricingRoute = PricingRouteImport.update({
@@ -78,6 +92,11 @@ const FeaturesRoute = FeaturesRouteImport.update({
 const DocumentationRoute = DocumentationRouteImport.update({
   id: '/documentation',
   path: '/documentation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BlogRoute = BlogRouteImport.update({
@@ -184,6 +203,12 @@ const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
   path: '/inbox',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedDeleteAccountRoute =
+  AuthenticatedDeleteAccountRouteImport.update({
+    id: '/delete-account',
+    path: '/delete-account',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
   id: '/account',
   path: '/account',
@@ -269,13 +294,17 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/blog': typeof BlogRoute
+  '/contact': typeof ContactRoute
   '/documentation': typeof DocumentationRoute
   '/features': typeof FeaturesRoute
   '/get-started': typeof GetStartedRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/resources': typeof ResourcesRoute
+  '/support': typeof SupportRoute
   '/account': typeof AuthenticatedAccountRoute
+  '/delete-account': typeof AuthenticatedDeleteAccountRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/my-tasks': typeof AuthenticatedMyTasksRoute
   '/api/buildunits': typeof ApiBuildunitsRoute
@@ -310,13 +339,17 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/blog': typeof BlogRoute
+  '/contact': typeof ContactRoute
   '/documentation': typeof DocumentationRoute
   '/features': typeof FeaturesRoute
   '/get-started': typeof GetStartedRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/resources': typeof ResourcesRoute
+  '/support': typeof SupportRoute
   '/account': typeof AuthenticatedAccountRoute
+  '/delete-account': typeof AuthenticatedDeleteAccountRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/my-tasks': typeof AuthenticatedMyTasksRoute
   '/api/buildunits': typeof ApiBuildunitsRoute
@@ -350,13 +383,17 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/about': typeof AboutRoute
   '/blog': typeof BlogRoute
+  '/contact': typeof ContactRoute
   '/documentation': typeof DocumentationRoute
   '/features': typeof FeaturesRoute
   '/get-started': typeof GetStartedRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/resources': typeof ResourcesRoute
+  '/support': typeof SupportRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
+  '/_authenticated/delete-account': typeof AuthenticatedDeleteAccountRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
   '/_authenticated/my-tasks': typeof AuthenticatedMyTasksRoute
   '/api/buildunits': typeof ApiBuildunitsRoute
@@ -393,13 +430,17 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/blog'
+    | '/contact'
     | '/documentation'
     | '/features'
     | '/get-started'
     | '/login'
     | '/pricing'
+    | '/privacy'
     | '/resources'
+    | '/support'
     | '/account'
+    | '/delete-account'
     | '/inbox'
     | '/my-tasks'
     | '/api/buildunits'
@@ -434,13 +475,17 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/blog'
+    | '/contact'
     | '/documentation'
     | '/features'
     | '/get-started'
     | '/login'
     | '/pricing'
+    | '/privacy'
     | '/resources'
+    | '/support'
     | '/account'
+    | '/delete-account'
     | '/inbox'
     | '/my-tasks'
     | '/api/buildunits'
@@ -473,13 +518,17 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/about'
     | '/blog'
+    | '/contact'
     | '/documentation'
     | '/features'
     | '/get-started'
     | '/login'
     | '/pricing'
+    | '/privacy'
     | '/resources'
+    | '/support'
     | '/_authenticated/account'
+    | '/_authenticated/delete-account'
     | '/_authenticated/inbox'
     | '/_authenticated/my-tasks'
     | '/api/buildunits'
@@ -516,12 +565,15 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AboutRoute: typeof AboutRoute
   BlogRoute: typeof BlogRoute
+  ContactRoute: typeof ContactRoute
   DocumentationRoute: typeof DocumentationRoute
   FeaturesRoute: typeof FeaturesRoute
   GetStartedRoute: typeof GetStartedRoute
   LoginRoute: typeof LoginRoute
   PricingRoute: typeof PricingRoute
+  PrivacyRoute: typeof PrivacyRoute
   ResourcesRoute: typeof ResourcesRoute
+  SupportRoute: typeof SupportRoute
   ApiBuildunitsRoute: typeof ApiBuildunitsRoute
   ApiChannelMembersRoute: typeof ApiChannelMembersRoute
   ApiChannelsRoute: typeof ApiChannelsRoute
@@ -543,11 +595,25 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/resources': {
       id: '/resources'
       path: '/resources'
       fullPath: '/resources'
       preLoaderRoute: typeof ResourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pricing': {
@@ -583,6 +649,13 @@ declare module '@tanstack/react-router' {
       path: '/documentation'
       fullPath: '/documentation'
       preLoaderRoute: typeof DocumentationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blog': {
@@ -730,6 +803,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof AuthenticatedInboxRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/delete-account': {
+      id: '/_authenticated/delete-account'
+      path: '/delete-account'
+      fullPath: '/delete-account'
+      preLoaderRoute: typeof AuthenticatedDeleteAccountRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/account': {
@@ -882,6 +962,7 @@ const AuthenticatedProjectsProjectIdRouteWithChildren =
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
+  AuthenticatedDeleteAccountRoute: typeof AuthenticatedDeleteAccountRoute
   AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
   AuthenticatedMyTasksRoute: typeof AuthenticatedMyTasksRoute
   AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRouteWithChildren
@@ -890,6 +971,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
+  AuthenticatedDeleteAccountRoute: AuthenticatedDeleteAccountRoute,
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
   AuthenticatedMyTasksRoute: AuthenticatedMyTasksRoute,
   AuthenticatedProjectsProjectIdRoute:
@@ -920,12 +1002,15 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AboutRoute: AboutRoute,
   BlogRoute: BlogRoute,
+  ContactRoute: ContactRoute,
   DocumentationRoute: DocumentationRoute,
   FeaturesRoute: FeaturesRoute,
   GetStartedRoute: GetStartedRoute,
   LoginRoute: LoginRoute,
   PricingRoute: PricingRoute,
+  PrivacyRoute: PrivacyRoute,
   ResourcesRoute: ResourcesRoute,
+  SupportRoute: SupportRoute,
   ApiBuildunitsRoute: ApiBuildunitsRoute,
   ApiChannelMembersRoute: ApiChannelMembersRoute,
   ApiChannelsRoute: ApiChannelsRoute,

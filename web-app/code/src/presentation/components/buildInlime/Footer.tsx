@@ -84,13 +84,13 @@ export function Footer({ compact = false }: { compact?: boolean } = {}) {
               </Link>
             </li>
             <li>
-              <a
-                href="#support"
+              <Link
+                to="/support"
                 className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-primary transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 Support
-              </a>
+              </Link>
             </li>
           </ul>
         </div>
@@ -114,22 +114,34 @@ export function Footer({ compact = false }: { compact?: boolean } = {}) {
               </Link>
             </li>
             <li>
-              <a
-                href="#careers"
-                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-primary transition-colors"
-                style={{ fontVariationSettings: "'wdth' 100" }}
-              >
-                Careers
-              </a>
-            </li>
-            <li>
-              <a
-                href="#contact"
+              <Link
+                to="/contact"
                 className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-primary transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 Contact
-              </a>
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Legal */}
+        <div className="flex flex-col gap-[16px] w-[284.15px]">
+          <h3
+            className="font-['Instrument_Sans',sans-serif] font-medium text-[16px] leading-[24px] text-black"
+            style={{ fontVariationSettings: "'wdth' 100" }}
+          >
+            Legal
+          </h3>
+          <ul className="flex flex-col gap-[8px]">
+            <li>
+              <Link
+                to="/privacy"
+                className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-black hover:text-primary transition-colors"
+                style={{ fontVariationSettings: "'wdth' 100" }}
+              >
+                Privacy
+              </Link>
             </li>
           </ul>
         </div>

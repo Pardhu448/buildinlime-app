@@ -10,6 +10,8 @@ import { messagesRouter } from "%/infrastructure/trpc/routers/messages"
 import { teamsRouter } from "%/infrastructure/trpc/routers/teams"
 import { readsRouter } from "%/infrastructure/trpc/routers/reads"
 import { seenRouter } from "%/infrastructure/trpc/routers/seen"
+import { contactRouter } from "%/infrastructure/trpc/routers/contact"
+import { accountRouter } from "%/infrastructure/trpc/routers/account"
 
 // Composed here, outside the TanStack route file, so tests can import the real
 // router (e.g. the contract-name parity spec) without dragging in createFileRoute.
@@ -26,6 +28,8 @@ export const appRouter = router({
   teams: teamsRouter,
   reads: readsRouter,
   seen: seenRouter,
+  contact: contactRouter,
+  account: accountRouter,
 })
 
 export type AppRouter = typeof appRouter
