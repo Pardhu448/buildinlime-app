@@ -39,12 +39,25 @@ export const channelsRouter = router({
         throw new TRPCError({ code: `FORBIDDEN`, message: `Only project owners can create channels` })
       }
 
-      // Prevent duplicate channel names within the same build unit
+      // Prevent duplicate channel names within the same build unit.
+      //
+      // isNull(deleted_at) is load-bearing: a SOFT-DELETED channel must RELEASE its
+      // name. Without it, deleting a channel permanently burns that name for the
+      // build unit — the row still matches here, so the create is rejected with
+      // "already exists" while the user can see no such channel anywhere (the
+      // channels shape filters deleted_at IS NULL, so it is not even synced to them).
+      // That is an unrecoverable dead end from the user's side.
+      //
+      // Same predicate, same reason as the tasks table's partial unique index
+      // `(channel_id, lower(name)) WHERE deleted_at IS NULL` — see ARCHITECTURE §4,
+      // which calls that WHERE clause out explicitly for letting a deleted task
+      // release its name.
       const [duplicate] = await ctx.db
         .select({ id: channelsTable.id })
         .from(channelsTable)
         .where(and(
           eq(channelsTable.buildunit_id, input.buildunit_id),
+          isNull(channelsTable.deleted_at),
           sql`CAST(${channelsTable.name} AS text) = ${JSON.stringify(input.name)}`
         ))
       if (duplicate) {
