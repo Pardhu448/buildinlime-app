@@ -53,6 +53,9 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 
+# Generated documents (rendered from app content, not source)
+*.pdf
+
 # Database
 *.db
 *.db-shm
