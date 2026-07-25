@@ -8,8 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://10.0.2.2:3000",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "EXPO_PUBLIC_API_URL": "http://10.0.2.2:3000"
       }
     },
     "preview": {
@@ -18,8 +17,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://app.buildinlime.com",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "EXPO_PUBLIC_API_URL": "https://app.buildinlime.com"
       }
     },
     "production": {
@@ -28,8 +26,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://app.buildinlime.com",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "EXPO_PUBLIC_API_URL": "https://app.buildinlime.com"
       }
     }
   },

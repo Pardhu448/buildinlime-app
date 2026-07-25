@@ -58,8 +58,7 @@
       "expo-sqlite",
       "./plugins/withOkHttpDispatcher",
       "expo-video",
-      "expo-image",
-      "@sentry/react-native"
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true

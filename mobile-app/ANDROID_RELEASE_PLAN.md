@@ -61,20 +61,16 @@ the tree — three items in the original draft were stale; see Revision notes at
    Playback is foreground-only, so expo-audio's `enableBackgroundPlayback` is now
    `false`; the FGS permissions + `AudioControlsService` are gone (clean-prebuild
    verified), so no Play foreground-service declaration is needed.
-5. ~~**No crash reporting.**~~ **WIRED 2026-07-23.** `@sentry/react-native` (~7.11.0,
-   SDK-aligned) is installed, its config plugin is in `app.json`, and `initSentry()`
-   runs from `app/_layout.tsx` with the tree wrapped in `Sentry.wrap`. It is
-   **DSN-gated**: no `EXPO_PUBLIC_SENTRY_DSN` → no-op (dev/tests untouched). Remaining:
-   create the Sentry project, put the DSN in the preview/production `eas.json` env
-   blocks, and (Phase 6) wire source-map upload for readable stack traces.
-   **Build gotcha (fixed 2026-07-23):** the Sentry Gradle integration
-   (`sentry.gradle`) adds a release-build task that runs `sentry-cli` to upload
-   source maps, and it hard-fails with *"An organization ID or slug is required"*
-   when no org/project/token is configured — which killed the first preview build at
-   `:app:…_SentryUpload_…`. Until the Sentry project exists, every `eas.json` build
-   profile sets `SENTRY_DISABLE_AUTO_UPLOAD=true`, which flips that task's `onlyIf`
-   off so it is skipped. Crash reporting itself is unaffected (that is the runtime
-   DSN, not the build-time upload).
+5. **No crash reporting.** Crash reporting was briefly wired with
+   `@sentry/react-native` (2026-07-23) and then **removed (2026-07-25)** — the SDK,
+   its `app.json` config plugin, the `initSentry()`/`Sentry.wrap` in `app/_layout.tsx`,
+   the `SENTRY_DISABLE_AUTO_UPLOAD` build flags, and the observability module are all
+   gone. The shipping app therefore contains **no crash-reporting, analytics, or
+   tracking SDK** (this keeps the Data Safety declaration to user content + account
+   data only — see `PLAY_DATA_SAFETY.md`). If crash reporting is wanted later,
+   re-add an SDK *and* update `PLAY_DATA_SAFETY.md` + the Data Safety form in the
+   same change (Sentry needs a runtime DSN and, for readable stack traces, build-time
+   source-map upload via `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT`).
 
 ## Phase 1 — App identity & production config
 
@@ -158,13 +154,13 @@ the tree — three items in the original draft were stale; see Revision notes at
 
 ## Phase 6 — Post-release
 
-- ~~Wire crash reporting~~ **done (Sentry, 2026-07-23)** — remaining: create the
-  Sentry project + DSN, and add **source-map upload** so stack traces de-minify.
-  `@sentry/cli`'s postinstall build script is currently ignored by pnpm; EAS uploads
-  maps during the build via `SENTRY_AUTH_TOKEN`, so wire that secret in EAS. **When
-  enabling upload, remove `SENTRY_DISABLE_AUTO_UPLOAD` from `eas.json` and set
-  `SENTRY_ORG` + `SENTRY_PROJECT` + `SENTRY_AUTH_TOKEN`** (org/project via env or the
-  `@sentry/react-native` plugin options; the token as an EAS secret, never committed).
+- **Crash reporting — deferred (Sentry removed 2026-07-25).** The app ships with
+  no crash/analytics SDK. If it is wanted post-release, re-add an SDK and, in the
+  *same* change, update `PLAY_DATA_SAFETY.md` + the Play Data Safety form to declare
+  Crash logs / Diagnostics / Device IDs. For Sentry specifically that means: the
+  runtime DSN, plus build-time **source-map upload** for de-minified stack traces
+  (`SENTRY_AUTH_TOKEN` as an EAS secret, `SENTRY_ORG` + `SENTRY_PROJECT` via env or
+  the config-plugin options; never commit the token).
 - Decide on **EAS Update (OTA)** for JS-only fixes without store review
   (`expo-updates` is not currently a dependency).
 - Add an EAS build/submit job to `.github/workflows/ci.yml`, triggered on release tags.

@@ -26,16 +26,15 @@ are read straight off the code, the **server-side facts are marked to confirm**.
 | **Session cookie** | `expo-secure-store` (`src/infrastructure/auth/cookie-fetch.ts`). | Stored on-device; sent as an auth header. |
 | **Local cache DB** | `expo-sqlite` — synced rows cached for offline; wiped on sign-out (`signOutAndDispose`). | On-device only. |
 
-**No ad, tracking, analytics, or location SDK is active today.** Sentry crash
-reporting is wired (`@sentry/react-native`) but **DSN-gated and currently inert**:
-with no `EXPO_PUBLIC_SENTRY_DSN` set, `initSentry()` no-ops, so the shipping build
-collects and sends nothing.
+**No ad, tracking, analytics, crash-reporting, or location SDK is present.** There
+is no Sentry, Firebase, GMS, or comparable SDK in the app — crash reporting was
+removed, so the shipping build collects and sends nothing beyond the user content
+and account data listed above (all to our own backend).
 
-> ⚠️ **The moment a Sentry DSN is configured** (Phase 6), Sentry begins collecting
-> **crash logs / diagnostics** and typically a device/installation identifier — which
-> adds "Crash logs", "Diagnostics", and "Device or other IDs" rows to the form below.
-> Update this doc and the Data Safety form in the *same* change that sets the DSN;
-> never ship a DSN with these undeclared.
+> If crash reporting or any analytics SDK is ever re-introduced, it will typically
+> collect **crash logs / diagnostics** and often a device/installation identifier —
+> which adds "Crash logs", "Diagnostics", and "Device or other IDs" rows to the form
+> below. Update this doc and the Data Safety form in the *same* change that adds it.
 
 ---
 
@@ -72,8 +71,8 @@ ephemerally?** / **Required or optional?** / **Purposes**.
   **App functionality.**
 
 ### App activity / Device IDs / Location
-- **None declared today.** (Revisit "Device or other IDs" + "Crash logs" the moment
-  Sentry is enabled — see the warning above.)
+- **None declared.** No crash-reporting or analytics SDK is present. (Revisit
+  "Device or other IDs" + "Crash logs" only if one is ever added — see the note above.)
 
 ### Security practices (the two form toggles)
 - **Encrypted in transit:** **Yes.** Production API is `https://app.buildinlime.com`
@@ -114,7 +113,7 @@ one-line justification. Declared in `app.json` → `android.permissions`:
 
 - [ ] Privacy policy URL live, reachable, and covers every row above.
 - [ ] Server-side: retention window + deletion mechanism confirmed and documented.
-- [ ] Sentry DSN still unset (inert). When a DSN is set, add Crash logs / Diagnostics / Device-ID rows.
+- [x] No crash-reporting/analytics SDK present (Sentry removed). If one is added, add Crash logs / Diagnostics / Device-ID rows.
 - [x] `FOREGROUND_SERVICE_MEDIA_PLAYBACK` re-audited → **dropped** (foreground-only playback).
 - [ ] "Encrypted in transit = Yes" backed by `verify-api-url.sh` passing on the shipped `.aab`.
 - [ ] Confirm the OTP email provider is treated as a processor, not a data "share".
