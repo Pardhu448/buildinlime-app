@@ -1347,17 +1347,27 @@ channels, messages and tasks "did not work" on web *and* mobile, while login wor
 normally and existing data rendered fine. The report arrived attached to a new Android
 APK, so the initial suspicion was the mobile build's API URL.
 
-**Actual cause.** At **2026-07-24 06:10:58 UTC**, `apt-daily-upgrade.service`
-(unattended-upgrades) restarted `systemd-networkd`, which bounced `ens4`, `docker0`, the
-compose bridge and every container veth:
+**Actual cause.** At **2026-07-24 06:10:58 UTC**, `systemd-networkd` was restarted,
+bouncing `ens4`, `docker0`, the compose bridge and every container veth:
 
 ```
 06:10:16  Starting apt-daily-upgrade.service
+06:10:48  Upgrade: libpam-runtime, libpam-modules, libpam-modules-bin, libpam0g
+06:10:51  (libpam upgrade completes)
 06:10:53  Stopping systemd-resolved / google-guest-agent / ssh / journald
 06:10:58  Stopping systemd-networkd.service
 06:10:58  Starting systemd-networkd.service
 06:10:58  ens4 / docker0 / br-d0db491808d2 / veth* — Link UP, Gained carrier
 ```
+
+**The mechanism is `needrestart`, not a systemd package upgrade** — worth stating
+explicitly, because the latter is the natural guess and it is wrong. That run upgraded
+`krb5-*`, `rsyslog`, `gawk`, `libpam*` and `tar`; **`systemd` was never upgraded**.
+needrestart (3.6, no explicit restart mode, hence fully automatic on Ubuntu Server)
+restarts every daemon linked against an upgraded library, and the cascade begins two
+seconds after `libpam` finishes. So the trigger is an ordinary security update of an
+ordinary library — nothing network-related was touched, which is exactly why this was
+unforeseeable from the package list. See §13.2 fix 1.
 
 That severed Electric's logical-replication connection to Cloud SQL. The interfaces were
 torn down underneath the socket, so Cloud SQL never sent a FIN or RST: the socket went
@@ -1454,47 +1464,87 @@ a restart is not sufficient.**
 
 ### 13.2 Fixes this incident requires
 
-Ordered by value. (1) prevents recurrence, (2) bounds how long a recurrence goes
-unnoticed, (3) bounds what it costs. Do them in that order.
+(1) prevents recurrence, (2) bounds how long a recurrence goes unnoticed, (3) bounds
+what it costs.
 
-#### 1. Stop unattended-upgrades restarting the network
+**(2) is done and is the one that mattered.** (1) was deliberately NOT taken — see
+below; the reasoning is the useful part of this section.
 
-The trigger, and it *will* recur — unpredictably, because `apt-daily-upgrade` only
-bounces `systemd-networkd` when it actually upgrades a networking package. On a single
-VM hosting a stateful replication consumer, an unattended network restart is a bad
-trade.
+#### 1. Stop unattended-upgrades restarting the network — DECIDED AGAINST
 
-**Preferred — GCP-native: VM Manager / OS Config patch management.** Disable the
-distro's own timer and let GCP own patching on a schedule you control:
+> **Status: not implemented, on purpose.** An earlier revision of this section
+> recommended two things that were **both wrong**, written before the apt history was
+> actually read. They are corrected here rather than deleted, because the wrong version
+> is the kind a reader would otherwise re-derive.
+
+**The mechanism, corrected.** The trigger is not "`apt-daily-upgrade` upgrading a
+networking package" — nothing of the sort happened. `/var/log/apt/history.log` for the
+06:10 run on 2026-07-24 shows `krb5-*`, `rsyslog`, `gawk`, `libpam*` and `tar`.
+**`systemd` was never upgraded.** The restart cascade begins at 06:10:53, two seconds
+after the `libpam` upgrade completes at 06:10:51, and reaches `systemd-networkd` at
+06:10:58.
+
+So this is **`needrestart`** (3.6, installed, no explicit restart mode, which on Ubuntu
+Server means fully automatic) restarting every daemon linked against an upgraded
+library. Two consequences, and they kill both of the original recommendations:
+
+- **`Unattended-Upgrade::Package-Blacklist { "systemd"; }` would have prevented
+  nothing.** systemd was not the package being upgraded.
+- **`$nrconf{restart} = 'l'` (global list-only) is worse than the disease.** It defers
+  *every* service restart after *every* library upgrade — ssh, cron, the lot — on a host
+  the journal shows under constant SSH brute-force. Do not do this.
+
+**Why nothing was implemented.** The targeted form does work — exempt only the network
+plane via `$nrconf{override_rc}`, leaving everything else restarting normally — and it
+was built, tested and briefly installed. It was then **removed and its PR closed**,
+because fix (2) had already changed the economics:
+
+| | before the watchdog | after |
+|---|---|---|
+| a network-plane restart costs | **30 h** silent sync outage | **~5 min**, self-healing |
+
+Deferring security-library restarts *indefinitely* on `systemd-networkd`,
+`systemd-resolved` and `containerd` — for libraries like `libpam`, which is
+authentication — is too high a price for that residual 5 minutes. And "deferred until
+something restarts them" means **indefinite** here: this VM does not reboot on its own
+(uptime was 6 days at the incident). Detection and recovery were the high-value fix;
+prevention is not worth compromising patch hygiene for.
+
+**Measurements worth keeping**, if this is ever revisited:
+
+- conf.d is parsed *after* the defaults and files "override or modify any previously set
+  config option", so **per-key assignment is mandatory**. `$nrconf{override_rc} = {...}`
+  *replaces* the hash: measured on this VM it cut `override_rc` from **43 keys to 4**,
+  silently dropping `^dbus`, `^systemd-logind`, `^getty@`, `^docker` and `^network` —
+  more restarts than stock, not fewer. Per-key assignment yields 46.
+- **`override_rc => 0` means "do not restart", not "do not list".** The service is still
+  detected and still appears in `needrestart -r l -b`, so that listing **cannot verify
+  the override** — attempting to verify it that way produces a false negative. Stock
+  ships `qr(^dbus) => 0` and dbus is still listed, yet dbus was demonstrably not
+  restarted on 2026-07-24 while `systemd-networkd`, which had no override, was. Verify by
+  dumping the parsed hash: `perl -e 'our %nrconf; do
+  "/etc/needrestart/needrestart.conf"; print scalar(keys %{$nrconf{override_rc}}), "\n"'`
+- `docker` is already covered by stock `qr(^docker)`; `containerd` is not.
+
+**The proper fix, still open — VM Manager / OS Config patch management.** This is the
+one to build if the residual 5 minutes ever becomes unacceptable, because it is the only
+option that does **not** require deferring any restart:
 
 ```bash
 sudo systemctl disable --now apt-daily-upgrade.timer apt-daily.timer
 
-gcloud compute instances os-inventory ... # requires the OS Config agent enabled
 gcloud compute os-config patch-deployments create buildinlime-monthly \
   --instance-filter-names="zones/asia-south1-a/instances/buildinlime-app" \
   --recurring-schedule-time-of-day="18:00" \
   --recurring-schedule-frequency=MONTHLY ...
 ```
 
-The reason to prefer this over just disabling the timer: patch deployments support
-**pre- and post-patch scripts**, so Electric can be stopped cleanly before the patch and
-started after — turning the exact failure above into a controlled restart. It also gives
-patch-compliance reporting, which a disabled timer does not.
-
-**Interim — keep unattended-upgrades but stop it restarting services.** Ubuntu 24.04
-restarts services via `needrestart` after library upgrades. Set list-only mode and
-blacklist systemd, **in `deploy/vm-bootstrap.sh`** so a rebuilt VM inherits it:
-
-```bash
-echo "\$nrconf{restart} = 'l';" | sudo tee /etc/needrestart/conf.d/90-no-restart.conf
-# /etc/apt/apt.conf.d/50unattended-upgrades
-Unattended-Upgrade::Package-Blacklist { "systemd"; "systemd-networkd"; "udev"; };
-```
+Patch deployments support **pre- and post-patch scripts**, so Electric can be stopped
+cleanly before patching and started after — turning the failure into a controlled
+restart, with patches still fully applied. They also give patch-compliance reporting.
 
 Do **not** simply `systemctl mask apt-daily-upgrade.timer` and stop there — that trades
-a sync outage for an unpatched internet-facing host. The journal already shows constant
-SSH brute-force attempts against this VM.
+a sync outage for an unpatched internet-facing host.
 
 #### 2. Detect it — and self-heal
 
