@@ -1297,7 +1297,11 @@ identity on a platform that offers it.
   address" warning (§4.5.7) all need proving against a real instance before the rest of
   the plan is built.
 - **Replication-slot monitoring is not optional** (§4.5.6). A slot left behind by a dead
-  Electric fills WAL until Postgres stops accepting writes.
+  Electric fills WAL until Postgres stops accepting writes. **This happened —
+  2026-07-24, 30 hours undetected, 24 GB retained, permanent disk growth. See §13.1.**
+  Electric does not have to *die* for this: it detached on a half-open socket, stayed
+  alive, and kept reporting healthy. The healthcheck cannot see it; only
+  `pg_replication_slots.active` can (§13.2).
 - **Electric disk sizing is a guess** (§4.6.3), and `ELECTRIC_STORAGE_DIR` is unverified
   (§5.3). Alarm on the disk and confirm the write path on first boot.
 - **Pin the Electric image tag** (§5.3). `restart: always` plus a floating tag can
@@ -1331,3 +1335,269 @@ identity on a platform that offers it.
 - **Never run a second Electric against the same database.** It blocks on
   `electric_slot_default` and reports `Timeout waiting for Postgres lock acquisition` —
   observed while testing. Relevant to any staging environment that points at prod's DB.
+
+---
+
+## 13. Incidents
+
+### 13.1 Electric replication detached for 30 hours (2026-07-24 → 2026-07-25)
+
+**Symptom as reported:** writes appeared broken on both clients. Creating build units,
+channels, messages and tasks "did not work" on web *and* mobile, while login worked
+normally and existing data rendered fine. The report arrived attached to a new Android
+APK, so the initial suspicion was the mobile build's API URL.
+
+**Actual cause.** At **2026-07-24 06:10:58 UTC**, `apt-daily-upgrade.service`
+(unattended-upgrades) restarted `systemd-networkd`, which bounced `ens4`, `docker0`, the
+compose bridge and every container veth:
+
+```
+06:10:16  Starting apt-daily-upgrade.service
+06:10:53  Stopping systemd-resolved / google-guest-agent / ssh / journald
+06:10:58  Stopping systemd-networkd.service
+06:10:58  Starting systemd-networkd.service
+06:10:58  ens4 / docker0 / br-d0db491808d2 / veth* — Link UP, Gained carrier
+```
+
+That severed Electric's logical-replication connection to Cloud SQL. The interfaces were
+torn down underneath the socket, so Cloud SQL never sent a FIN or RST: the socket went
+**half-open**. Electric received no error, so nothing was logged, no supervisor
+restarted anything, and **no reconnect was ever attempted**. The BEAM stayed alive and
+kept running its hourly `Optimizing shape db tables` housekeeping against a dead
+connection for 30 hours.
+
+**Why nothing caught it.** `docker-compose.prod.yaml`'s healthcheck probes
+`/v1/health` and accepts 200 *or* 401 — it proves only that the HTTP API is listening.
+Electric reported `Up 5 days (healthy)` throughout. `restart: always` never fired
+because nothing exited. The obligations in **§4.5.6** — an alert on
+`pg_replication_slots.active` going false, a WAL-retention alarm, a documented
+drop-the-slot runbook — would each have caught this independently. None had been built.
+
+**Why it looked like "writes are broken".** Reads and writes take different paths (§3).
+Writes landed in Postgres correctly the entire time; only the return trip was dead:
+
+- Web's `projects` / `build_units` / `channels` go through collection
+  `onInsert`/`onUpdate`/`onDelete`, which return `{ txid }`
+  (`application/collections/organization.ts:94,153,217`). `electric-db-collection`
+  awaits that txid and rejects after 5s, **rolling back the optimistic row** — so the
+  item appeared, then visibly vanished.
+- Messages and tasks go through the outbox with no txid await, so they stayed
+  optimistic forever and never reconciled.
+- Login was unaffected because Better Auth talks straight to Postgres.
+
+Client-agnostic, which is why web and mobile failed identically. The APK was never
+implicated: `mobile-app/scripts/verify-api-url.sh` confirmed
+`https://app.buildinlime.com` inlined in `index.android.bundle`, and the release branch
+touches no server code.
+
+**Collateral: 24 GB of retained WAL.** The orphaned slot pinned every WAL segment since
+`confirmed_flush_lsn`. Cloud SQL auto-resize (`storageAutoResizeLimit: 0`, unlimited)
+absorbed it silently, growing the disk from 10 GB to **31 GB. Provisioned disk never
+shrinks, so that cost is permanent.**
+
+The retained volume is almost entirely **padding, not data**. `pg_stat_wal.wal_bytes`
+showed only ~57 MiB of real WAL records over six days — consistent with ~250 tuple
+changes across all tables. But `pg_stat_archiver.archived_count` was 1750 segments over
+6.04 days: **290 segments/day against an expected 288**, i.e. one forced switch every
+five minutes from `archive_timeout = 300`. At `wal_segment_size = 64MB` that is
+**~18.5 GB/day of mostly-empty segments, independent of application load.** A stuck slot
+therefore fills disk at ~770 MiB/hour on a completely idle system.
+
+> **Measurement trap, recorded because it cost real time.** A single spot sample of
+> `pg_current_wal_lsn()` over ~60s showed a 64 MiB jump, which was extrapolated to
+> "90 GiB/day". That was one segment switch caught inside a short window, not a rate —
+> and it was miscounted as four 16 MiB segments before `wal_segment_size` was checked
+> and found to be 64 MB. It also produced a wrong ~6-hour detach estimate that
+> spuriously correlated with a `system_memory_high_watermark` alarm at 07:37 on Jul 25.
+> **Use `archived_count` over a long interval, never an LSN delta over a short one.**
+> The memory alarms were unrelated: all three postdate the detach by more than a day.
+
+**Recovery (2026-07-25 13:34 UTC).** Draining 22 GB of WAL was pointless — its net
+effect was already in the tables, and Electric's entire state was 5.5 MB. A clean reset
+was chosen over reconnect-and-drain:
+
+```bash
+cd /opt/buildinlime
+export DB_URL=$(sudo grep -oP '(?<=^DATABASE_URL=).*' .env)
+
+sudo docker compose --env-file compose.env --env-file .env \
+     -f docker-compose.prod.yaml stop electric
+sudo psql "$DB_URL" -c "select slot_name, active, wal_status from pg_replication_slots;"
+
+sudo psql "$DB_URL" -c "select pg_drop_replication_slot('electric_slot_default');"
+sudo rm -rf /var/lib/electric/*
+
+sudo docker compose --env-file compose.env --env-file .env \
+     -f docker-compose.prod.yaml up -d electric
+```
+
+**Both `--env-file` flags are required.** Plain `docker compose -f docker-compose.prod.yaml`
+fails with `required variable APP_IMAGE is missing a value` — the tag lives in
+`compose.env` (§9.3).
+
+Verification — `active` flipped `f → t`, `wal_status` `extended → reserved`, lag
+`24 GB → 295 bytes`, and the log showed `Received relation` from the replication stream
+handler for `seen_state`, `messages`, `resources`, `tasks`, `build_units`.
+
+**Client aftermath — wiping `/var/lib/electric` invalidates every shape handle.** Every
+connected client holds persisted offsets against handles that no longer exist. Electric
+answers those with a 409 must-refetch. Web recovered on reload. On mobile, `messages`
+recovered but `build_units` did not, and **a full app restart did not fix it — only
+sign-out/sign-in did**, because that is what wipes the local store via
+`ensureCleanPersistenceForUser` (ARCHITECTURE §7). Persisted offsets survive a restart
+by design, so bootstrap hands the collections back the same stale offsets, Electric
+reports "up-to-date", and the collection sits silently empty with no error and no
+prompt. **If Electric storage is ever wiped again, tell users to sign out and back in;
+a restart is not sufficient.**
+
+**Open items this incident created** — see §13.2.
+
+### 13.2 Fixes this incident requires
+
+Ordered by value. (1) prevents recurrence, (2) bounds how long a recurrence goes
+unnoticed, (3) bounds what it costs. Do them in that order.
+
+#### 1. Stop unattended-upgrades restarting the network
+
+The trigger, and it *will* recur — unpredictably, because `apt-daily-upgrade` only
+bounces `systemd-networkd` when it actually upgrades a networking package. On a single
+VM hosting a stateful replication consumer, an unattended network restart is a bad
+trade.
+
+**Preferred — GCP-native: VM Manager / OS Config patch management.** Disable the
+distro's own timer and let GCP own patching on a schedule you control:
+
+```bash
+sudo systemctl disable --now apt-daily-upgrade.timer apt-daily.timer
+
+gcloud compute instances os-inventory ... # requires the OS Config agent enabled
+gcloud compute os-config patch-deployments create buildinlime-monthly \
+  --instance-filter-names="zones/asia-south1-a/instances/buildinlime-app" \
+  --recurring-schedule-time-of-day="18:00" \
+  --recurring-schedule-frequency=MONTHLY ...
+```
+
+The reason to prefer this over just disabling the timer: patch deployments support
+**pre- and post-patch scripts**, so Electric can be stopped cleanly before the patch and
+started after — turning the exact failure above into a controlled restart. It also gives
+patch-compliance reporting, which a disabled timer does not.
+
+**Interim — keep unattended-upgrades but stop it restarting services.** Ubuntu 24.04
+restarts services via `needrestart` after library upgrades. Set list-only mode and
+blacklist systemd, **in `deploy/vm-bootstrap.sh`** so a rebuilt VM inherits it:
+
+```bash
+echo "\$nrconf{restart} = 'l';" | sudo tee /etc/needrestart/conf.d/90-no-restart.conf
+# /etc/apt/apt.conf.d/50unattended-upgrades
+Unattended-Upgrade::Package-Blacklist { "systemd"; "systemd-networkd"; "udev"; };
+```
+
+Do **not** simply `systemctl mask apt-daily-upgrade.timer` and stop there — that trades
+a sync outage for an unpatched internet-facing host. The journal already shows constant
+SSH brute-force attempts against this VM.
+
+#### 2. Detect it — and self-heal
+
+**The 30-hour detection gap did more damage than the fault.** §4.5.6 called for this
+alert before the system was built; it was never implemented.
+
+The current healthcheck cannot see this by construction — it probes `/v1/health` and
+accepts 200 *or* 401, which proves only that the HTTP API is listening. **The invariant
+that matters is `pg_replication_slots.active`, and it lives in Postgres, not in
+Electric.**
+
+**IMPLEMENTED** in `deploy/vm-bootstrap.sh` as `buildinlime-slot-watch.timer` +
+`.service` + `/usr/local/bin/buildinlime-slot-watch.sh`, mirroring the existing
+`buildinlime-purge.timer` pattern (§8) — same conventions, same place. Runs every 5
+minutes (`OnUnitActiveSec=5m`, `OnBootSec=10m`, deliberately **not** `Persistent=true`:
+replaying missed checks on boot would fire several restarts in a row).
+
+This is **self-healing, not just alerting**: a restart re-establishes replication, which
+is all that was needed here. Behaviour by state:
+
+| slot state | action |
+|---|---|
+| `active \| reserved` | none |
+| `active \| extended` | none — catching up |
+| `inactive \| extended` | **restart Electric** (the §13.1 case) |
+| `inactive \| lost` | log `MANUAL ACTION REQUIRED`, do **not** restart |
+| row missing | restart Electric to recreate the slot |
+| Postgres unreachable | log, no action |
+| container not `running` | log, no action |
+| container up < 5 min | no action |
+
+Four guards matter, and each exists for a reason:
+
+- **`wal_status = lost` is not restartable.** Postgres has already discarded WAL the slot
+  needed; only the drop + wipe in §13.1 recovers it. Restarting on a loop would churn a
+  slot that can never catch up.
+- **A failed query is not a failed slot.** If Postgres is unreachable, restarting
+  Electric fixes nothing and would loop every cycle.
+- **Skip while the container is not `running`.** Electric is legitimately down mid-deploy;
+  acting there races `deploy.sh`.
+- **The 5-minute start grace doubles as rate limiting.** After a restart we cannot
+  restart again for 5 minutes, so a genuinely broken Electric yields one restart per
+  cycle rather than a tight loop.
+
+> **Trap, found by testing against the real database.** Do **not** write
+> `select active || '|' || wal_status`. psql prints a bare boolean column as `t`/`f`, but
+> through `||` Postgres casts it to the SQL literal `true`/`false`. A check written
+> against `'t'` therefore never matches, and the watchdog restarts Electric on *every*
+> cycle — including healthy ones. The script uses an explicit
+> `case when active then 'active' else 'inactive' end`. Mock values agreed with the wrong
+> assumption and the bug survived a unit-style test; only running the query against
+> production exposed it.
+
+**`postgresql-client` is now installed by `vm-bootstrap.sh` too.** It never was, despite
+`deploy.sh`'s ownership sweep (§4.2.2) already depending on `psql`. It happened to be
+present on the first VM, so the gap would only have surfaced on a rebuild.
+
+**Then alert as a backstop**, for when the restart itself fails. The VM currently sends
+**nothing** to Cloud Logging — `gcloud logging read 'resource.type="gce_instance"'`
+returns empty, so the Ops Agent is not installed. Install it, log the check result, and
+build a log-based metric + alerting policy on it. Without the agent there is no path
+from a VM-side condition to an alert at all.
+
+#### 3. Bound the blast radius — and note the flag does *not* work here
+
+**Verified against `gcloud sql flags list --database-version=POSTGRES_17`:**
+
+```
+max_slot_wal_keep_size   INTEGER   min 102400   max 10485760
+```
+
+The flag exists — but the values are megabytes, so **the minimum Cloud SQL permits is
+102400 MB = 100 GB**, more than three times this instance's entire 31 GB disk. It can
+therefore never trigger before the disk does, and setting it buys nothing at this
+instance size. *Confirm the unit before relying on this reading; the conclusion holds
+only if it is MB.*
+
+**Use the disk autoresize limit instead.** It is currently `storageAutoResizeLimit: 0`
+— unlimited — which is exactly why 24 GB of padding was absorbed silently and the disk
+is now permanently 31 GB:
+
+```bash
+gcloud sql instances patch buildinlime-db --storage-auto-increase-limit=50
+```
+
+**This is a real trade-off, not a free win:** hitting the ceiling makes the instance
+reject writes. Set it high enough to absorb a normal spike (~18.5 GB/day of padding
+means 50 GB gives ~1 day of headroom above current usage) and *only* alongside fix 2, so
+something reacts before the cap is reached. A cap without detection converts a silent
+cost leak into an outage.
+
+Two related flags are worth knowing about, though neither would have prevented this:
+`wal_sender_timeout` (Postgres-side; it is what correctly marked the slot `active = f`)
+and `tcp_keepalives_idle`. Both act on the *server* side. The failure was that
+**Electric's client never noticed**, so no Postgres flag addresses it — which is why
+fix 2 is the one that matters.
+
+#### 4. Make stale-offset recovery survivable
+
+Lower priority, but user-facing. After a shape-handle invalidation, mobile's
+`build_units` collection stayed silently empty across a full app restart; only
+sign-out/sign-in cleared it (§13.1). Persisted offsets survive restart by design, so
+bootstrap re-hands the collections the same stale offsets and Electric reports
+"up-to-date" forever. Either make the 409 must-refetch path reliably reset the persisted
+offset, or surface the condition in the UI. Today the cure is undocumented tribal
+knowledge, and the symptom is indistinguishable from "the app is broken".

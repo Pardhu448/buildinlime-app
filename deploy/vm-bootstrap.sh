@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # One-time VM bootstrap. Runs ON the VM, as root, after deploy/provision.sh.
-# Implements deploymentPlan.md §4.6.3 (data disk), §4.6.5 (secrets), §8 (purge timer).
+# Implements deploymentPlan.md §4.6.3 (data disk), §4.6.5 (secrets), §8 (purge timer),
+# §13.2 (replication-slot watchdog).
 #
 #   gcloud compute ssh buildinlime-app --zone us-central1-a --tunnel-through-iap
 #   sudo PROJECT=my-project PUBLIC_DOMAIN=app.example.com \
@@ -45,6 +46,19 @@ https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_C
   systemctl enable --now docker
 else
   echo "  already installed: $(docker --version)"
+fi
+
+# ---------------------------------------------------------------------------
+# psql is NOT optional and was never installed here, despite two things already
+# depending on it: deploy.sh's ownership sweep (§4.2.2) and the slot watchdog
+# below. It happened to be present on the first VM, so the gap only bites on a
+# rebuild — the worst kind of latent provisioning bug.
+step "postgresql-client"
+if ! command -v psql >/dev/null 2>&1; then
+  apt-get update -qq
+  apt-get install -y -qq postgresql-client
+else
+  echo "  already installed: $(psql --version)"
 fi
 
 # ---------------------------------------------------------------------------
@@ -183,6 +197,123 @@ WantedBy=timers.target
 EOF
 
 # ---------------------------------------------------------------------------
+step "Replication-slot watchdog — §13.2"
+# Electric's replication client can detach WITHOUT the process dying: the socket
+# goes half-open (no FIN, no RST), Electric gets no error, logs nothing, and never
+# retries. The BEAM stays up, keeps serving HTTP, and keeps passing its healthcheck
+# — which probes /v1/health and accepts 200 OR 401, so it only ever proved the API
+# was listening. `restart: always` cannot help either, because nothing exits.
+#
+# This actually happened (§13.1): 30 hours undetected, 24 GB of WAL pinned, and the
+# Cloud SQL disk permanently grown from 10 GB to 31 GB. §4.5.6 asked for this alert
+# before the system was built; it was never implemented.
+#
+# The invariant that matters is not in Electric. It is in Postgres:
+#   pg_replication_slots.active
+cat >/usr/local/bin/buildinlime-slot-watch.sh <<'WATCH'
+#!/usr/bin/env bash
+# Restart Electric when its replication slot has gone inactive. See §13.2.
+set -uo pipefail
+
+APP_DIR=/opt/buildinlime
+SLOT=electric_slot_default
+CONTAINER=buildinlime-electric-1
+COMPOSE=(docker compose --env-file compose.env --env-file .env -f docker-compose.prod.yaml)
+
+cd "$APP_DIR" 2>/dev/null || exit 0
+
+DB_URL=$(grep -oP '(?<=^DATABASE_URL=).*' .env 2>/dev/null || true)
+[[ -n "$DB_URL" ]] || { logger -t slot-watch "no DATABASE_URL in ${APP_DIR}/.env"; exit 0; }
+
+# Electric legitimately goes down during a deploy. Restarting it here would race
+# deploy.sh, so only act when it is supposed to be running.
+state=$(docker inspect -f '{{.State.Status}}' "$CONTAINER" 2>/dev/null || true)
+if [[ "$state" != "running" ]]; then
+  logger -t slot-watch "electric not running (${state:-absent}) — no action"
+  exit 0
+fi
+
+# A freshly started Electric has not established replication yet. This grace period
+# also rate-limits us: after a restart we cannot restart again for 5 minutes, so a
+# genuinely broken Electric produces one restart per cycle, not a tight loop.
+started=$(docker inspect -f '{{.State.StartedAt}}' "$CONTAINER" 2>/dev/null || true)
+if [[ -n "$started" ]]; then
+  age=$(( $(date +%s) - $(date -d "$started" +%s 2>/dev/null || echo 0) ))
+  (( age < 300 )) && exit 0
+fi
+
+# A failed QUERY is not a failed slot. If Postgres is unreachable, restarting
+# Electric fixes nothing and would loop every cycle — distinguish the two.
+# NOTE the explicit CASE. Do NOT write `active || '|' || wal_status`: psql prints a
+# bare boolean column as t/f, but through `||` Postgres casts it to the SQL literal
+# true/false. A check written against 't' therefore never matches, and the watchdog
+# restarts Electric on EVERY cycle including healthy ones. Caught only by running the
+# query against the real database — mock values agreed with the wrong assumption.
+# wal_status is NULL on a slot that has never reserved WAL, hence the coalesce.
+if ! row=$(psql "$DB_URL" -Atc \
+      "select (case when active then 'active' else 'inactive' end)
+              || '|' || coalesce(wal_status, 'unknown')
+       from pg_replication_slots where slot_name = '${SLOT}'" 2>/dev/null); then
+  logger -t slot-watch "cannot reach Postgres — no action"
+  exit 0
+fi
+
+if [[ -z "$row" ]]; then
+  logger -t slot-watch "SLOT ${SLOT} MISSING — restarting Electric to recreate it"
+  "${COMPOSE[@]}" restart electric
+  exit 0
+fi
+
+active=${row%%|*}
+wal_status=${row##*|}
+
+# `lost` means Postgres has already discarded WAL the slot needed. A restart CANNOT
+# recover that — it needs the drop + wipe procedure in §13.1. Restarting on a loop
+# here would just churn a slot that can never catch up, so say so and stop.
+if [[ "$wal_status" == "lost" ]]; then
+  logger -t slot-watch "SLOT ${SLOT} wal_status=lost — MANUAL ACTION REQUIRED (deploymentPlan §13.1)"
+  exit 0
+fi
+
+if [[ "$active" != "active" ]]; then
+  lag=$(psql "$DB_URL" -Atc \
+    "select pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn))
+     from pg_replication_slots where slot_name = '${SLOT}'" 2>/dev/null || true)
+  logger -t slot-watch "SLOT ${SLOT} INACTIVE (retained WAL: ${lag:-unknown}) — restarting Electric"
+  "${COMPOSE[@]}" restart electric
+  exit 0
+fi
+
+exit 0
+WATCH
+chmod 0755 /usr/local/bin/buildinlime-slot-watch.sh
+
+cat >/etc/systemd/system/buildinlime-slot-watch.service <<'EOF'
+[Unit]
+Description=BuildInLime Electric replication-slot watchdog
+Requires=docker.service
+After=buildinlime.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/buildinlime-slot-watch.sh
+EOF
+
+cat >/etc/systemd/system/buildinlime-slot-watch.timer <<'EOF'
+[Unit]
+Description=Check Electric's replication slot every 5 minutes
+
+[Timer]
+OnBootSec=10m
+OnUnitActiveSec=5m
+# No Persistent=true: a missed check is worthless to replay, and catching up a
+# backlog of them on boot would fire several restarts in a row.
+
+[Install]
+WantedBy=timers.target
+EOF
+
+# ---------------------------------------------------------------------------
 step "Enable units"
 systemctl daemon-reload
 systemctl enable buildinlime-secrets.service
@@ -196,6 +327,7 @@ systemctl enable buildinlime.service
 # The two services above are deliberately NOT started (see the notes below —
 # they need secrets and migrations first). The timer has no such prerequisite.
 systemctl enable --now buildinlime-purge.timer
+systemctl enable --now buildinlime-slot-watch.timer
 
 cat <<NEXT
 
