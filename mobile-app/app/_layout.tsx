@@ -47,7 +47,7 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync()
 
-export default function RootLayout() {
+function RootLayout() {
   const [loaded, error] = useFonts({
     InstrumentSans_400Regular,
     InstrumentSans_500Medium,
@@ -67,6 +67,8 @@ export default function RootLayout() {
 
   return <RootLayoutNav />
 }
+
+export default RootLayout
 
 function RootLayoutNav() {
   const [queryClient] = useState(() => new QueryClient())
