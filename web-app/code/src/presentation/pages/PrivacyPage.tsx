@@ -1,5 +1,5 @@
 import { Header, HeaderLoggedIn, Footer, PageHeading, ProseSection } from "../components/buildInlime";
-import { PRIVACY_INTRO, PRIVACY_SECTIONS, PRIVACY_EFFECTIVE_DATE } from "../content/privacy";
+import { PRIVACY_INTRO, PRIVACY_SECTIONS, PRIVACY_EFFECTIVE_DATE, PRIVACY_VERSION } from "../content/privacy";
 import { signOutAndDispose, useRequireAuth } from "../../infrastructure/auth/client";
 
 export default function PrivacyPage() {
@@ -23,7 +23,7 @@ export default function PrivacyPage() {
             className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-muted-foreground"
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
-            Effective date: {PRIVACY_EFFECTIVE_DATE}
+            Effective date: {PRIVACY_EFFECTIVE_DATE} · Version {PRIVACY_VERSION}
           </p>
         </div>
       </section>

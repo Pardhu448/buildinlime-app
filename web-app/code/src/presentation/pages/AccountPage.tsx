@@ -13,6 +13,42 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+/**
+ * The third-party services that process user data on our behalf, disclosed for
+ * transparency. Keep in sync with the privacy policy's sub-processors list.
+ */
+const SUB_PROCESSORS: { name: string; purpose: string; location: string }[] = [
+  {
+    name: "Google Cloud Platform (Google LLC)",
+    purpose: "Hosting, database, and file storage",
+    location: "asia-south1 — Mumbai, India",
+  },
+  {
+    name: "Resend (Resend, Inc.)",
+    purpose: "Transactional email — sign-in codes and messages you send us",
+    location: "US East Region — United States",
+  },
+];
+
+/** One sub-processor row: who they are, what they do, and where they process data. */
+function ProcessorRow({
+  name,
+  purpose,
+  location,
+}: {
+  name: string;
+  purpose: string;
+  location: string;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5 px-4 py-3">
+      <span className="text-sm text-foreground">{name}</span>
+      <span className="text-xs text-muted-foreground">{purpose}</span>
+      <span className="text-xs text-muted-foreground">Location: {location}</span>
+    </div>
+  );
+}
+
 export function AccountPage() {
   const { data: session, isPending } = useSession();
   const user = session?.user;
@@ -43,6 +79,22 @@ export function AccountPage() {
             <div className="max-w-2xl">
               <DetailRow label="Name" value={user.name || "—"} />
               <DetailRow label="Email" value={user.email || "—"} />
+
+              {/* Data sub-processors — the third parties that process your data */}
+              <div className="mt-8">
+                <h2 className="text-sm font-medium text-foreground mb-1">
+                  Data sub-processors
+                </h2>
+                <p className="text-xs text-muted-foreground mb-3">
+                  The third-party services we use to operate BuildInLime, and
+                  where they process your data.
+                </p>
+                <div className="rounded-lg border border-card-border divide-y divide-card-border">
+                  {SUB_PROCESSORS.map((p) => (
+                    <ProcessorRow key={p.name} {...p} />
+                  ))}
+                </div>
+              </div>
 
               {/* Delete account & data — entry point to the deletion request flow */}
               <div className="mt-8">
