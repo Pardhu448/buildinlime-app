@@ -1482,15 +1482,57 @@ The reason to prefer this over just disabling the timer: patch deployments suppo
 started after — turning the exact failure above into a controlled restart. It also gives
 patch-compliance reporting, which a disabled timer does not.
 
-**Interim — keep unattended-upgrades but stop it restarting services.** Ubuntu 24.04
-restarts services via `needrestart` after library upgrades. Set list-only mode and
-blacklist systemd, **in `deploy/vm-bootstrap.sh`** so a rebuilt VM inherits it:
+**Interim — IMPLEMENTED** in `vm-bootstrap.sh` as
+`/etc/needrestart/conf.d/90-buildinlime.conf`, and installed on the live VM.
 
-```bash
-echo "\$nrconf{restart} = 'l';" | sudo tee /etc/needrestart/conf.d/90-no-restart.conf
-# /etc/apt/apt.conf.d/50unattended-upgrades
-Unattended-Upgrade::Package-Blacklist { "systemd"; "systemd-networkd"; "udev"; };
+**First, what the mechanism is NOT.** The obvious guess — a `systemd` package upgrade
+whose postinst restarts its own units — is wrong. `/var/log/apt/history.log` for the
+06:10 run shows `krb5-*`, `rsyslog`, `gawk`, `libpam*` and `tar`; **systemd was never
+upgraded.** The restart cascade begins at 06:10:53, two seconds after the libpam upgrade
+completes at 06:10:51. This is `needrestart` (3.6, installed, with no explicit restart
+mode, which on Ubuntu Server means fully automatic) restarting every daemon linked
+against the upgraded library. Consequently:
+
+- `Unattended-Upgrade::Package-Blacklist { "systemd"; }` would have prevented **nothing**.
+- Blacklisting `libpam` instead is not on the table; it is security-critical.
+
+So keep needrestart in automatic mode — ssh, cron and the rest *should* still restart
+after a library fix — and carve out only the network plane:
+
+```perl
+# /etc/needrestart/conf.d/90-buildinlime.conf
+$nrconf{override_rc}{qr(^systemd-networkd\.service$)} = 0;
+$nrconf{override_rc}{qr(^systemd-resolved\.service$)} = 0;
+$nrconf{override_rc}{qr(^containerd\.service$)}       = 0;
+1;
 ```
+
+`docker` is already covered by stock `qr(^docker)`; `containerd` is not.
+
+> **Two traps, both found by measuring rather than reasoning.**
+>
+> **1. Use per-key assignment, never `$nrconf{override_rc} = {...}`.** conf.d is parsed
+> *after* the defaults and the README says files "override or modify any previously set
+> config option" — a whole-hash assignment **replaces** it. Measured on this VM: the
+> assigning form cut `override_rc` from **43 keys to 4**, silently dropping `^dbus`,
+> `^systemd-logind`, `^getty@`, `^docker`, `^network` and the rest. That is *worse than
+> stock* — it would cause more restarts, not fewer. The per-key form yields 46.
+>
+> **2. `override_rc => 0` means "do not restart", not "do not list".** The service is
+> still detected and still appears in `needrestart -r l -b` output, so **that listing
+> cannot be used to verify the override**. Stock config ships `qr(^dbus) => 0` and dbus
+> is still listed — yet dbus was demonstrably *not* restarted on 2026-07-24, while
+> `systemd-networkd`, which had no override, was. Verify by dumping the parsed hash:
+>
+> ```bash
+> sudo perl -e 'our %nrconf; do "/etc/needrestart/needrestart.conf";
+>   print scalar(keys %{$nrconf{override_rc}}), "\n";'   # expect 46, not 4
+> ```
+
+**The trade-off, stated explicitly:** those three services keep running against the old
+library until something restarts them, and this VM does not reboot on its own — uptime
+was 6 days at the time of the incident. That deferral is only acceptable if patching is
+actually completed on a schedule, which is the argument for the VM Manager form above.
 
 Do **not** simply `systemctl mask apt-daily-upgrade.timer` and stop there — that trades
 a sync outage for an unpatched internet-facing host. The journal already shows constant

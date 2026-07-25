@@ -62,6 +62,57 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+step "needrestart — protect the network plane (§13.2 fix 1)"
+# unattended-upgrades runs needrestart, which restarts every daemon linked against
+# an upgraded library. On 2026-07-24 a routine libpam security update did exactly
+# that and took systemd-networkd with it, bouncing docker0 and every container
+# veth. Electric's replication socket went half-open and never recovered: 30 hours
+# of silent sync outage, 24 GB of pinned WAL (§13.1).
+#
+# EVIDENCE, because the obvious guess is wrong: /var/log/apt/history.log shows the
+# 06:10 run upgraded krb5, rsyslog, gawk, libpam* and tar — NOT systemd. So this is
+# needrestart restarting libpam consumers, not a systemd package postinst, and
+# blacklisting `systemd` in unattended-upgrades would have prevented nothing.
+# Blacklisting libpam instead is not on the table; it is security-critical.
+#
+# So: keep needrestart in automatic mode — ssh, cron and the rest SHOULD still be
+# restarted after a library fix — and carve out only the network plane.
+mkdir -p /etc/needrestart/conf.d
+cat >/etc/needrestart/conf.d/90-buildinlime.conf <<'EOF'
+# Managed by deploy/vm-bootstrap.sh — see deploymentPlan.md §13.2.
+#
+# Never auto-restart the network plane. A restart severs Electric's logical
+# replication connection as a HALF-OPEN socket: no FIN, no RST, so Electric gets
+# no error, logs nothing and never retries (§13.1).
+#
+# 0 = deselect for restart. The service is still DETECTED and still listed by
+# `needrestart -r l`; it is simply not restarted. (Stock config ships qr(^dbus)
+# => 0 for exactly this reason, and dbus was indeed not restarted on 2026-07-24
+# while systemd-networkd, which had no override, was.)
+#
+# PER-KEY assignment, NOT `$nrconf{override_rc} = {...}`. conf.d is parsed AFTER
+# the defaults, so a whole-hash assignment REPLACES them — measured on this VM:
+# it cut override_rc from 43 keys to 4, silently dropping dbus, systemd-logind,
+# getty@, docker, network and the rest, which would cause MORE restarts than
+# stock. Add keys; never assign the hash.
+#
+# docker is already covered by the stock qr(^docker). containerd is not.
+$nrconf{override_rc}{qr(^systemd-networkd\.service$)} = 0;
+$nrconf{override_rc}{qr(^systemd-resolved\.service$)} = 0;
+$nrconf{override_rc}{qr(^containerd\.service$)}       = 0;
+1;
+EOF
+
+# TRADE-OFF, stated explicitly: these four keep running against the OLD library
+# until something restarts them, and this VM does not reboot on its own (uptime
+# was 6 days at the time of the incident). That deferral is accepted because a
+# silent replication outage is worse than a delayed restart — but it is only safe
+# if patching is actually completed on a schedule. Pair this with a deliberate
+# reboot/patch window; the GCP-native form is a VM Manager patch deployment with
+# pre/post scripts that stop and start Electric cleanly (§13.2).
+echo "  network plane exempted from needrestart auto-restart"
+
+# ---------------------------------------------------------------------------
 step "Electric data disk → ${ELECTRIC_MNT}"
 if [[ ! -e "$ELECTRIC_DEV" ]]; then
   echo "  !! ${ELECTRIC_DEV} not found — was the disk attached with"
