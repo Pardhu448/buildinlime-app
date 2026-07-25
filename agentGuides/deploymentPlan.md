@@ -1642,12 +1642,41 @@ and `tcp_keepalives_idle`. Both act on the *server* side. The failure was that
 **Electric's client never noticed**, so no Postgres flag addresses it — which is why
 fix 2 is the one that matters.
 
-#### 4. Make stale-offset recovery survivable
+#### 4. Make stale-offset recovery survivable — DEFERRED, needs reproduction first
 
-Lower priority, but user-facing. After a shape-handle invalidation, mobile's
-`build_units` collection stayed silently empty across a full app restart; only
-sign-out/sign-in cleared it (§13.1). Persisted offsets survive restart by design, so
-bootstrap re-hands the collections the same stale offsets and Electric reports
-"up-to-date" forever. Either make the 409 must-refetch path reliably reset the persisted
-offset, or surface the condition in the UI. Today the cure is undocumented tribal
-knowledge, and the symptom is indistinguishable from "the app is broken".
+User-facing, and real, but **deliberately deferred**: the evidence is a single
+observation and that is not enough to design a fix against.
+
+After the shape-handle invalidation in §13.1, mobile's `build_units` collection stayed
+silently empty across a full app restart; only sign-out/sign-in cleared it. Persisted
+offsets survive restart by design, so bootstrap re-hands the collections the same stale
+offsets, Electric reports "up-to-date", and the collection sits empty forever — no
+error, no prompt, indistinguishable from "the app is broken".
+
+**Why it is not being fixed yet.** The one thing that would determine the fix is
+unknown: `messages` recovered from the same invalidation and `build_units` did not.
+Until that asymmetry is explained, any change is a guess. Candidate explanations, none
+confirmed:
+
+- The two are on different GC tiers — `build_units` is `NEVER_GC` (held by the drawer),
+  `messages` is `IDLE_GC_MS`. A collection that GC'd and resurrected may take a
+  different code path on 409 than one continuously subscribed (ARCHITECTURE §6).
+- `messages` may not have "recovered" at all — the outbox drain and its own writes could
+  account for what was observed, in which case only *one* collection was ever tested and
+  there is no asymmetry to explain.
+- The 409 handling may be correct but racing the persistence layer's hydration
+  (`agentGuides/UPSTREAM_ISSUE_hydration_drain_race.md` describes a related race).
+
+**What to do before touching code.** Reproduce deliberately in dev: wipe Electric's
+storage under a running mobile client and record, per collection, whether it recovers on
+(a) nothing, (b) app restart, (c) sign-out/sign-in. That table is the specification. Doing
+it in dev is cheap — the production instance of this is what §13.1 already cost.
+
+**Interim mitigation is documentation, not code.** If Electric storage is ever wiped
+again, tell users to sign out and back in; a restart is NOT sufficient. That is recorded
+in §13.1 and is the whole of the current answer.
+
+**Priority is genuinely low**, which is what makes deferring safe rather than lazy: it
+triggers only after an Electric storage wipe, which is a manual recovery step, not a
+routine event. It has happened once. Fix 2 makes the ordinary detach self-heal without
+ever touching Electric's storage, so the path that produces this bug should now be rare.
