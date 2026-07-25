@@ -90,3 +90,15 @@ web-app/code/playwright-report/
 web-app/code/blob-report/
 web-app/code/playwright/.cache/
 web-app/code/tests/e2e/.auth/
+
+# Mobile build artifacts, ANYWHERE in the tree.
+#
+# mobile-app/.gitignore already covers these, but only within mobile-app/. Builds
+# downloaded from EAS land wherever the person downloading them puts them — usually
+# the repo root, which nothing was ignoring. A production .aab is ~69 MB, so a stray
+# `git add -A` commits it, and once pushed the only way out is a history rewrite.
+# EAS retains every artifact at its archive URL indefinitely, so there is never a
+# reason to commit one.
+*.apk
+*.aab
+*.ipa
