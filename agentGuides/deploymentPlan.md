@@ -1464,11 +1464,27 @@ a restart is not sufficient.**
 
 ### 13.2 Fixes this incident requires
 
-(1) prevents recurrence, (2) bounds how long a recurrence goes unnoticed, (3) bounds
-what it costs.
+Four fixes, one per link in the failure chain: (1) prevents recurrence, (2) bounds how
+long a recurrence goes unnoticed, (3) bounds what it costs, (4) cleans up after a
+recovery.
 
-**(2) is done and is the one that mattered.** (1) was deliberately NOT taken — see
-below; the reasoning is the useful part of this section.
+| | fix | status |
+|---|---|---|
+| 1 | stop unattended-upgrades restarting the network | **decided against** |
+| 2 | detect an inactive slot and self-heal | **DONE** — live |
+| 3 | bound WAL/disk blast radius | **deferred** |
+| 4 | make client stale-offset recovery survivable | **deferred** |
+
+**Only (2) was implemented, and it is the one that mattered** — it turns a 30-hour
+silent outage into a ~5-minute self-healing blip. The other three were each considered
+and consciously declined or postponed, and **the reasoning is the useful part of this
+section**: (1) and (3) both trade a bounded, self-healing condition for an unbounded one
+and are only worth revisiting if (2) is ever disabled or proves unreliable; (4) is a real
+user-facing bug that cannot yet be designed against, because it rests on a single
+unexplained observation.
+
+Read the rationale before reversing any of these — three of the four originally-obvious
+answers here turned out to be wrong on inspection.
 
 #### 1. Stop unattended-upgrades restarting the network — DECIDED AGAINST
 
@@ -1602,13 +1618,63 @@ Four guards matter, and each exists for a reason:
 `deploy.sh`'s ownership sweep (§4.2.2) already depending on `psql`. It happened to be
 present on the first VM, so the gap would only have surfaced on a rebuild.
 
-**Then alert as a backstop**, for when the restart itself fails. The VM currently sends
-**nothing** to Cloud Logging — `gcloud logging read 'resource.type="gce_instance"'`
-returns empty, so the Ops Agent is not installed. Install it, log the check result, and
-build a log-based metric + alerting policy on it. Without the agent there is no path
-from a VM-side condition to an alert at all.
+**Observability — Ops Agent INSTALLED; alerting deliberately not built.** The VM used to
+send **nothing** to Cloud Logging (`gcloud logging read 'resource.type="gce_instance"'`
+returned empty), so there was no path at all from a VM-side condition to anything
+observable off the box. The agent now ships `/var/log/syslog`, which carries the
+watchdog's `logger -t slot-watch` output. Installed by `vm-bootstrap.sh`; the two IAM
+roles it needs are granted by `provision.sh`.
 
-#### 3. Bound the blast radius — and note the flag does *not* work here
+**Log-based metrics and an alerting policy are NOT built — monitoring is manual for
+now.** That is a deliberate choice at this scale, not an oversight: the watchdog already
+self-heals the case it was built for, so an alert would mostly page about something that
+already fixed itself. Build the metric + policy when there is a recipient who would act
+on it.
+
+Query it by hand with:
+
+```bash
+gcloud logging read 'resource.type="gce_instance" AND jsonPayload.message:"slot-watch:"' \
+  --project buildinlime --freshness=7d --format='value(timestamp,jsonPayload.message)'
+```
+
+**Healthy output is EMPTY** — the script logs only when it acts. Anything returned is
+worth reading; `wal_status=lost — MANUAL ACTION REQUIRED` especially, since that is the
+one case the watchdog deliberately does not fix. Repeated `INACTIVE` lines mean something
+is bouncing the network regularly, which is when fix 1 becomes worth reopening.
+
+> **Two traps in querying this, both cost time on 2026-07-25.**
+>
+> The agent writes **structured** entries: the whole syslog line lands in
+> **`jsonPayload.message`**, *not* `textPayload`. A `textPayload` filter returns empty
+> and is indistinguishable from "no logs are arriving" — which is exactly how it was
+> first misread, minutes after the logs had in fact started flowing.
+>
+> The **trailing colon** in `"slot-watch:"` matters. Without it the query also matches
+> the `buildinlime-slot-watch.service` start/stop lines systemd emits every 5 minutes,
+> burying real output in noise.
+>
+> **Both IAM roles must exist before the agent starts.** Without them it installs, runs,
+> reports healthy and ships nothing — the same failure shape as §13.1's healthcheck. If
+> this box ever goes quiet in Cloud Logging, check the IAM binding before debugging the
+> agent. Note they must be granted by a principal with `setIamPolicy`: running them *on*
+> the VM fails, because gcloud there authenticates as the very service account being
+> granted, and a service account cannot grant itself roles.
+
+#### 3. Bound the blast radius — DEFERRED, and the obvious flag does not work
+
+**Status: deliberately not applied.** Both available levers are worse than the exposure
+they close, now that fix 2 exists. The analysis is kept because the *reasoning* is what
+changes if the situation does.
+
+**Why deferring is safe.** The cap's entire value was against an undetected multi-day
+detach — precisely what fix 2 removes. A detach now self-heals in ~5 minutes, so WAL
+retention no longer runs away unattended. Applying a cap would trade a bounded,
+self-healing condition for an unbounded one (see the trade-off below), which is the same
+judgement made in fix 1: with detection in place, prevention is not worth its cost.
+
+**Revisit if** fix 2 is ever disabled, the watchdog proves unreliable, or a second
+service starts holding replication slots on this instance.
 
 **Verified against `gcloud sql flags list --database-version=POSTGRES_17`:**
 
@@ -1630,11 +1696,13 @@ is now permanently 31 GB:
 gcloud sql instances patch buildinlime-db --storage-auto-increase-limit=50
 ```
 
-**This is a real trade-off, not a free win:** hitting the ceiling makes the instance
-reject writes. Set it high enough to absorb a normal spike (~18.5 GB/day of padding
-means 50 GB gives ~1 day of headroom above current usage) and *only* alongside fix 2, so
-something reacts before the cap is reached. A cap without detection converts a silent
-cost leak into an outage.
+**This is a real trade-off, not a free win, and it is why the cap was NOT applied:**
+hitting the ceiling makes the instance **reject writes**. At ~18.5 GB/day of WAL padding
+a 50 GB cap gives roughly one day of headroom above current usage — so a detach over a
+long weekend would take the database down rather than merely cost disk. Trading a
+recoverable cost leak for a hard outage is only worth it if nothing else is watching;
+fix 2 is watching. If this is ever applied, set it *well* above one day's padding and
+only with alerting (below) already live.
 
 Two related flags are worth knowing about, though neither would have prevented this:
 `wal_sender_timeout` (Postgres-side; it is what correctly marked the slot `active = f`)
@@ -1642,12 +1710,41 @@ and `tcp_keepalives_idle`. Both act on the *server* side. The failure was that
 **Electric's client never noticed**, so no Postgres flag addresses it — which is why
 fix 2 is the one that matters.
 
-#### 4. Make stale-offset recovery survivable
+#### 4. Make stale-offset recovery survivable — DEFERRED, needs reproduction first
 
-Lower priority, but user-facing. After a shape-handle invalidation, mobile's
-`build_units` collection stayed silently empty across a full app restart; only
-sign-out/sign-in cleared it (§13.1). Persisted offsets survive restart by design, so
-bootstrap re-hands the collections the same stale offsets and Electric reports
-"up-to-date" forever. Either make the 409 must-refetch path reliably reset the persisted
-offset, or surface the condition in the UI. Today the cure is undocumented tribal
-knowledge, and the symptom is indistinguishable from "the app is broken".
+User-facing, and real, but **deliberately deferred**: the evidence is a single
+observation and that is not enough to design a fix against.
+
+After the shape-handle invalidation in §13.1, mobile's `build_units` collection stayed
+silently empty across a full app restart; only sign-out/sign-in cleared it. Persisted
+offsets survive restart by design, so bootstrap re-hands the collections the same stale
+offsets, Electric reports "up-to-date", and the collection sits empty forever — no
+error, no prompt, indistinguishable from "the app is broken".
+
+**Why it is not being fixed yet.** The one thing that would determine the fix is
+unknown: `messages` recovered from the same invalidation and `build_units` did not.
+Until that asymmetry is explained, any change is a guess. Candidate explanations, none
+confirmed:
+
+- The two are on different GC tiers — `build_units` is `NEVER_GC` (held by the drawer),
+  `messages` is `IDLE_GC_MS`. A collection that GC'd and resurrected may take a
+  different code path on 409 than one continuously subscribed (ARCHITECTURE §6).
+- `messages` may not have "recovered" at all — the outbox drain and its own writes could
+  account for what was observed, in which case only *one* collection was ever tested and
+  there is no asymmetry to explain.
+- The 409 handling may be correct but racing the persistence layer's hydration
+  (`agentGuides/UPSTREAM_ISSUE_hydration_drain_race.md` describes a related race).
+
+**What to do before touching code.** Reproduce deliberately in dev: wipe Electric's
+storage under a running mobile client and record, per collection, whether it recovers on
+(a) nothing, (b) app restart, (c) sign-out/sign-in. That table is the specification. Doing
+it in dev is cheap — the production instance of this is what §13.1 already cost.
+
+**Interim mitigation is documentation, not code.** If Electric storage is ever wiped
+again, tell users to sign out and back in; a restart is NOT sufficient. That is recorded
+in §13.1 and is the whole of the current answer.
+
+**Priority is genuinely low**, which is what makes deferring safe rather than lazy: it
+triggers only after an Electric storage wipe, which is a manual recovery step, not a
+routine event. It has happened once. Fix 2 makes the ordinary detach self-heal without
+ever touching Electric's storage, so the path that produces this bug should now be rare.
