@@ -139,7 +139,25 @@ test.describe("mobile-only behaviour", () => {
     await expect(page.getByRole("dialog")).toBeVisible()
   })
 
-  test("the notice stays dismissed for the rest of the session", async ({
+  test("dismissing reveals the form and does not re-prompt during that visit", async ({
+    page,
+  }) => {
+    await page.goto("/login?returnTo=%2F&mode=login")
+    await page.getByRole("dialog").getByRole("button", { name: /continue/i }).click()
+
+    await expect(page.getByRole("dialog")).toBeHidden()
+    await expect(page.getByRole("textbox").first()).toBeVisible()
+
+    // Still on /login, still dismissed — typing in the form must not bring it
+    // back mid sign-in.
+    await page.getByRole("textbox").first().fill("someone@example.com")
+    await expect(page.getByRole("dialog")).toBeHidden()
+  })
+
+  // Each sign-in attempt is its own decision point. Dismissing once must not
+  // silence the notice for the rest of the tab, which is what persisting the
+  // dismissal to sessionStorage used to do.
+  test("the notice returns on a later login attempt in the same session", async ({
     page,
   }) => {
     await page.goto("/login?returnTo=%2F&mode=login")
@@ -149,12 +167,13 @@ test.describe("mobile-only behaviour", () => {
       .getByRole("dialog")
       .getByRole("link", { name: /back to home/i })
       .click()
+    await expect(page).toHaveURL(/\/$|\/#/)
     await expect(page.getByRole("dialog")).toBeHidden()
 
-    // Second arrival: the user already made the call, so do not ask again.
-    await page.goto("/login?returnTo=%2F&mode=login")
-    await expect(page.getByRole("textbox").first()).toBeVisible()
-    await expect(page.getByRole("dialog")).toBeHidden()
+    // Same tab, same session, second attempt — via the hero CTA this time.
+    await page.getByRole("link", { name: "Start Building" }).click()
+    await expect(page).toHaveURL(/\/login/)
+    await expect(page.getByRole("dialog")).toBeVisible()
   })
 
   test("tap targets on the header meet the 44px minimum", async ({ page }) => {

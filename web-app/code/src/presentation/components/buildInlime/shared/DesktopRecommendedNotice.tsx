@@ -27,29 +27,6 @@ import { useIsBelowLg } from "#/hooks/use-viewport"
  * of them and needs no interception logic.
  */
 
-/** Session-scoped, so a new tab asks again but the current visit does not nag. */
-const DISMISSED_KEY = `bil.desktop-notice.dismissed`
-
-function hasDismissed(): boolean {
-  try {
-    return window.sessionStorage.getItem(DISMISSED_KEY) === `1`
-  } catch {
-    // Safari in private mode throws on sessionStorage access rather than
-    // returning null. Treat that as "not dismissed": showing the notice once too
-    // often is a far smaller failure than suppressing it for everyone whose
-    // browser locks storage down.
-    return false
-  }
-}
-
-function rememberDismissal() {
-  try {
-    window.sessionStorage.setItem(DISMISSED_KEY, `1`)
-  } catch {
-    // Non-fatal — the notice simply shows again next time.
-  }
-}
-
 export interface DesktopRecommendedNoticeProps {
   /** Dismissed by the user; the page underneath takes over. */
   onDismiss: () => void
@@ -78,10 +55,7 @@ export function DesktopRecommendedNotice({ onDismiss }: DesktopRecommendedNotice
     }
   }, [onDismiss])
 
-  const dismiss = () => {
-    rememberDismissal()
-    onDismiss()
-  }
+  const dismiss = onDismiss
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -153,15 +127,19 @@ export function DesktopRecommendedNotice({ onDismiss }: DesktopRecommendedNotice
  * Decides whether the notice is due, and renders it if so.
  *
  * Split from the dialog itself so the dialog has no opinion about when it
- * appears, and so the width check and the dismissal check sit in one place next
- * to each other. Mounted by LoginPage.
+ * appears. Mounted by LoginPage.
+ *
+ * Dismissal is state on THIS component and is deliberately not persisted. It
+ * lasts exactly as long as the mount, so dismissing reveals the form for the
+ * current visit and a later return to /login asks again. An earlier version
+ * remembered the dismissal in sessionStorage, which meant one "Continue anyway"
+ * silenced it for the whole tab — including sign-in attempts hours later. Each
+ * attempt is its own decision point, and the notice is one tap to clear, so the
+ * cost of re-asking is far lower than the cost of never warning again.
  */
 export function DesktopRecommendedNoticeGate() {
   const isBelowLg = useIsBelowLg()
-  // Lazily initialised because `hasDismissed` touches sessionStorage, which does
-  // not exist during SSR. Safe to read on the first client render: useIsBelowLg
-  // is false until after mount, so nothing renders on that pass anyway.
-  const [dismissed, setDismissed] = useState(() => hasDismissed())
+  const [dismissed, setDismissed] = useState(false)
 
   if (!isBelowLg || dismissed) return null
   return <DesktopRecommendedNotice onDismiss={() => setDismissed(true)} />
