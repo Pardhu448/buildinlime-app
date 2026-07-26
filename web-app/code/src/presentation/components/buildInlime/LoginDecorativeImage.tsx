@@ -4,8 +4,11 @@ export function LoginDecorativeImage() {
   // No top margin here: LoginPage's flex row already applies pt-[63px] to both
   // columns. Carrying mt-[63px] as well pushed the image 63px below the form it
   // is meant to sit level with.
+  // Hidden below lg: rather than scaled down. It is decorative — it carries no
+  // information the form needs — and at phone width it would push the actual
+  // sign-in form a full screen height below the fold.
   return (
-    <div className="relative overflow-hidden w-[560px] ml-[110px] h-[657px]">
+    <div className="hidden lg:block relative overflow-hidden w-[560px] ml-[110px] h-[657px]">
       <img
         src={imgJhali}
         alt="Brick staircase architecture"

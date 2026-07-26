@@ -13,7 +13,10 @@ import imgBrickPattern from "../../../assets/brick-logo-brown.png";
  */
 export function HeaderShell({ children }: { children: ReactNode }) {
   return (
-    <header className="w-full bg-white py-[24px] border-b border-border">
+    // `relative` makes this the positioned ancestor MobileMenu's dropdown pins
+    // itself to (`top-full`), and z-50 keeps the header — and so the menu
+    // toggle — above that menu's backdrop.
+    <header className="relative z-50 w-full bg-white py-[16px] lg:py-[24px] border-b border-border">
       <div className="max-w-[1440px] mx-auto px-6 flex items-center gap-8">
         {/* Logo — links to the home page */}
         <Link

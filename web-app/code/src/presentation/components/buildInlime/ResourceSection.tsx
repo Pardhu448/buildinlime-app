@@ -8,6 +8,7 @@
 
 import { Link } from "@tanstack/react-router";
 import { CategoryChip } from "./CategoryChip";
+import { articleSlug } from "../../content/articles";
 import type { Article } from "../../content/articles";
 
 export type { Article };
@@ -25,7 +26,7 @@ export function ResourceSection({ title, description, to, articles }: ResourceSe
   const [latest, ...history] = articles;
 
   return (
-    <section className="w-full px-[120px] py-[56px]">
+    <section className="w-full px-6 lg:px-[120px] py-[56px]">
       <div className="max-w-[1270px] mx-auto flex flex-col gap-[32px]">
         {/* Section heading */}
         <div className="flex flex-col gap-[8px]">
@@ -60,7 +61,13 @@ export function ResourceSection({ title, description, to, articles }: ResourceSe
               className="font-['Instrument_Sans',sans-serif] font-semibold text-[20px] leading-[29px] text-black"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
-              {latest.title}
+              <Link
+                to={to}
+                hash={articleSlug(latest)}
+                className="hover:text-primary transition-colors"
+              >
+                {latest.title}
+              </Link>
             </h3>
 
             <p
@@ -110,7 +117,13 @@ export function ResourceSection({ title, description, to, articles }: ResourceSe
                     className="font-['Instrument_Sans',sans-serif] font-medium text-[15px] leading-[22px] text-black"
                     style={{ fontVariationSettings: "'wdth' 100" }}
                   >
-                    {article.title}
+                    <Link
+                      to={to}
+                      hash={articleSlug(article)}
+                      className="hover:text-primary transition-colors"
+                    >
+                      {article.title}
+                    </Link>
                   </h4>
                   <div className="flex items-center gap-[12px]">
                     <span

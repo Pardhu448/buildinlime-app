@@ -12,10 +12,15 @@ export function Footer({ compact = false }: { compact?: boolean } = {}) {
   }
 
   return (
-    <footer className="w-full px-[120px] py-[56px] border-t border-border mt-auto">
-      <div className="max-w-[1268px] mx-auto flex items-start gap-[60px]">
+    <footer className="w-full px-6 lg:px-[120px] py-[56px] border-t border-border mt-auto">
+      {/*
+        Five fixed-width columns (220px + 4×284.15px + gaps) come to well over
+        1400px, so below lg: they are a grid instead: one column on a phone, two
+        on a tablet. The widths only apply once the row can actually hold them.
+      */}
+      <div className="max-w-[1268px] mx-auto grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-start gap-[32px] lg:gap-[60px]">
         {/* Logo — links to the home page, with the copyright sitting under it */}
-        <div className="flex flex-col gap-[16px] shrink-0 w-[220px]">
+        <div className="flex flex-col gap-[16px] shrink-0 w-full sm:col-span-2 lg:col-span-1 lg:w-[220px]">
           <Link to="/" className="hover:opacity-80 transition-opacity w-fit">
             <img
               src={imgBrickPattern}
@@ -27,7 +32,7 @@ export function Footer({ compact = false }: { compact?: boolean } = {}) {
         </div>
 
         {/* Resources */}
-        <div className="flex flex-col gap-[16px] w-[284.15px]">
+        <div className="flex flex-col gap-[16px] w-full lg:w-[284.15px]">
           <h3
             className="font-['Instrument_Sans',sans-serif] font-medium text-[16px] leading-[24px] text-black"
             style={{ fontVariationSettings: "'wdth' 100" }}
@@ -57,7 +62,7 @@ export function Footer({ compact = false }: { compact?: boolean } = {}) {
         </div>
 
         {/* Product */}
-        <div className="flex flex-col gap-[16px] w-[284.15px]">
+        <div className="flex flex-col gap-[16px] w-full lg:w-[284.15px]">
           <h3
             className="font-['Instrument_Sans',sans-serif] font-medium text-[16px] leading-[24px] text-black"
             style={{ fontVariationSettings: "'wdth' 100" }}
@@ -96,7 +101,7 @@ export function Footer({ compact = false }: { compact?: boolean } = {}) {
         </div>
 
         {/* Company */}
-        <div className="flex flex-col gap-[16px] w-[284.15px]">
+        <div className="flex flex-col gap-[16px] w-full lg:w-[284.15px]">
           <h3
             className="font-['Instrument_Sans',sans-serif] font-medium text-[16px] leading-[24px] text-black"
             style={{ fontVariationSettings: "'wdth' 100" }}
@@ -126,7 +131,7 @@ export function Footer({ compact = false }: { compact?: boolean } = {}) {
         </div>
 
         {/* Legal */}
-        <div className="flex flex-col gap-[16px] w-[284.15px]">
+        <div className="flex flex-col gap-[16px] w-full lg:w-[284.15px]">
           <h3
             className="font-['Instrument_Sans',sans-serif] font-medium text-[16px] leading-[24px] text-black"
             style={{ fontVariationSettings: "'wdth' 100" }}
@@ -152,7 +157,7 @@ export function Footer({ compact = false }: { compact?: boolean } = {}) {
 
 function CompactFooter() {
   return (
-    <footer className="w-full px-[120px] py-[22px] border-t border-border mt-auto">
+    <footer className="w-full px-6 lg:px-[120px] py-[22px] border-t border-border mt-auto">
       <div className="max-w-[1268px] mx-auto flex items-center justify-center">
         <Copyright />
       </div>

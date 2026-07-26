@@ -29,7 +29,11 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       },
       {
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
+        // viewport-fit=cover lets the page paint into the notch/home-indicator
+        // area on iOS; without it the PWA (display: standalone) letterboxes with
+        // white bands. Anything anchored to a screen edge must then pay for the
+        // inset itself — see the `safe-*` utilities in styles/index.css.
+        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
       },
       {
         name: 'theme-color',

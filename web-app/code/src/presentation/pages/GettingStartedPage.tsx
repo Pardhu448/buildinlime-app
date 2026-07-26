@@ -170,7 +170,7 @@ export default function GettingStartedPage() {
       {loggedIn ? <HeaderLoggedIn onSignOut={handleSignOut} /> : <Header />}
 
       {/* Page heading */}
-      <section className="w-full bg-gradient-to-b from-white to-muted px-[120px] pt-[40px] pb-[28px]">
+      <section className="w-full bg-gradient-to-b from-white to-muted px-6 lg:px-[120px] pt-[40px] pb-[28px]">
         <div className="max-w-[1270px] mx-auto flex flex-col items-center gap-[12px]">
           <h1 className="font-['Inria_Sans',sans-serif] font-bold text-[26px] leading-[40px] text-foreground text-center max-w-[786px]">
             Getting Started
