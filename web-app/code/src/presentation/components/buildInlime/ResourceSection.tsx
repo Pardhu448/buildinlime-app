@@ -8,7 +8,8 @@
 
 import { Link } from "@tanstack/react-router";
 import { CategoryChip } from "./CategoryChip";
-import { articleSlug, type Article } from "../../content/articles";
+import { articleSlug } from "../../content/articles";
+import type { Article } from "../../content/articles";
 
 export type { Article };
 
