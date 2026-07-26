@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { MARKETING_NAV_ITEMS } from "./MarketingNav";
-import { DesktopRecommendedNotice, hasDismissedDesktopNotice } from "./DesktopRecommendedNotice";
 
 /**
  * The sub-`lg:` half of the marketing header: a hamburger that opens a
@@ -95,97 +94,44 @@ export function MobileMenu({
 }
 
 /**
- * The logged-out marketing header's mobile menu: nav links plus Login / Sign up,
- * with the desktop-recommended notice wired in.
+ * The logged-out marketing header's mobile menu: nav links plus Login / Sign up.
  *
- * The notice is rendered as a SIBLING of the menu, not inside its panel. Inside,
- * it would unmount the moment the menu closed — and the menu has to close, since
- * the notice is a modal over the whole page.
+ * These are plain links. The desktop-recommended notice used to be raised from
+ * here by intercepting the click, which covered only this one route to /login —
+ * the hero's "Start Building" CTA reaches it through the _authenticated
+ * redirect, and never touched this code. The notice now gates the /login page
+ * itself (see DesktopRecommendedNotice), which covers every route in and let
+ * this go back to being ordinary markup.
  */
 export function MarketingMobileMenu({ returnTo = "/" }: { returnTo?: string }) {
-  const [notice, setNotice] = useState<null | "login" | "signup">(null);
-
   const actionClass =
     "w-full text-center min-h-[44px] flex items-center justify-center rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] px-[24px] py-[12px] transition-colors";
 
   return (
-    <>
-      <MobileMenu
-        authSlot={(close) => (
-          <>
-            <AuthAction
-              mode="login"
-              returnTo={returnTo}
-              onIntercept={() => {
-                close();
-                setNotice("login");
-              }}
-              className={`${actionClass} border border-border text-primary hover:bg-card-surface`}
-            >
-              Login
-            </AuthAction>
+    <MobileMenu
+      authSlot={(close) => (
+        <>
+          <Link
+            to="/login"
+            search={{ returnTo, mode: "login" }}
+            onClick={close}
+            className={`${actionClass} border border-border text-primary hover:bg-card-surface`}
+            style={{ fontVariationSettings: "'wdth' 100" }}
+          >
+            Login
+          </Link>
 
-            <AuthAction
-              mode="signup"
-              returnTo={returnTo}
-              onIntercept={() => {
-                close();
-                setNotice("signup");
-              }}
-              className={`${actionClass} bg-primary hover:bg-primary-hover text-white`}
-            >
-              Sign up
-            </AuthAction>
-          </>
-        )}
-      />
-
-      <DesktopRecommendedNotice
-        open={notice !== null}
-        onClose={() => setNotice(null)}
-        mode={notice ?? "login"}
-        returnTo={returnTo}
-      />
-    </>
-  );
-}
-
-/**
- * A /login link that first asks whether the user really wants the web app on
- * this screen. Renders as a real anchor so it keeps link semantics, middle-click
- * and "open in new tab"; the notice is raised by preventing the plain-click
- * default only.
- */
-function AuthAction({
-  mode,
-  returnTo,
-  onIntercept,
-  className,
-  children,
-}: {
-  mode: "login" | "signup";
-  returnTo: string;
-  onIntercept: () => void;
-  className: string;
-  children: ReactNode;
-}) {
-  return (
-    <Link
-      to="/login"
-      search={{ returnTo, mode }}
-      className={className}
-      style={{ fontVariationSettings: "'wdth' 100" }}
-      onClick={(event) => {
-        // Modified clicks are the user explicitly asking for a new tab/window —
-        // never swallow those.
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
-        // Already told us they know; don't ask twice in one session.
-        if (hasDismissedDesktopNotice()) return;
-        event.preventDefault();
-        onIntercept();
-      }}
-    >
-      {children}
-    </Link>
+          <Link
+            to="/login"
+            search={{ returnTo, mode: "signup" }}
+            onClick={close}
+            className={`${actionClass} bg-primary hover:bg-primary-hover text-white`}
+            style={{ fontVariationSettings: "'wdth' 100" }}
+          >
+            Sign up
+          </Link>
+        </>
+      )}
+    />
   );
 }

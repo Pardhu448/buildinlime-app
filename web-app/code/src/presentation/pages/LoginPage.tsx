@@ -1,8 +1,15 @@
 import { LoginHeader, LoginDecorativeImage , LoginForm , LoginTerms, Footer  } from "../components/buildInlime";
+import { DesktopRecommendedNoticeGate } from "../components/buildInlime/shared/DesktopRecommendedNotice";
 
 export default function LoginPage2() {
   return (
     <div className="bg-white flex flex-col min-h-screen">
+      {/* Gated on viewport width and a session flag — see the component. Mounted
+          here rather than on the Login button because /login is reached several
+          ways that never touch it (the hero CTA via the _authenticated redirect,
+          session expiry, bookmarks). */}
+      <DesktopRecommendedNoticeGate />
+
       <LoginHeader />
 
       <div className="flex-1 flex bg-white">

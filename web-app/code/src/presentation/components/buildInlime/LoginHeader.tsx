@@ -11,7 +11,7 @@ export function LoginHeader() {
       {/* Back to Home Link */}
       <Link
         to="/"
-        className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
+        className="flex items-center gap-2 shrink-0 whitespace-nowrap text-muted-foreground hover:text-primary transition-colors"
       >
         <ArrowLeft className="w-[15px] h-[15px]" strokeWidth={1.25} />
         <span
