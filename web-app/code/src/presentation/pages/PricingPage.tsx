@@ -12,9 +12,10 @@ export default function PricingPage() {
   };
 
   return (
-    // Same fixed-viewport shell as the other marketing pages: header and
-    // heading pinned, the middle scrolls, footer pinned.
-    <div className="bg-white flex flex-col h-screen overflow-hidden">
+    // Same shell as the other reading pages: pinned header/heading/footer with a
+    // scrolling middle at lg: and up, an ordinary scrolling document below it.
+    // See BlogPage for why the pinned version is wrong on a phone.
+    <div className="bg-white flex flex-col min-h-screen lg:h-screen lg:overflow-hidden">
       <div className="shrink-0">
         {loggedIn ? <HeaderLoggedIn onSignOut={handleSignOut} /> : <Header />}
 
@@ -24,8 +25,8 @@ export default function PricingPage() {
         />
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <section className="px-[120px] py-[64px]">
+      <div className="flex-1 min-h-0 lg:overflow-y-auto">
+        <section className="px-6 lg:px-[120px] py-[64px]">
           <div className="max-w-[640px] mx-auto flex flex-col items-center gap-[16px] bg-icon-chip border border-card-border rounded-lg px-[40px] py-[48px]">
             <p
               className="font-['Instrument_Sans',sans-serif] font-medium text-[14px] leading-[20px] text-primary uppercase tracking-[0.08em]"

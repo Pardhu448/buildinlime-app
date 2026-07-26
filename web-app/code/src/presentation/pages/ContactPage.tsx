@@ -55,7 +55,7 @@ export default function ContactPage() {
         description="Have a question or want to work with us? Send us a message and we'll be in touch."
       />
 
-      <section className="w-full px-[120px] py-[20px]">
+      <section className="w-full px-6 lg:px-[120px] py-[20px]">
         <div className="max-w-[788px] mx-auto flex flex-col gap-[16px]">
           <p
             className="font-['Instrument_Sans',sans-serif] text-[16px] leading-[26px] text-black"

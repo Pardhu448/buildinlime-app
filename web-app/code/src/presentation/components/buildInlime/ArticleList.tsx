@@ -16,7 +16,7 @@ export type ArticleListProps = {
 
 export function ArticleList({ articles }: ArticleListProps) {
   return (
-    <div className="w-full px-[120px] pb-[40px]">
+    <div className="w-full px-6 lg:px-[120px] pb-[40px]">
       <div className="max-w-[788px] mx-auto flex flex-col">
         {articles.map((article) => (
           <article

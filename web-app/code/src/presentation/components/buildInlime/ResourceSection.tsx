@@ -25,7 +25,7 @@ export function ResourceSection({ title, description, to, articles }: ResourceSe
   const [latest, ...history] = articles;
 
   return (
-    <section className="w-full px-[120px] py-[56px]">
+    <section className="w-full px-6 lg:px-[120px] py-[56px]">
       <div className="max-w-[1270px] mx-auto flex flex-col gap-[32px]">
         {/* Section heading */}
         <div className="flex flex-col gap-[8px]">

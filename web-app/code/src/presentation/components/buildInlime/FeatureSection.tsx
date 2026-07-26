@@ -22,7 +22,7 @@ function PlatformChip({ label }: { label: string }) {
 
 export function FeatureSection({ group }: { group: FeatureGroup }) {
   return (
-    <section className="w-full px-[120px] py-[28px]">
+    <section className="w-full px-6 lg:px-[120px] py-[28px]">
       <div className="max-w-[1270px] mx-auto flex flex-col gap-[20px]">
         {/* Section heading */}
         <div className="flex flex-col gap-[8px]">
@@ -37,7 +37,9 @@ export function FeatureSection({ group }: { group: FeatureGroup }) {
           </p>
         </div>
 
-        <ul className="grid grid-cols-2 gap-[20px]">
+        {/* Two columns of cards need roughly 600px each to keep the name and the
+            platform chip on one line; below lg: they stack. */}
+        <ul className="grid grid-cols-1 lg:grid-cols-2 gap-[20px]">
           {group.features.map((feature) => (
             <li
               key={feature.name}

@@ -19,7 +19,7 @@ export default function SupportPage() {
         description="Need a hand with BuildInLime? We're happy to help."
       />
 
-      <section className="w-full px-[120px] py-[20px]">
+      <section className="w-full px-6 lg:px-[120px] py-[20px]">
         <div className="max-w-[788px] mx-auto flex flex-col gap-[12px]">
           <h2 className="font-['Inria_Sans',sans-serif] font-bold text-[22px] leading-[31px] text-foreground">
             Contact us

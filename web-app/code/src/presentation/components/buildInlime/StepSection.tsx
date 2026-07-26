@@ -39,7 +39,7 @@ function StepNumber({ n }: { n: number }) {
 
 export function StepSection({ id, title, description, steps, children }: StepSectionProps) {
   return (
-    <section id={id} className="w-full px-[120px] py-[56px]">
+    <section id={id} className="w-full px-6 lg:px-[120px] py-[56px]">
       <div className="max-w-[1270px] mx-auto flex flex-col gap-[32px]">
         {/* Section heading */}
         <div className="flex flex-col gap-[8px]">
