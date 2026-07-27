@@ -59,7 +59,9 @@ export async function sendVerificationOtp({
       return { success: false, error: error.message };
     }
 
-    console.log(`OTP email sent to ${email} (type: ${type})`);
+    // No address in the log line — this runs server-side in production, and the
+    // recipient is PII. The delivery signal is what's useful operationally.
+    console.log(`OTP email sent (type: ${type})`);
     return { success: true };
   } catch (err) {
     console.error("Failed to send verification OTP:", err);

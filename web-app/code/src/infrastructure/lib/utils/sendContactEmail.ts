@@ -66,7 +66,9 @@ export async function sendContactEmail({
       return { success: false, error: error.message };
     }
 
-    console.log(`Contact email delivered to ${CONTACT_TO} (from ${email})`);
+    // CONTACT_TO is our own config, not PII; the sender's address is, and this runs
+    // server-side in production. Drop it from the log line.
+    console.log(`Contact email delivered to ${CONTACT_TO}`);
     return { success: true };
   } catch (err) {
     console.error("Failed to send contact email:", err);

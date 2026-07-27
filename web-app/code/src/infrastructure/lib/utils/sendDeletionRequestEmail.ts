@@ -84,7 +84,9 @@ export async function sendDeletionRequestEmail({
       return { success: false, error: error.message };
     }
 
-    console.log(`Deletion request delivered to ${DELETION_TO} for ${email}`);
+    // DELETION_TO is our own config, not PII; the requester's address is, and this
+    // runs server-side in production. Drop it from the log line.
+    console.log(`Deletion request delivered to ${DELETION_TO}`);
     return { success: true };
   } catch (err) {
     console.error("Failed to send deletion request:", err);
