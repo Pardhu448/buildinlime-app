@@ -4,6 +4,7 @@ import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { eq, sql } from "drizzle-orm"
 import { users } from "../../database/schema/auth-schema"
+import { provisionSampleProject } from "../../onboarding/sample-project"
 
 /**
  * Email lookups must be case-insensitive.
@@ -69,6 +70,24 @@ export const usersRouter = router({
           updatedAt: now,
         })
         .returning({ id: users.id })
+
+      // Sample project — BEST EFFORT, and deliberately outside the account
+      // creation above. The account is the thing the user asked for; example
+      // data is a nicety. If cloning fails (template renamed, deleted, or a
+      // schema change it did not anticipate) the right outcome is a working
+      // account with an empty workspace, not a registration that throws after
+      // the user row is already committed — which would leave an account the
+      // caller believes does not exist, and `register` would then reject the
+      // retry with CONFLICT.
+      try {
+        await ctx.db.transaction((tx) => provisionSampleProject(tx, created.id))
+      } catch (error) {
+        console.error("[register] sample project provisioning failed", {
+          userId: created.id,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+
       return { userId: created.id }
     }),
 
