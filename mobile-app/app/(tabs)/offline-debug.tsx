@@ -7,11 +7,24 @@ import {
   TouchableOpacity,
   View,
 } from "react-native"
+import { Redirect } from "expo-router"
 import type { OfflineTransaction } from "@tanstack/offline-transactions"
 import { getOfflineExecutor } from "@/src/infrastructure/offline/executor"
 import { colors } from "@/src/presentation/shared/colors"
 
-export default function OfflineDebugScreen() {
+/**
+ * The drawer only OFFERS this screen in dev (see DrawerContent), but expo-router
+ * registers routes by file presence, so in a release build
+ * `buildinlimemobile:///offline-debug` still reaches it — and "Clear outbox" below
+ * discards pending offline mutations. The nav gate is not a reachability gate, so
+ * refuse here too. Split in two so the inner component's hooks stay unconditional.
+ */
+export default function OfflineDebugRoute() {
+  if (!__DEV__) return <Redirect href="/(tabs)" />
+  return <OfflineDebugScreen />
+}
+
+function OfflineDebugScreen() {
   const [outbox, setOutbox] = useState<Array<OfflineTransaction>>([])
   const [online, setOnline] = useState(true)
   const [pending, setPending] = useState(0)
