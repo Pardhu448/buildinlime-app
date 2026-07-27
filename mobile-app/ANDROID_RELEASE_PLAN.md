@@ -157,36 +157,63 @@ the tree — three items in the original draft were stale; see Revision notes at
 
 ## Phase 5 — Test tracks → Production
 
-1. ~~`eas build --platform android --profile production` → `.aab`.~~ **DONE
-   2026-07-25.** Built from `main` at `4a76119` (the PR #78 merge), so the artifact
-   comes from the branch Phase 5 requires, not a feature branch.
+1. ~~`eas build --platform android --profile production` → `.aab`.~~ **DONE — the
+   current artifact is versionCode 3, built 2026-07-27 from `main` at `9cf4599`.**
 
-   | | |
-   |---|---|
-   | Build ID | `499fdba4-15d3-4ace-9a86-0849c1234f69` |
-   | Version | `1.0.0`, **versionCode 2** (EAS `autoIncrement`; the preview build was 1) |
-   | Keystore | `Build Credentials TPPEnuUdKg` — the same one as preview, already backed up |
-   | Duration | 15m 27s |
-   | Archive | `https://expo.dev/artifacts/eas/WKvfY6vPf6Lxe1S3huzKMTdkOU2lj98GTYs8RXOkrDQ.aab` (69 MB) |
+   | | vc3 (current) | vc2 (superseded) |
+   |---|---|---|
+   | Build ID | `6555fde1-2b8f-4249-8d2e-3cf2c9bad56d` | `499fdba4-15d3-4ace-9a86-0849c1234f69` |
+   | Source | `main` @ `9cf4599` | `main` @ `4a76119` (PR #78) |
+   | Version | `1.0.0`, **versionCode 3** | `1.0.0`, versionCode 2 |
+   | Keystore | `Build Credentials TPPEnuUdKg` | same |
+   | Archive | [`nMNZrcC…OWk.aab`](https://expo.dev/artifacts/eas/nMNZrcCXB5BfxX3eUh27oLsFt0mI3xqSl1PmgivBOWk.aab) (68 MB) | [`WKvfY6v…rDQ.aab`](https://expo.dev/artifacts/eas/WKvfY6vPf6Lxe1S3huzKMTdkOU2lj98GTYs8RXOkrDQ.aab) |
 
-   **Verified on the production `.aab` itself, not carried over from the preview** —
-   `production` is a different profile, so none of this transfers automatically:
+   **Why vc2 was superseded — do not ship it.** vc2 went to Internal testing, then
+   `c512592` landed on `main`: the `offline-debug` screen was reachable in release
+   builds via `buildinlimemobile:///offline-debug`, including its **"Clear outbox"**
+   button, which discards pending offline mutations. A build predating that fix must
+   not start the closed-testing window.
+
+   **Verified on the vc3 `.aab` itself.** Each `production` build gets its own pass —
+   none of this carries over from vc2, or from the `preview` profile:
 
    - `verify-api-url.sh` **PASS** — `https://app.buildinlime.com` inlined in the Hermes
-     bundle, `10.0.2.2` fallback absent.
+     bundle, `10.0.2.2` fallback count 0.
    - **`withOkHttpDispatcher` survived prebuild** (Risk 1) — `BuildInLimeOkHttpClientFactory`
      and `setOkHttpClientFactory` both present in the DEX. Checked independently because
      its failure is silent: the app would work and just sync slowly.
    - **Sentry absent** — `io/sentry` = 0 classes, matching `PLAY_DATA_SAFETY.md`.
    - Application ID `com.buildinlime.mobile` confirmed in the DEX.
+   - **offline-debug screen stripped** — checked *differentially against vc2*, because a
+     bare zero cannot distinguish "string absent" from "grep matched nothing":
+
+     | string | vc2 | vc3 |
+     |---|---|---|
+     | `Clear outbox` | 1 | **0** |
+     | `Force drain` | 1 | **0** |
+     | `app.buildinlime.com` (control) | 1 | 1 |
+
+     Metro dropped the whole component, not merely the route.
 
    Note `eas build:version:get` showing `EXPO_PUBLIC_API_URL` resolved is **not**
    sufficient evidence: it proves EAS holds the value, not that Metro inlined it. Only
    the artifact shows that, which is the whole reason the verifier exists.
 
-2. `eas submit --platform android` → **Internal testing** track first.
-3. Promote to **Closed testing** to satisfy the tester / 14-day gate.
+2. ~~`eas submit --platform android` → **Internal testing** track first.~~ **DONE** —
+   internal testing completed on vc2.
+3. **Closed testing** — upload **vc3** (not a promotion of the vc2 release) and satisfy
+   the tester / 14-day gate. Submit profiles are now declared explicitly in `eas.json`
+   (`internal` / `closed` / `production`); `eas submit --profile closed` targets Play's
+   built-in `alpha` track. If a *custom-named* closed track is used instead, that name
+   is the track identifier and the profile needs updating to match.
 4. Promote to **Production** with a staged rollout (e.g. 20% → 100%).
+
+> **`submit.production` used to be `{}`.** EAS defaults the Android track to
+> `internal`, so the profile named "production" would have submitted to Internal
+> testing. All three tracks are now spelled out — meaning `eas submit --profile
+> production` really does go to production. `eas submit` also needs a Google Service
+> Account key; there is no `serviceAccountKeyPath` in `eas.json`, so it prompts
+> interactively. Uploading the `.aab` by hand in the Console is a fine alternative.
 
 > **`eas-cli` is not a project dependency.** It was installed globally
 > (`npm i -g eas-cli`, 21.2.0) to run this build. Anyone repeating Phase 5 needs it on
@@ -239,15 +266,20 @@ is a convention, not a requirement; it is done here so one identity covers both
 stores. Apple binds a bundle ID to an App Store record on first submission, the
 same way Play binds the application ID.
 
-Next (as of 2026-07-25): **the engineering path is finished.** Phases 1–3 are done,
-this branch is merged to `main` (PR #78), and Phase 5 step 1 has produced a
-**production `.aab` from `main`, verified on the artifact** — see Phase 5 above for
-the build id, versionCode and the three checks.
+Next (as of 2026-07-27): **the engineering path is finished, and Internal testing is
+done.** Phases 1–3 are complete, and Phase 5 step 1 has produced **versionCode 3 from
+`main` @ `9cf4599`, verified on the artifact** — see Phase 5 above for the build id
+and the five checks.
 
-**Everything remaining is Google Play Console work, and it is the schedule long
-pole**: account verification, then the ~14-day / 12-tester closed-testing gate before
-production access unlocks. None of it is engineering, and none of it can be
-parallelised away — start it immediately.
+The immediate step is **Closed testing with vc3**. Upload the new artifact rather than
+promoting the vc2 release that internal testers have; vc2 predates the `offline-debug`
+fix (`c512592`) and must not start the 14-day window.
+
+**Everything else remaining is Google Play Console work, and it is the schedule long
+pole**: the ~14-day / 12-tester closed-testing gate before production access unlocks.
+The clock only starts once enough testers have *opted in and installed* — invited is
+not opted in, and the Console's testing-requirements page shows the live counter.
+None of it is engineering, and none of it can be parallelised away.
 
 The text to paste into the Console — store listing, content-rating answers, Data
 Safety responses, permission justification — is prepared in `PLAY_CONSOLE_INPUTS.md`.

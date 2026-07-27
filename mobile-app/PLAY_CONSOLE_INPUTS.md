@@ -152,13 +152,29 @@ no Foreground Service declaration is required.
 
 ## Release path (Phase 5 reminder)
 
-1. Merge this branch to `main`; build `production` from `main`:
-   `eas build --platform android --profile production` → `.aab`.
-2. Re-run `verify-api-url.sh` on the `.aab` (confirm the prod URL inlined).
-3. `eas submit --platform android` → **Internal testing** first.
-4. Promote to **Closed testing** to satisfy the ~14-day / 12+ tester gate
-   (**confirm the current tester count in the Console** — sources vary 12–20).
-5. Promote to **Production** with a staged rollout.
+Status as of 2026-07-27 — steps 1–3 are done; the live step is **4**.
+
+1. ~~Build `production` from `main`.~~ **DONE** — current artifact is **versionCode 3**
+   (build `6555fde1-…`, from `main` @ `9cf4599`).
+2. ~~Verify the `.aab`.~~ **DONE** — `verify-api-url.sh` plus the DEX/bundle checks; see
+   `ANDROID_RELEASE_PLAN.md` Phase 5 step 1 for the full results.
+3. ~~`eas submit` → **Internal testing**.~~ **DONE** (on versionCode 2).
+4. **Closed testing — upload versionCode 3.** Do *not* promote the vc2 release sitting
+   on Internal testing: it predates the `offline-debug` deep-link fix (`c512592`) and
+   must not start the 14-day window. Use `eas submit --profile closed` (Play's built-in
+   `alpha` track) or upload the `.aab` by hand.
+   - **Confirm the current tester count in the Console** — sources vary 12–20, and the
+     testing-requirements page shows the live counter.
+   - The clock counts testers who have **opted in and installed**. Invited is not
+     opted in; this is the usual reason the 14 days silently fail to start.
+   - Prefer a **Google Group** over a raw email list, so testers can be added later
+     without editing the track.
+5. Promote to **Production** with a staged rollout. Expect the **RECORD_AUDIO
+   justification prompt** — copy is in the Permission justification section above.
+
+Rebuilding costs a versionCode (EAS `autoIncrement` owns the counter), so only rebuild
+when the code actually changes — but always rebuild when it does, rather than shipping
+a known-stale artifact into the testing window.
 
 ---
 
