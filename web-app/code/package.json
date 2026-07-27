@@ -35,7 +35,8 @@
     "migrate:generate": "drizzle-kit generate",
     "psql": "dotenvx run -- sh -c 'psql \"$DATABASE_URL\"'",
     "purge:resources": "dotenvx run -- tsx scripts/purge-resources.ts",
-    "migrate:storage": "dotenvx run -- tsx scripts/migrate-storage-to-gcs.ts"
+    "migrate:storage": "dotenvx run -- tsx scripts/migrate-storage-to-gcs.ts",
+    "seed:play-review": "dotenvx run -- tsx scripts/seed-play-review.ts"
   },
   "dependencies": {
     "@buildinlime/contracts": "workspace:*",

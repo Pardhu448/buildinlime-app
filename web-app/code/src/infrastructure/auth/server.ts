@@ -4,13 +4,17 @@ import { emailOTP } from "better-auth/plugins"
 import { db } from "../database/connection"
 import { accounts, sessions, users, verifications } from "../database/schema/auth-schema"
 import { sendVerificationOtp } from "../lib/utils/sendEmailOtp"
+import { isPlayReviewEmail, playReviewOtpFor } from "./play-review"
 
 /**
  * Better Auth Server Configuration
- * 
+ *
  * Required environment variables:
  * - BETTER_AUTH_SECRET (min 32 chars): Encryption secret
  * - BETTER_AUTH_URL: Base URL of the application
+ *
+ * Optional (Google Play review — see above):
+ * - PLAY_REVIEW_EMAIL, PLAY_REVIEW_OTP
  */
 export const auth = betterAuth({
   // Database adapter using Drizzle ORM
@@ -29,7 +33,20 @@ export const auth = betterAuth({
     emailOTP({
       overrideDefaultEmailVerification: true,
       disableSignUp: true,
+      // Returning undefined falls through to better-auth's random generator
+      // (`opts.generateOTP(...) || defaultOTPGenerator(opts)`), so every other
+      // address is untouched by this. See ./play-review.
+      generateOTP({ email, type }) {
+        return playReviewOtpFor(email, type)
+      },
       async sendVerificationOTP({ email, otp, type }) {
+        // The reviewer already has the code out of band, from the Play Console
+        // "Sign-in details" form. Skipping the send keeps their login off the
+        // Resend dependency entirely — if delivery were to fail, the throw below
+        // would surface as a login error and cost us the review.
+        if (isPlayReviewEmail(email)) {
+          return
+        }
         // sendVerificationOtp swallows delivery failures and returns
         // { success: false }. If we ignore that, better-auth resolves the
         // callback and reports success to the client even though no email was
