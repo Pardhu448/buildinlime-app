@@ -1,0 +1,40 @@
+/*
+ * Safe-area handling, required by `viewport-fit=cover` on the viewport meta
+ * (routes/__root.tsx). That flag is what stops iOS letterboxing the standalone
+ * PWA with white bands, but it also lets the page paint UNDER the notch and the
+ * home indicator — in landscape the notch eats the left or right edge, so text
+ * pinned to the edge disappears behind it.
+ *
+ * The horizontal inset is applied globally on the root rather than per-component
+ * because every marketing section shares one gutter (`px-6 lg:px-[120px]`) and
+ * would otherwise each need to opt in. Vertical insets are NOT global: nothing
+ * in the marketing pages is fixed to the top or bottom edge, so a global
+ * padding-bottom would just add dead space above the fold. Components that do
+ * pin themselves to an edge use `.safe-pb` / `.safe-pt` below.
+ */
+
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+html {
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+  /* The insets narrow the viewport, so a child sized to 100vw would now overflow
+     by exactly the inset. box-sizing keeps that arithmetic honest. */
+  box-sizing: border-box;
+}
+
+/* For anything anchored to the top or bottom edge — a fixed bar, a bottom
+   sheet, the mobile nav panel. Additive, so it composes with existing padding
+   instead of replacing it. */
+.safe-pt {
+  padding-top: calc(var(--safe-top) + var(--safe-pt-extra, 0px));
+}
+
+.safe-pb {
+  padding-bottom: calc(var(--safe-bottom) + var(--safe-pb-extra, 0px));
+}

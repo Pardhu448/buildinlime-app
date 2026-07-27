@@ -20,6 +20,20 @@ export type Article = {
   body: string[];
 };
 
+/**
+ * Stable anchor id for an article, derived from its title.
+ *
+ * /resources links to the full article on /blog or /documentation with this as
+ * the URL hash, and ArticleList stamps it as the `id` on the matching section —
+ * so both sides agree without an id needing to be written into the content.
+ */
+export function articleSlug(article: Pick<Article, "title">): string {
+  return article.title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export const BLOG_ARTICLES: Article[] = [
   {
     title: "Why we organize construction around BuildUnits",

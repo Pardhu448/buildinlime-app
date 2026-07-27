@@ -17,7 +17,7 @@ export default function PrivacyPage() {
 
       <PageHeading title="Privacy Policy" description={PRIVACY_INTRO} />
 
-      <section className="w-full px-[120px] pt-[8px]">
+      <section className="w-full px-6 lg:px-[120px] pt-[8px]">
         <div className="max-w-[788px] mx-auto">
           <p
             className="font-['Instrument_Sans',sans-serif] text-[14px] leading-[20px] text-muted-foreground"

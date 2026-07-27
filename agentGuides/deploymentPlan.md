@@ -1618,11 +1618,48 @@ Four guards matter, and each exists for a reason:
 `deploy.sh`'s ownership sweep (§4.2.2) already depending on `psql`. It happened to be
 present on the first VM, so the gap would only have surfaced on a rebuild.
 
-**Then alert as a backstop**, for when the restart itself fails. The VM currently sends
-**nothing** to Cloud Logging — `gcloud logging read 'resource.type="gce_instance"'`
-returns empty, so the Ops Agent is not installed. Install it, log the check result, and
-build a log-based metric + alerting policy on it. Without the agent there is no path
-from a VM-side condition to an alert at all.
+**Observability — Ops Agent INSTALLED; alerting deliberately not built.** The VM used to
+send **nothing** to Cloud Logging (`gcloud logging read 'resource.type="gce_instance"'`
+returned empty), so there was no path at all from a VM-side condition to anything
+observable off the box. The agent now ships `/var/log/syslog`, which carries the
+watchdog's `logger -t slot-watch` output. Installed by `vm-bootstrap.sh`; the two IAM
+roles it needs are granted by `provision.sh`.
+
+**Log-based metrics and an alerting policy are NOT built — monitoring is manual for
+now.** That is a deliberate choice at this scale, not an oversight: the watchdog already
+self-heals the case it was built for, so an alert would mostly page about something that
+already fixed itself. Build the metric + policy when there is a recipient who would act
+on it.
+
+Query it by hand with:
+
+```bash
+gcloud logging read 'resource.type="gce_instance" AND jsonPayload.message:"slot-watch:"' \
+  --project buildinlime --freshness=7d --format='value(timestamp,jsonPayload.message)'
+```
+
+**Healthy output is EMPTY** — the script logs only when it acts. Anything returned is
+worth reading; `wal_status=lost — MANUAL ACTION REQUIRED` especially, since that is the
+one case the watchdog deliberately does not fix. Repeated `INACTIVE` lines mean something
+is bouncing the network regularly, which is when fix 1 becomes worth reopening.
+
+> **Two traps in querying this, both cost time on 2026-07-25.**
+>
+> The agent writes **structured** entries: the whole syslog line lands in
+> **`jsonPayload.message`**, *not* `textPayload`. A `textPayload` filter returns empty
+> and is indistinguishable from "no logs are arriving" — which is exactly how it was
+> first misread, minutes after the logs had in fact started flowing.
+>
+> The **trailing colon** in `"slot-watch:"` matters. Without it the query also matches
+> the `buildinlime-slot-watch.service` start/stop lines systemd emits every 5 minutes,
+> burying real output in noise.
+>
+> **Both IAM roles must exist before the agent starts.** Without them it installs, runs,
+> reports healthy and ships nothing — the same failure shape as §13.1's healthcheck. If
+> this box ever goes quiet in Cloud Logging, check the IAM binding before debugging the
+> agent. Note they must be granted by a principal with `setIamPolicy`: running them *on*
+> the VM fails, because gcloud there authenticates as the very service account being
+> granted, and a service account cannot grant itself roles.
 
 #### 3. Bound the blast radius — DEFERRED, and the obvious flag does not work
 

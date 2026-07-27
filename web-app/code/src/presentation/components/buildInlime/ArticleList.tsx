@@ -8,6 +8,7 @@
  */
 
 import { CategoryChip } from "./CategoryChip";
+import { articleSlug } from "../../content/articles";
 import type { Article } from "../../content/articles";
 
 export type ArticleListProps = {
@@ -16,12 +17,15 @@ export type ArticleListProps = {
 
 export function ArticleList({ articles }: ArticleListProps) {
   return (
-    <div className="w-full px-[120px] pb-[40px]">
+    <div className="w-full px-6 lg:px-[120px] pb-[40px]">
       <div className="max-w-[788px] mx-auto flex flex-col">
         {articles.map((article) => (
           <article
             key={article.title}
-            className="flex flex-col gap-[12px] py-[40px] border-b border-border first:pt-0 last:border-b-0"
+            id={articleSlug(article)}
+            // scroll-mt keeps the heading clear of the top edge when a
+            // /resources link lands here via the URL hash.
+            className="flex flex-col gap-[12px] py-[40px] border-b border-border first:pt-0 last:border-b-0 scroll-mt-[24px]"
           >
             <h2
               className="font-['Instrument_Sans',sans-serif] font-semibold text-[22px] leading-[31px] text-black"

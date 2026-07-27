@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "BuildInLimeMobile",
-    "slug": "BuildInLimeMobile",
+    "name": "BuildInLime",
+    "slug": "buildinlime",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -13,7 +13,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.buildinlime.mobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,11 +26,9 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
-      "package": "com.anonymous.BuildInLimeMobile"
+      "package": "com.buildinlime.mobile"
     },
     "web": {
       "bundler": "metro",
@@ -51,7 +50,8 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "BuildInLime needs microphone access to record voice messages."
+          "microphonePermission": "BuildInLime needs microphone access to record voice messages.",
+          "enableBackgroundPlayback": false
         }
       ],
       "@react-native-community/datetimepicker",
@@ -62,6 +62,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8413a5c9-f817-4ff8-8925-ae533f6ef932"
+      }
+    },
+    "owner": "buildinlime"
   }
 }
