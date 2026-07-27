@@ -5,7 +5,8 @@ to `ANDROID_RELEASE_PLAN.md` (Phase 4) and `PLAY_DATA_SAFETY.md` (the Data Safet
 form detail). Prepared 2026-07-25. Character limits are Play's current maximums.
 
 The **graphics assets** (icon, feature graphic, screenshots) are the one thing this
-doc cannot supply — see the checklist at the end.
+doc cannot supply — see the checklist at the end. They are needed for the **production**
+release only; closed testing does not require them.
 
 ---
 
@@ -163,7 +164,9 @@ Status as of 2026-07-27 — steps 1–3 are done; the live step is **4**.
    on Internal testing: it predates the `offline-debug` deep-link fix (`c512592`) and
    must not start the 14-day window. Use `eas submit --profile closed` (Play's built-in
    `alpha` track) or upload the `.aab` by hand.
-   - **Confirm the current tester count in the Console** — sources vary 12–20, and the
+   - **12 testers, opted in continuously for 14 days** — per Google's
+     [testing requirements](https://support.google.com/googleplay/android-developer/answer/14151465?hl=en).
+     (`Android_App_Publishing_Plan.docx` says 12–20; that is wrong.) The Console's
      testing-requirements page shows the live counter.
    - The clock counts testers who have **opted in and installed**. Invited is not
      opted in; this is the usual reason the 14 days silently fail to start.
@@ -180,7 +183,13 @@ a known-stale artifact into the testing window.
 
 ## Graphics assets — the one gap this doc can't fill
 
-Prepare these before the listing can be submitted (Play's required sizes):
+**These gate the production release, not closed testing.** Produce them *during* the
+14-day closed-testing window rather than before it — the Console does not ask for them
+when creating a closed-testing release. See the correction in `ANDROID_RELEASE_PLAN.md`
+(Phase 4 and the status section) for the citation.
+
+Upload at **Grow users → Store presence → Main store listing → Graphics**. Play's
+required sizes:
 - [ ] **App icon** — 512×512 PNG (32-bit, with alpha). Source: `assets/images/icon.png`.
 - [ ] **Feature graphic** — 1024×500 PNG/JPG (no transparency).
 - [ ] **Phone screenshots** — 2–8 images, 16:9 or 9:16, min 320px, max 3840px.

@@ -144,16 +144,24 @@ the tree — three items in the original draft were stale; see Revision notes at
 ## Phase 4 — Google Play Console setup (one-time)
 
 - Create a Play Console account ($25 one-time fee); identity verification takes days.
-- **New personal developer accounts must run ~14 days of closed testing with 12+
-  testers before production access unlocks.** This is the schedule long pole — start
-  it early, in parallel with Phase 2. (Tester-count sources disagree: this doc said
-  12+, `Android_App_Publishing_Plan.docx` says 12–20. **Confirm the current number in
-  Play Console before recruiting.** That doc also notes organization accounts are
-  exempt from the gate but need a D-U-N-S number, which can take up to 30 days.)
-- Complete: store listing (title, short + full description, phone screenshots,
-  feature graphic 1024×500, icon 512×512), content-rating questionnaire, **Data
-  Safety form** (auth, audio, uploads), target audience, and a **privacy policy URL**
-  (required).
+- **New personal developer accounts must run a closed test with at least 12 testers,
+  opted in continuously for 14 days, before production access unlocks.** This is the
+  schedule long pole — start it early, in parallel with Phase 2. Per Google's
+  [testing requirements](https://support.google.com/googleplay/android-developer/answer/14151465?hl=en)
+  the number is **12**; `Android_App_Publishing_Plan.docx` says 12–20, which is wrong
+  — that doc predates checking the official page. Organization accounts are exempt
+  from the gate but need a D-U-N-S number, which can take up to 30 days.
+  - "Opted in" means testers **accepted the invite and installed**. Invited is not
+    opted in, and this is the usual reason the 14 days silently fail to start.
+  - Dropping below 12 at any point restarts the clock — it must be 14 *continuous*
+    days.
+- **Required before a testing release:** the **App content** declarations —
+  **privacy policy URL**, **Data Safety form** (auth, audio, uploads),
+  content-rating questionnaire, target audience, ads declaration.
+- **Required before the production release, but *not* before closed testing:** the
+  main store listing — title, short + full description, phone screenshots, feature
+  graphic 1024×500, icon 512×512. See the correction near the end of this doc; these
+  can be produced *during* the 14-day window.
 
 ## Phase 5 — Test tracks → Production
 
@@ -284,12 +292,29 @@ None of it is engineering, and none of it can be parallelised away.
 The text to paste into the Console — store listing, content-rating answers, Data
 Safety responses, permission justification — is prepared in `PLAY_CONSOLE_INPUTS.md`.
 **The one gap that document cannot fill is graphics**: feature graphic 1024×500, icon
-512×512, and phone screenshots. Those are required to create the listing at all, so
-they block the closed-testing clock from even starting. Produce them first.
+512×512, and phone screenshots.
 
-With the listing created, upload the existing `.aab` to **Internal testing** (Phase 5
-step 2) — the artifact is already built and verified, so no rebuild is needed unless
-the code changes. A rebuild would consume another versionCode.
+> **Correction (2026-07-27).** This section previously claimed the graphics "block the
+> closed-testing clock from even starting" and had to be produced first. **That was
+> wrong, and it cost about two weeks of assumed timeline.** Google's
+> [Set up an open, closed, or internal test](https://support.google.com/googleplay/android-developer/answer/9845334?hl=en)
+> lists the prerequisites for a closed test as an uploaded app bundle, a tester list,
+> and a feedback URL/email — **not** a completed main store listing. The "make sure
+> your app is ready to be visible on Google Play" caveat applies to **open** testing,
+> where the listing is public. Confirmed empirically: the Console does not prompt for
+> graphics when creating a closed-testing release.
+>
+> **Graphics gate the production release, not the closed test.** Produce them *during*
+> the 14-day window, not before it. They live under **Grow users → Store presence →
+> Main store listing → Graphics**.
+
+Upload the vc3 `.aab` to **Closed testing** (Phase 5 step 3) — the artifact is already
+built and verified, so no rebuild is needed unless the code changes. A rebuild would
+consume another versionCode.
+
+What *is* required before a testing release is the **App content** section: privacy
+policy URL, Data Safety, content rating, target audience, ads declaration. Every answer
+is prepared in `PLAY_CONSOLE_INPUTS.md`.
 
 ## Revision notes (2026-07-22)
 
