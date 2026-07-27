@@ -2,8 +2,33 @@ import { checkEmailInput } from "@buildinlime/contracts"
 import { router, authedProcedure, procedure } from "../lib/trpc"
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { users } from "../../database/schema/auth-schema"
+
+/**
+ * Email lookups must be case-insensitive.
+ *
+ * better-auth lowercases the address on every one of its own paths (its send-OTP
+ * route calls `ctx.body.email.toLowerCase()` before doing anything), so accounts
+ * created through sign-in are stored lowercase. These procedures were comparing
+ * with a plain `eq`, which meant "GooglePlayReview@gmail.com" did not match the
+ * stored "googleplayreview@gmail.com".
+ *
+ * That is not cosmetic. The mobile login screen refuses to send a code at all
+ * unless checkEmail says the account exists (app/(auth)/login.tsx) — so a user
+ * whose keyboard capitalised the first letter got "No account found for this
+ * email address" for an account that plainly does exist, with no way to tell the
+ * difference from a genuine typo. Found when a Play reviewer would have hit it.
+ *
+ * `lower()` on the column rather than trusting stored values to be lowercase:
+ * `register` below inserts whatever it is given, so mixed-case rows can exist and
+ * lowercasing only the input would still miss them. This does not use the unique
+ * index on email; at current user counts that is irrelevant, and correctness here
+ * outweighs a scan. Add a `lower(email)` functional index if the table ever grows.
+ */
+function emailMatches(email: string) {
+  return eq(sql`lower(${users.email})`, email.trim().toLowerCase())
+}
 
 export const usersRouter = router({
   checkEmail: procedure
@@ -12,7 +37,7 @@ export const usersRouter = router({
       const [user] = await ctx.db
         .select({ id: users.id })
         .from(users)
-        .where(eq(users.email, input.email))
+        .where(emailMatches(input.email))
       return { exists: !!user }
     }),
 
@@ -22,7 +47,7 @@ export const usersRouter = router({
       const [existing] = await ctx.db
         .select({ id: users.id })
         .from(users)
-        .where(eq(users.email, input.email))
+        .where(emailMatches(input.email))
       if (existing) {
         throw new TRPCError({ code: "CONFLICT", message: "An account with this email already exists." })
       }
@@ -32,7 +57,13 @@ export const usersRouter = router({
         .values({
           id: crypto.randomUUID(),
           name: input.name,
-          email: input.email,
+          // Stored lowercase to match better-auth, which lowercases before every
+          // lookup it makes. A mixed-case row here would be an account that
+          // better-auth's findUserByEmail can never locate — registration would
+          // appear to succeed and then no sign-in code would ever arrive, because
+          // the send-OTP route treats an unknown address as a silent no-op.
+          // The unique index on email is exact, so nothing else catches this.
+          email: input.email.trim().toLowerCase(),
           emailVerified: false,
           createdAt: now,
           updatedAt: now,
