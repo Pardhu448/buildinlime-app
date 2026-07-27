@@ -154,12 +154,30 @@ umask 077
 OUT=/opt/buildinlime/.env
 TMP=$(mktemp)
 get() { gcloud secrets versions access latest --secret="$1"; }
+# Optional secrets. Absence is a normal state for these, so a missing one must
+# NOT abort the fetch: under `set -e` that would skip the mv, fail the unit, and
+# since buildinlime.service Requires=buildinlime-secrets.service, block the app
+# from starting on the next boot. Deleting a temporary secret should not be able
+# to take the site down.
+opt() { gcloud secrets versions access latest --secret="$1" 2>/dev/null || true; }
 {
   echo "DATABASE_URL=$(get db-url)"
   echo "ELECTRIC_DATABASE_URL=$(get electric-db-url)"
   echo "ELECTRIC_SECRET=$(get electric-secret)"
   echo "BETTER_AUTH_SECRET=$(get better-auth-secret)"
   echo "RESEND_API_KEY=$(get resend-api-key)"
+
+  # Google Play reviewer sign-in (temporary — see web-app/code/.env.example).
+  # Written only when BOTH exist, matching auth/play-review.ts: half-configured
+  # means off, so emitting one alone would be misleading rather than harmless.
+  # Remove both secrets once Play production access is granted; the next run of
+  # this script then drops them from .env on its own.
+  play_review_email=$(opt play-review-email)
+  play_review_otp=$(opt play-review-otp)
+  if [ -n "$play_review_email" ] && [ -n "$play_review_otp" ]; then
+    echo "PLAY_REVIEW_EMAIL=$play_review_email"
+    echo "PLAY_REVIEW_OTP=$play_review_otp"
+  fi
 } >"$TMP"
 # Atomic replace so a failed fetch never leaves a half-written .env behind.
 mv "$TMP" "$OUT"
