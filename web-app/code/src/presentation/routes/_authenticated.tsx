@@ -6,6 +6,7 @@ import { initializeCommunicationCollections, initializePropertiesCollection, tas
 import { membershipsShapeErrored, clearMembershipsShapeError } from '../../application/collections/_shared'
 import { debugListOPFSFiles, ensureCleanPersistenceForUser } from '../../infrastructure/persistence/browser-persistence'
 import { initOfflineExecutor, disposeOfflineExecutor } from '../../infrastructure/offline/executor'
+import { DesktopRecommendedNoticeGate } from '../components/buildInlime/shared/DesktopRecommendedNotice'
 import { useEffect, useState, useRef } from 'react'
 
 function AuthLoadingComponent() {
@@ -382,5 +383,15 @@ function AuthenticatedLayout() {
   if (isPending || !session) return null
   if (!collectionsReady || resyncing) return <AuthLoadingComponent />
 
-  return <Outlet key={dataVersion} />
+  // The narrow-viewport notice. It sits OUTSIDE the keyed Outlet on purpose: its
+  // dismissal is mount-scoped state, so keeping it out of the re-keyed subtree is
+  // what makes it fire once per login rather than again on every resync. It also
+  // renders only past the loading gate above, so it never covers "Loading…" —
+  // by the time it appears there is a real workspace behind it to describe.
+  return (
+    <>
+      <DesktopRecommendedNoticeGate />
+      <Outlet key={dataVersion} />
+    </>
+  )
 }

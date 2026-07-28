@@ -102,78 +102,40 @@ test.describe("mobile-only behaviour", () => {
     await expect(panel).toBeHidden()
   })
 
-  test("the menu's Login link reaches /login and raises the notice there", async ({
-    page,
-  }) => {
+  test("the menu's Login link reaches /login", async ({ page }) => {
     await page.goto("/")
 
     await page.getByRole("button", { name: /open menu/i }).click()
     await page.getByRole("navigation", { name: /mobile/i }).getByRole("link", { name: "Login" }).click()
 
     await expect(page).toHaveURL(/\/login/)
-    const dialog = page.getByRole("dialog")
-    await expect(dialog).toBeVisible()
-    await expect(dialog).toContainText(/desktop/i)
-
-    // Advisory, not a wall: continuing must reveal the sign-in form.
-    await dialog.getByRole("button", { name: /continue/i }).click()
-    await expect(dialog).toBeHidden()
-    await expect(page.getByRole("textbox").first()).toBeVisible()
   })
 
-  // The regression this whole gate exists for. "Start Building" points at
-  // /projects, which the _authenticated guard bounces to /login — a route into
-  // sign-in that never touches the header, and that an interception on the Login
-  // button missed entirely.
-  test("the hero CTA lands on /login with the notice shown", async ({ page }) => {
+  // The desktop-recommended notice used to be raised here, and these assertions
+  // are what pin it down as MOVED rather than merely deleted. Sign-in works fine
+  // on a phone; the notice is about the workspace layout, so it now fires after
+  // sign-in (see the authenticated spec) and nothing may interrupt the form.
+  //
+  // /login is reached several ways that bypass the header — "Start Building"
+  // points at /projects and is bounced here by the _authenticated guard, session
+  // expiry redirects mid-visit, people bookmark the URL — so each is checked
+  // rather than assuming one stands for the rest.
+  test("the hero CTA lands on /login with no notice", async ({ page }) => {
     await page.goto("/")
 
     await page.getByRole("link", { name: "Start Building" }).click()
 
     await expect(page).toHaveURL(/\/login/)
-    await expect(page.getByRole("dialog")).toBeVisible()
+    await expect(page.getByRole("dialog")).toBeHidden()
   })
 
-  test("arriving at /login directly shows the notice", async ({ page }) => {
-    await page.goto("/login?returnTo=%2F&mode=login")
-    await expect(page.getByRole("dialog")).toBeVisible()
-  })
-
-  test("dismissing reveals the form and does not re-prompt during that visit", async ({
+  test("arriving at /login directly shows the form, not a notice", async ({
     page,
   }) => {
     await page.goto("/login?returnTo=%2F&mode=login")
-    await page.getByRole("dialog").getByRole("button", { name: /continue/i }).click()
 
-    await expect(page.getByRole("dialog")).toBeHidden()
     await expect(page.getByRole("textbox").first()).toBeVisible()
-
-    // Still on /login, still dismissed — typing in the form must not bring it
-    // back mid sign-in.
-    await page.getByRole("textbox").first().fill("someone@example.com")
     await expect(page.getByRole("dialog")).toBeHidden()
-  })
-
-  // Each sign-in attempt is its own decision point. Dismissing once must not
-  // silence the notice for the rest of the tab, which is what persisting the
-  // dismissal to sessionStorage used to do.
-  test("the notice returns on a later login attempt in the same session", async ({
-    page,
-  }) => {
-    await page.goto("/login?returnTo=%2F&mode=login")
-    // Scoped to the dialog: LoginHeader carries its own "Back to home" link, so
-    // an unscoped query matches two elements.
-    await page
-      .getByRole("dialog")
-      .getByRole("link", { name: /back to home/i })
-      .click()
-    await expect(page).toHaveURL(/\/$|\/#/)
-    await expect(page.getByRole("dialog")).toBeHidden()
-
-    // Same tab, same session, second attempt — via the hero CTA this time.
-    await page.getByRole("link", { name: "Start Building" }).click()
-    await expect(page).toHaveURL(/\/login/)
-    await expect(page.getByRole("dialog")).toBeVisible()
   })
 
   test("tap targets on the header meet the 44px minimum", async ({ page }) => {
@@ -209,8 +171,8 @@ test.describe("desktop is unchanged", () => {
     await expect(page.getByRole("dialog")).toBeHidden()
   })
 
-  // The width check is what gates the notice, so a desktop arriving at /login by
-  // any route — including the hero CTA's redirect — must never see it.
+  // Kept as the desktop half of the mobile assertions above: no route into
+  // /login raises a dialog at any width now that the notice fires post-sign-in.
   test("the hero CTA reaches /login with no notice", async ({ page }) => {
     await page.goto("/")
     await page.getByRole("link", { name: "Start Building" }).click()

@@ -1,30 +1,32 @@
 import { useEffect, useRef, useState } from "react"
-import { Link } from "@tanstack/react-router"
 import { Monitor } from "lucide-react"
 import { useIsBelowLg } from "#/hooks/use-viewport"
 
 /**
- * Shown over the sign-in page when it is opened on a viewport narrower than
- * `lg:`.
+ * Shown over the authenticated app when it is entered on a viewport narrower
+ * than `lg:`.
  *
  * The in-app experience below that width is the desktop three-column shell —
- * sidebar, content, task rail — which has not been adapted for a phone. Rather
- * than let people discover that after signing in, this says so up front.
+ * sidebar, content, task rail — which has not been adapted for a phone. This
+ * says so on arrival, so the layout is explained rather than merely encountered.
  *
- * It is ADVISORY, not a wall. "Continue anyway" is the primary action and simply
- * dismisses, revealing the sign-in form underneath; anyone who wants to sign in
- * on a phone always can.
+ * It is ADVISORY, not a wall. "Got it" dismisses and the workspace underneath
+ * takes over; anyone who wants to use the app on a phone always can.
  *
  * It deliberately links nowhere else: there is no published mobile app to send
  * people to yet (Android is built but unlisted, iOS is not shipping), and a
  * store button that 404s would be worse than no button.
  *
- * WHY IT LIVES ON THE PAGE rather than on the Login button: /login is reached
- * several ways that never touch that button — the hero's "Start Building" CTA
- * points at /projects and is bounced here by the _authenticated guard, a expired
- * session redirects here mid-visit, and people bookmark and type URLs. Hooking
- * the button covered the least-used of those paths. Gating on arrival covers all
- * of them and needs no interception logic.
+ * WHY IT FIRES AFTER SIGN-IN rather than on /login: the warning is about the
+ * WORKSPACE, so it belongs at the point the workspace appears. On /login it
+ * interrupted people before they had committed to anything and stood between
+ * them and the form — including on every expired-session bounce. Sign-in itself
+ * is perfectly usable on a phone; it is what comes after that is not.
+ *
+ * It also carries a single action now. On /login the dialog needed a way out
+ * ("Back to home") because there was nothing else on that page for someone who
+ * was not signing in. Past the sign-in boundary that link is a dead end into the
+ * marketing site, so the notice is one button and the app is already behind it.
  */
 
 export interface DesktopRecommendedNoticeProps {
@@ -91,8 +93,8 @@ export function DesktopRecommendedNotice({ onDismiss }: DesktopRecommendedNotice
             style={{ fontVariationSettings: "'wdth' 100" }}
           >
             The project workspace uses a wide, three-column layout that is not
-            built for a phone screen yet. You can still sign in here, but you
-            will have a much better time on a larger screen.
+            built for a phone screen yet. Everything works, but you will have a
+            much better time on a larger screen.
           </p>
 
           <div className="flex flex-col gap-[8px] w-full mt-[8px]">
@@ -102,20 +104,8 @@ export function DesktopRecommendedNotice({ onDismiss }: DesktopRecommendedNotice
               className="w-full min-h-[44px] text-center bg-primary hover:bg-primary-hover text-white px-[24px] py-[14px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] leading-[24px] transition-colors"
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
-              Continue anyway
+              Got it
             </button>
-
-            {/* The way out, for someone who would rather come back on a laptop.
-                A real link, not a dismiss — there is nothing on this page for
-                them if they are not signing in. */}
-            <Link
-              to="/"
-              onClick={dismiss}
-              className="w-full min-h-[44px] flex items-center justify-center text-center px-[24px] py-[12px] rounded-[10px] font-['Instrument_Sans',sans-serif] font-medium text-[16px] leading-[24px] text-muted-foreground hover:text-foreground hover:bg-card-surface transition-colors"
-              style={{ fontVariationSettings: "'wdth' 100" }}
-            >
-              Back to home
-            </Link>
           </div>
         </div>
       </div>
@@ -127,15 +117,19 @@ export function DesktopRecommendedNotice({ onDismiss }: DesktopRecommendedNotice
  * Decides whether the notice is due, and renders it if so.
  *
  * Split from the dialog itself so the dialog has no opinion about when it
- * appears. Mounted by LoginPage.
+ * appears. Mounted by AuthenticatedLayout, OUTSIDE the keyed <Outlet>.
  *
- * Dismissal is state on THIS component and is deliberately not persisted. It
- * lasts exactly as long as the mount, so dismissing reveals the form for the
- * current visit and a later return to /login asks again. An earlier version
- * remembered the dismissal in sessionStorage, which meant one "Continue anyway"
- * silenced it for the whole tab — including sign-in attempts hours later. Each
- * attempt is its own decision point, and the notice is one tap to clear, so the
- * cost of re-asking is far lower than the cost of never warning again.
+ * That mount point is what makes this once per login. Dismissal is state on THIS
+ * component and is deliberately not persisted, so it lasts exactly as long as
+ * the mount — and the authenticated layout stays mounted for the whole signed-in
+ * visit. Dismissing therefore silences the notice while the user moves around
+ * the workspace, and a later sign-in or reload raises it again. Note the layout
+ * re-keys the Outlet on resync (`dataVersion`) and NOT this gate, so a
+ * membership resync mid-session does not re-prompt.
+ *
+ * Persisting to storage was tried on the old /login placement and removed
+ * (7fbca98): it silenced the notice for the entire tab. Mount-scoped state gets
+ * the same "don't nag" behaviour without outliving the session.
  */
 export function DesktopRecommendedNoticeGate() {
   const isBelowLg = useIsBelowLg()
