@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Text,
   TextInput,
@@ -11,6 +12,7 @@ import {
 } from "react-native"
 import { useRouter } from "expo-router"
 import { authClient } from "@/src/infrastructure/auth/client"
+import { signupUrl, signupBaseUrl } from "@/src/infrastructure/auth/signup-url"
 import { trpc } from "@/src/infrastructure/trpc/client"
 import { colors } from "@/src/presentation/shared/colors"
 
@@ -25,14 +27,22 @@ export default function LoginScreen() {
   const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The address checkEmail found no account for. Held separately from `error`
+  // because this is the one failure with somewhere to GO — there is no signup in
+  // the mobile app, so the only way forward is the web one, and a plain error
+  // string left people at a dead end with no hint that an account could be made
+  // at all. Cleared on any edit to the field, so correcting a typo takes the
+  // offer away with it.
+  const [unregisteredEmail, setUnregisteredEmail] = useState<string | null>(null)
 
   async function handleContinue() {
     setError(null)
+    setUnregisteredEmail(null)
     setLoading(true)
     try {
       const result = await trpc.users.checkEmail.query({ email })
       if (!result?.exists) {
-        setError("No account found for this email address.")
+        setUnregisteredEmail(email.trim())
         setLoading(false)
         return
       }
@@ -50,6 +60,18 @@ export default function LoginScreen() {
       setError(e instanceof Error ? e.message : "Something went wrong.")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleCreateAccount() {
+    const target = unregisteredEmail ?? email
+    try {
+      await Linking.openURL(signupUrl(target))
+    } catch {
+      // openURL rejects when no handler can take the URL (no browser installed,
+      // or a scheme the OS will not route). Surfacing the address is the useful
+      // fallback — it is the one thing the user cannot reconstruct themselves.
+      setError(`Could not open the browser. Visit ${signupBaseUrl} to sign up.`)
     }
   }
 
@@ -114,6 +136,33 @@ export default function LoginScreen() {
           </View>
         )}
 
+        {/* No account for this address. Not styled as destructive: nothing has
+            gone wrong, the person simply has not signed up yet, and the offer
+            below is the point of the block rather than the message. Signup is
+            web-only for now, so this hands off to the browser. */}
+        {unregisteredEmail && view === "email" && (
+          <View className="bg-muted border border-border rounded-lg px-4 py-4 mb-6">
+            <Text className="text-foreground text-sm font-sans-medium mb-1">
+              No account found
+            </Text>
+            <Text className="text-muted-foreground text-sm mb-4">
+              {`We couldn't find an account for ${unregisteredEmail}. You can create one on the web, then come back here to sign in.`}
+            </Text>
+            <TouchableOpacity
+              onPress={handleCreateAccount}
+              className="bg-primary rounded-lg py-3 items-center mb-2"
+              accessibilityRole="button"
+            >
+              <Text className="text-primary-foreground font-sans-medium text-sm">
+                Create an account
+              </Text>
+            </TouchableOpacity>
+            <Text className="text-muted-foreground text-xs text-center">
+              Opens in your browser. Mistyped it? Edit the address above.
+            </Text>
+          </View>
+        )}
+
         {view === "email" ? (
           <>
             <TextInput
@@ -124,7 +173,14 @@ export default function LoginScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               value={email}
-              onChangeText={setEmail}
+              // Editing the address retracts the signup offer: it was about the
+              // OLD value, and leaving it up next to a changed field would
+              // suggest the new one is unregistered too, which has not been
+              // checked yet.
+              onChangeText={(next) => {
+                setEmail(next)
+                if (unregisteredEmail) setUnregisteredEmail(null)
+              }}
               editable={!loading}
             />
             <TouchableOpacity
