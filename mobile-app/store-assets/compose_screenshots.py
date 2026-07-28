@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
-"""Compose the raw device captures into Play-ready phone screenshots.
+"""Compose the raw device captures into Play-ready screenshots.
 
-The device is 720x1600 (9:20). Play requires 9:16, so each capture is cropped to
-its app content (system status bar and navigation bar removed) and placed on a
-1080x1920 brand canvas with a caption.
+Three form factors, all captured from the same physical moto g34 5G. The phone
+set is the device's native panel; the tablet sets were captured with the display
+temporarily overridden to the canonical large-screen breakpoints:
 
-Input : store-assets/screenshots/NN-name.png   (raw adb screencap, 720x1600)
-Output: store-assets/screenshots/out/NN-name.png (1080x1920)
+    7-inch  : adb shell wm size 1200x1920 ; wm density 320   -> 600dp wide
+    10-inch : adb shell wm size 1600x2560 ; wm density 320   -> 800dp wide
+
+None of these panels is 9:16, which is what Play requires, so each capture is
+cropped to its app content (system bars removed) and placed on a 9:16 brand
+canvas with a caption. Within a set every plate uses the same scale factor, so
+the app UI is the same size across that carousel.
+
+Input : screenshots/<set>/NN-name.png  (raw adb screencap)
+Output: screenshots/out/<set>/NN-name.png
 """
 
 import os
@@ -21,109 +29,136 @@ FONT_DIR = "/home/parthae/Documents/Projects/BuildInLime/POC/BuildInLime/node_mo
 SHOTS = "/home/parthae/Documents/Projects/BuildInLime/POC/BuildInLime/mobile-app/store-assets/screenshots"
 OUT = f"{SHOTS}/out"
 
-W, H = 1080, 1920
-SS = 2  # supersample factor
+SS = 2  # supersample
 
-# Rows to trim off each raw capture: the system status bar and the nav bar.
-CROP_TOP = 88
-CROP_BOTTOM = 105
+# Caption copy is shared across form factors; only the framing differs.
+CAPTIONS = {
+    "01-channels.png": ("A channel for every workstream",
+                        "Requirements, design, materials — each with its own status"),
+    "02-messages.png": ("Talk where the work is",
+                        "Threaded messages, with photos and files attached"),
+    "03-task-detail.png": ("Tasks that keep their history",
+                           "Owner, status and every change, recorded on the task"),
+    "04-resources.png": ("Files stay with the work",
+                         "Every attachment tied to the message or task it came from"),
+    "05-signin.png": ("Sign in with your email",
+                      "A one-time code — no password to forget"),
+}
 
-# (file, caption, sub-caption, content_bottom)
+# Per-set framing.
+#   crop_top/crop_bottom : system status bar and nav bar, in raw pixels.
+#   canvas               : output size, always exactly 9:16.
+#   type_scale           : caption sizing, so text reads the same relative size.
+#   content_bottom       : per-file trim of trailing empty space (None = keep all).
 #
-# content_bottom trims trailing empty space in the raw capture, in raw pixels.
-# Lists that run out mid-screen read as an empty app; screens whose content is
-# anchored (a composer, a sheet) or deliberately centred keep their full height.
-# None = keep the full capture.
-PLATES = [
-    ("01-channels.png", "A channel for every workstream",
-     "Requirements, design, materials — each with its own status", 965),
-    ("02-messages.png", "Talk where the work is",
-     "Threaded messages, with photos and files attached", None),
-    ("03-task-detail.png", "Tasks that keep their history",
-     "Owner, status and every change, recorded on the task", 1105),
-    ("04-resources.png", "Files stay with the work",
-     "Every attachment tied to the message or task it came from", None),
-    ("05-signin.png", "Sign in with your email",
-     "A one-time code — no password to forget", None),
-]
+# Lists that run out mid-screen read as an empty app, and the tablet renders are
+# mostly empty below the fold because the layout is phone-width with no large-screen
+# breakpoints. Screens whose content is anchored (a composer, a bottom sheet) or
+# deliberately centred keep their full height.
+SETS = {
+    "phone": {
+        "canvas": (1080, 1920), "crop_top": 88, "crop_bottom": 105, "type_scale": 1.0,
+        "files": ["01-channels.png", "02-messages.png", "03-task-detail.png",
+                  "04-resources.png", "05-signin.png"],
+        "content_bottom": {"01-channels.png": 965, "03-task-detail.png": 1105},
+    },
+    "tab7": {
+        "canvas": (1440, 2560), "crop_top": 100, "crop_bottom": 0, "type_scale": 1.33,
+        "files": ["01-channels.png", "02-messages.png", "03-task-detail.png",
+                  "04-resources.png"],
+        # No content trimming: a short, wide tablet screen cannot fill a 9:16
+        # canvas, so cropping to content leaves a large void *outside* the plate.
+        # Keeping the full screen puts that emptiness inside the app, where it
+        # honestly belongs -- this is what 600dp/800dp actually renders like.
+        "content_bottom": {},
+    },
+    "tab10": {
+        "canvas": (1440, 2560), "crop_top": 130, "crop_bottom": 0, "type_scale": 1.33,
+        "files": ["01-channels.png", "02-messages.png", "03-task-detail.png",
+                  "04-resources.png"],
+        "content_bottom": {},
+    },
+}
 
-# Every plate is scaled by the same factor, derived from a full-height capture,
-# so the app UI renders at an identical size across the whole carousel.
-PLATE_TOP, PLATE_BOTTOM, PLATE_SIDE = 248, 52, 90
+PLATE_TOP, PLATE_BOTTOM, PLATE_SIDE = 248, 52, 90  # fractions of a 1080x1920 canvas
 
 
 def font(weight, size):
     return ImageFont.truetype(f"{FONT_DIR}/{weight}/InstrumentSans_{weight}.ttf", size)
 
 
-def background():
-    """Brown vertical wash, matching the feature graphic."""
-    im = Image.new("RGB", (W * SS, H * SS), BROWN)
+def background(w, h):
+    im = Image.new("RGB", (w, h), BROWN)
     d = ImageDraw.Draw(im)
-    for i in range(H * SS):
-        t = i / (H * SS)
-        c = tuple(int(BROWN[k] + (BROWN_DK[k] - BROWN[k]) * t) for k in range(3))
-        d.line([(0, i), (W * SS, i)], fill=c)
+    for i in range(h):
+        t = i / h
+        d.line([(0, i), (w, i)],
+               fill=tuple(int(BROWN[k] + (BROWN_DK[k] - BROWN[k]) * t) for k in range(3)))
     return im
 
 
 def rounded(im, radius):
-    """Apply rounded corners, returning an RGBA image."""
     mask = Image.new("L", im.size, 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, im.size[0], im.size[1]],
-                                           radius=radius, fill=255)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, *im.size], radius=radius, fill=255)
     im = im.convert("RGBA")
     im.putalpha(mask)
     return im
 
 
-def centred(d, text, y, fnt, fill):
-    w = d.textbbox((0, 0), text, font=fnt)[2]
-    d.text(((W * SS - w) / 2, y), text, font=fnt, fill=fill)
+def compose(set_name, cfg, fname):
+    W, H = cfg["canvas"]
+    k = W / 1080.0           # canvas scale relative to the phone layout
+    ts = cfg["type_scale"]
+    caption, sub = CAPTIONS[fname]
 
+    shot = Image.open(f"{SHOTS}/{set_name}/{fname}").convert("RGB")
+    bottom = cfg["content_bottom"].get(fname) or (shot.height - cfg["crop_bottom"])
+    shot = shot.crop((0, cfg["crop_top"], shot.width, bottom))
 
-def plate_scale(raw_h=1600):
-    """The scale a full-height capture needs to fill the plate area, in SS units."""
-    full = raw_h - CROP_TOP - CROP_BOTTOM
-    avail_h = (H - PLATE_TOP - PLATE_BOTTOM) * SS
-    avail_w = (W - 2 * PLATE_SIDE) * SS
-    return min(avail_w / 720, avail_h / full)
-
-
-def compose(src, caption, sub, content_bottom):
-    shot = Image.open(f"{SHOTS}/{src}").convert("RGB")
-    bottom_px = content_bottom if content_bottom else shot.height - CROP_BOTTOM
-    shot = shot.crop((0, CROP_TOP, shot.width, bottom_px))
-
-    im = background()
+    im = background(int(W * SS), int(H * SS))
     d = ImageDraw.Draw(im)
 
-    centred(d, caption, int(96 * SS), font("700Bold", int(52 * SS)), CREAM)
-    centred(d, sub, int(168 * SS), font("400Regular", int(28 * SS)), SUBTLE)
+    def centred(text, y, fnt, fill):
+        w = d.textbbox((0, 0), text, font=fnt)[2]
+        d.text(((W * SS - w) / 2, y), text, font=fnt, fill=fill)
 
-    top = PLATE_TOP * SS
-    scale = plate_scale()
+    centred(caption, int(96 * k * SS), font("700Bold", int(52 * ts * SS)), CREAM)
+    centred(sub, int(168 * k * SS), font("400Regular", int(28 * ts * SS)), SUBTLE)
+
+    # One scale per set, derived from a full-height capture of that set, so the
+    # app UI is the same size on every plate in the carousel.
+    raw_full = Image.open(f"{SHOTS}/{set_name}/02-messages.png")
+    full_h = raw_full.height - cfg["crop_top"] - cfg["crop_bottom"]
+    avail_h = (H - PLATE_TOP * k - PLATE_BOTTOM * k) * SS
+    avail_w = (W - 2 * PLATE_SIDE * k) * SS
+    scale = min(avail_w / raw_full.width, avail_h / full_h)
+
     sw, sh = int(shot.width * scale), int(shot.height * scale)
-    shot = shot.resize((sw, sh), Image.LANCZOS)
-    shot = rounded(shot, int(22 * SS))
+    shot = rounded(shot.resize((sw, sh), Image.LANCZOS), int(22 * k * SS))
 
-    x, y = (W * SS - sw) // 2, top
+    # Centre the plate in the area below the caption. Full-height plates fill it
+    # anyway; heavily-cropped ones (the tablet lists) would otherwise leave a
+    # large void at the bottom of the canvas.
+    x = (int(W * SS) - sw) // 2
+    y = int(PLATE_TOP * k * SS + max(0, (avail_h - sh) / 2))
 
-    # Soft drop shadow so the plate lifts off the brown.
     sh_layer = Image.new("RGBA", im.size, (0, 0, 0, 0))
     ImageDraw.Draw(sh_layer).rounded_rectangle(
-        [x, y + int(10 * SS), x + sw, y + sh + int(10 * SS)],
-        radius=int(22 * SS), fill=(60, 38, 10, 130))
-    sh_layer = sh_layer.filter(ImageFilter.GaussianBlur(int(14 * SS)))
+        [x, y + int(10 * k * SS), x + sw, y + sh + int(10 * k * SS)],
+        radius=int(22 * k * SS), fill=(60, 38, 10, 130))
+    sh_layer = sh_layer.filter(ImageFilter.GaussianBlur(int(14 * k * SS)))
     im = Image.alpha_composite(im.convert("RGBA"), sh_layer)
 
     im.paste(shot, (x, y), shot)
     im = im.convert("RGB").resize((W, H), Image.LANCZOS)
-    im.save(f"{OUT}/{src}")
-    print(f"{src}  {im.size}")
+
+    os.makedirs(f"{OUT}/{set_name}", exist_ok=True)
+    im.save(f"{OUT}/{set_name}/{fname}")
+    print(f"  {set_name}/{fname}  {im.size}")
 
 
 if __name__ == "__main__":
-    os.makedirs(OUT, exist_ok=True)
-    for src, cap, sub, cb in PLATES:
-        compose(src, cap, sub, cb)
+    for set_name, cfg in SETS.items():
+        print(f"{set_name}:")
+        for fname in cfg["files"]:
+            compose(set_name, cfg, fname)
