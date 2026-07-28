@@ -58,10 +58,14 @@ come from an on-device copy of your data, and anything you create is saved local
 first and synced to the server when you reconnect. No spinner waiting on a bar of
 signal.
 
-PRIVACY
-BuildInLime contains no advertising, no analytics and no tracking SDKs. Your data is
-used only to run the app, is never sold, and is never used to train AI models. You
-can request deletion of your account and data at any time from the Account screen.
+DATA OWNERSHIP
+Your project data is yours. BuildInLime carries no advertising, no analytics and no
+tracking SDKs. What you put in is used only to run the app — never sold, never shared
+with advertisers, never used to train AI models. A copy of everything you are allowed
+to see is held on your own device, so your record of the project stays readable with
+or without a connection. You can request deletion of your account and all of its data
+at any time from the Account screen; it is removed within 30 days.
+
 Read the full policy at https://app.buildinlime.com/privacy
 
 BuildInLime is operated by DataConscientious LLP and built by Barefoot Programmers.
@@ -181,19 +185,32 @@ a known-stale artifact into the testing window.
 
 ---
 
-## Graphics assets — the one gap this doc can't fill
+## Graphics assets — produced 2026-07-28
 
-**These gate the production release, not closed testing.** Produce them *during* the
-14-day closed-testing window rather than before it — the Console does not ask for them
-when creating a closed-testing release. See the correction in `ANDROID_RELEASE_PLAN.md`
-(Phase 4 and the status section) for the citation.
+**These gate the production release, not closed testing.** The Console does not ask for
+them when creating a closed-testing release. See the correction in
+`ANDROID_RELEASE_PLAN.md` (Phase 4 and the status section) for the citation.
 
-Upload at **Grow users → Store presence → Main store listing → Graphics**. Play's
-required sizes:
-- [ ] **App icon** — 512×512 PNG (32-bit, with alpha). Source: `assets/images/icon.png`.
-- [ ] **Feature graphic** — 1024×500 PNG/JPG (no transparency).
-- [ ] **Phone screenshots** — 2–8 images, 16:9 or 9:16, min 320px, max 3840px.
-- [ ] (Optional) 7-inch and 10-inch tablet screenshots if you list tablet support.
+All produced and sitting in **`store-assets/`** — see `store-assets/README.md` for
+provenance, regeneration commands and known weaknesses. Upload at
+**Grow users → Store presence → Main store listing → Graphics**:
+- [x] **App icon** — 512×512 PNG (32-bit, with alpha) → `store-assets/play-icon-512.png`.
+      Drawn from `web-app/code/public/favicon.svg`, *not* from `assets/images/icon.png`
+      (see the warning below).
+- [x] **Feature graphic** — 1024×500 PNG, no transparency → `store-assets/feature-graphic.png`.
+- [x] **Phone screenshots** — 5 images, 1080×1920 (9:16) → `store-assets/screenshots/out/`.
+      Real captures from a moto g34 5G on the release build, composed onto a brand canvas
+      because the device panel is 9:20 and Play requires 9:16.
+- [ ] (Optional) 7-inch and 10-inch tablet screenshots — not produced; leave the section
+      empty rather than claiming tablet support on the Android listing.
 
-The in-app adaptive icon and splash are already final (`app.json`); these store
-graphics are separate marketing assets.
+> **The in-app icon was NOT final, contrary to what this doc used to say.**
+> `assets/images/icon.png`, the three `android-icon-*` adaptive layers and
+> `splash-icon.png` were all still the stock Expo chevron — that is what versionCode 3
+> ships and what current testers see on their home screen.
+>
+> Replaced 2026-07-28 by `store-assets/build_app_icons.py`, and
+> `android.adaptiveIcon.backgroundColor` changed from `#E6F4FE` to `#976623`.
+> **This has not reached a build yet** — `mobile-app/android/` is gitignored and EAS
+> regenerates it at build time, so the launcher icon only changes on the next build.
+> Rebuild before production (costs a versionCode) and confirm the icon on-device.
