@@ -5,14 +5,23 @@ Prepared 2026-07-28. Upload at **Grow users → Store presence → Main store li
 
 ## What to upload
 
+The app icon and feature graphic are **global** — uploaded once, they serve every
+form factor. Only screenshots are per-form-factor.
+
 | Play field | File | Spec | Status |
 |---|---|---|---|
 | App icon | `play-icon-512.png` | 512×512, 32-bit PNG w/ alpha | ✅ |
 | Feature graphic | `feature-graphic.png` | 1024×500, no alpha | ✅ |
-| Phone screenshots | `screenshots/out/0*.png` | 1080×1920 (9:16), 2–8 images | ✅ 5 images |
+| Phone screenshots | `screenshots/out/phone/` | 1080×1920 (9:16) | ✅ 5 |
+| 7-inch tablet | `screenshots/out/tab7/` | 1440×2560 (9:16) | ✅ 4 |
+| 10-inch tablet | `screenshots/out/tab10/` | 1440×2560 (9:16) | ✅ 4 |
+| Chromebook | — | — | ❌ not produced |
+| Android XR | — | 8:5, ≥1920×1200 | ❌ not produced |
 
-Tablet screenshots are not produced. `app.json` sets `ios.supportsTablet` but the
-Android listing does not have to claim tablet support; leave that section empty.
+Play requires a **minimum of 4** screenshots per tablet form factor (2 for phone), and
+blocks closed testing without the tablet sets. Chromebook and Android XR are only
+required if you distribute to them; XR additionally needs a different aspect ratio
+(8:5) that nothing here can be adapted to.
 
 ## Provenance
 
@@ -36,16 +45,42 @@ composed uploads. Re-running is safe and deterministic.
 
 ### Why the screenshots are composed rather than uploaded raw
 
-The device is 720×1600 — a **9:20** panel. Play requires phone screenshots at **9:16**,
-so raw captures cannot be uploaded. Each is cropped to its app content (system status
-bar and navigation bar removed) and placed on a 1080×1920 brand canvas with a caption.
-Every plate is scaled by the same factor, so the app UI is the same size across the
-carousel.
+The device panel is 720×1600 — **9:20**. Play requires **9:16**, so raw captures cannot
+be uploaded. Each is cropped to remove the system status and navigation bars, then
+placed on a 9:16 brand canvas with a caption. Within a set every plate is scaled by the
+same factor, so the app UI is the same size across that carousel.
 
-Two plates (`01`, `03`) are additionally cropped to where their content ends — see
-`content_bottom` in `compose_screenshots.py`. Both screens are short lists that stop
-mid-screen, and the trailing white read as an empty app. Screens whose content is
-anchored (a composer, a bottom sheet) or deliberately centred keep their full height.
+Two phone plates (`01`, `03`) are additionally cropped to where their content ends — see
+`content_bottom` in `compose_screenshots.py`. Both are short lists that stop mid-screen,
+and the trailing white read as an empty app. Screens whose content is anchored (a
+composer, a bottom sheet) or deliberately centred keep their full height.
+
+The tablet plates are deliberately **not** content-cropped. A short, wide tablet screen
+cannot fill a 9:16 canvas, so trimming it just moves the void outside the plate; keeping
+the full screen puts the emptiness inside the app, where it honestly belongs.
+
+### How the tablet sets were captured
+
+There is no tablet here and no `cmdline-tools`/`avdmanager` to create one, so the
+physical phone's display was temporarily overridden to the canonical large-screen
+breakpoints and the app relaunched into them:
+
+```sh
+adb shell wm size 1200x1920 && adb shell wm density 320   # 7-inch  -> 600dp wide
+adb shell wm size 1600x2560 && adb shell wm density 320   # 10-inch -> 800dp wide
+```
+
+Restore afterwards with `wm size reset`. **Restore density with `wm density 306`, not
+`wm density reset`** — this device runs a 306 override over a physical 280, and a plain
+reset silently changes the user's phone.
+
+Status-bar heights differ per resolution (100px at 7-inch, 130px at 10-inch); the tablet
+renders have no navigation bar at all. Both are encoded in `SETS`.
+
+> These show the phone layout stretched, because the app has no large-screen layout —
+> one `useWindowDimensions` call in the entire codebase, for bottom-sheet height. That is
+> what a tablet user actually gets, so the screenshots are accurate, but a real tablet
+> layout would make this listing substantially better.
 
 ### Capture notes
 
