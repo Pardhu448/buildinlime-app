@@ -47,6 +47,20 @@ export interface StorageProvider {
   /** Best-effort delete. A missing key is success, never an error. */
   delete: (key: string) => Promise<void>
   /**
+   * Duplicate the object at `srcKey` to `destKey`, server-side where the store
+   * supports it — bytes must not have to travel through this process.
+   *
+   * Used when cloning the sample project for a new account. A real copy, not a
+   * shared reference, is the whole point: storage keys are derived from the
+   * resource id, and two `resources_raw` rows pointing at ONE object would mean
+   * the purge job reclaiming that object on behalf of whichever copy was deleted
+   * first, silently breaking the file for the template and every other user.
+   *
+   * Throws if `srcKey` does not exist — unlike `delete`, a missing source is a
+   * real failure, since the caller is about to write rows that reference it.
+   */
+  copy: (srcKey: string, destKey: string) => Promise<void>
+  /**
    * Keys under a prefix, for the orphan sweep. Keys are returned relative to the
    * store root (i.e. in the same space `put`/`get` accept), not as absolute paths.
    */

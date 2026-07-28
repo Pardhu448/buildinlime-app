@@ -6,7 +6,13 @@ import {
   membershipTable,
   projectsTable,
 } from "../database/schema/organization-tables"
-import { messagesTable, tasksTable } from "../database/schema/communication-tables"
+import {
+  messagesTable,
+  resourcesRawTable,
+  resourcesTable,
+  tasksTable,
+} from "../database/schema/communication-tables"
+import { getStorage } from "../storage/index"
 
 /**
  * The example project every new account starts with, CLONED FROM A REAL PROJECT.
@@ -25,20 +31,141 @@ import { messagesTable, tasksTable } from "../database/schema/communication-tabl
  * channels.ts:38), so a member-only copy would show "add a build unit" and then
  * throw when the newcomer pressed it.
  *
- * TWO THINGS ARE DELIBERATELY NOT COPIED, because the template is a real project
- * with real history:
+ * The template is a real project with real history, so some of it must not travel:
  *
- * - `mention_ids` are dropped. The template's messages mention actual users;-
+ * - `mention_ids` are dropped. The template's messages mention actual users;
  *   carrying those ids into a stranger's project would plant references to real
  *   people in it. The @name remains as ordinary text, which is inert.
- * - `resource_ids` are dropped and resource rows are not cloned. A resource row
- *   belongs to the template's channel, which is outside the new owner's access
- *   scope, so a copied id renders as a broken attachment. Cloning the files
- *   themselves would mean duplicating stored objects per signup.
+ * - Deleted rows are skipped. Tombstoned messages and soft-deleted tasks and
+ *   resources are history, not sample content.
+ * - `parent_id` and `task_id` links between messages are dropped rather than
+ *   remapped: the target may itself have been filtered out, and a dangling
+ *   reference orphans a thread.
+ *
+ * Attachments ARE cloned, each user getting their own resource row, their own
+ * storage object and their own `resources_raw` row — see cloneResources below for
+ * why a shared object would be actively dangerous rather than merely untidy.
  */
 
 /** Accepts the pooled db or an open transaction. */
 type DbLike = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/**
+ * Clone the template's attachments so the copy's images actually load.
+ *
+ * Each cloned resource gets a NEW id, and both the storage key and the served
+ * URL are derived from that id (fileStorage.ts:58-59) — so a fresh id yields a
+ * fresh key for free, provided the key is rebuilt rather than copied from
+ * `resources_raw.storage_path`. Reusing the template's path would point two rows
+ * at one object, and the purge job would then reclaim it on behalf of whichever
+ * copy was soft-deleted first, breaking the image for the template and every
+ * other user at once.
+ *
+ * Objects are copied BEFORE the surrounding transaction commits, matching what
+ * handleFileUpload already does. The failure modes are asymmetric: a rollback
+ * after copying leaves orphaned objects, which the orphan sweep reclaims on its
+ * age floor, whereas committing rows first and failing the copy leaves permanent
+ * references to files that do not exist.
+ */
+async function cloneResources(
+  tx: DbLike,
+  args: {
+    templateChannelIds: string[]
+    projectId: string
+    ownerId: string
+    channelMap: Map<string, string>
+    unitMap: Map<string, string>
+    messageMap: Map<string, string>
+    taskMap: Map<string, string>
+  }
+): Promise<void> {
+  const templateResources = await tx
+    .select({
+      resource: resourcesTable,
+      storage_path: resourcesRawTable.storage_path,
+      original_filename: resourcesRawTable.original_filename,
+    })
+    .from(resourcesTable)
+    .innerJoin(resourcesRawTable, eq(resourcesRawTable.resource_id, resourcesTable.id))
+    .where(
+      and(
+        inArray(resourcesTable.channel_id, args.templateChannelIds),
+        isNull(resourcesTable.deleted_at)
+      )
+    )
+
+  if (templateResources.length === 0) return
+
+  const storage = getStorage()
+  // Accumulated so resource ids can be written back onto the messages that carry
+  // them; messages are inserted before resources exist.
+  const resourceIdsByMessage = new Map<string, string[]>()
+
+  for (const { resource, storage_path, original_filename } of templateResources) {
+    const newChannelId = args.channelMap.get(resource.channel_id)
+    const newUnitId = args.unitMap.get(resource.buildunit_id)
+    if (!newChannelId || !newUnitId) continue
+
+    // A resource whose parent message or task was filtered out of the clone
+    // (deleted, or in a channel that did not come across) would land with a
+    // dangling reference. Skip it rather than orphan it.
+    const newMessageId = resource.message_id
+      ? args.messageMap.get(resource.message_id)
+      : null
+    if (resource.message_id && !newMessageId) continue
+
+    const newTaskId = resource.task_id ? args.taskMap.get(resource.task_id) : null
+    if (resource.task_id && !newTaskId) continue
+
+    const newId = crypto.randomUUID()
+    // Rebuilt from the new id, never copied — see this function's header.
+    const filename = storage_path.split("/").pop() ?? original_filename
+    const newKey = `resources/${newId}/${filename}`
+
+    await storage.copy(storage_path, newKey)
+
+    await tx.insert(resourcesTable).values({
+      id: newId,
+      name: resource.name,
+      description: resource.description,
+      // Derived from the id the same way handleFileUpload derives it.
+      file_location: `/api/resources/${newId}/file`,
+      mime_type: resource.mime_type,
+      file_size_bytes: resource.file_size_bytes,
+      message_id: newMessageId,
+      task_id: newTaskId,
+      channel_id: newChannelId,
+      buildunit_id: newUnitId,
+      project_id: args.projectId,
+      createdby_id: args.ownerId,
+    })
+
+    await tx.insert(resourcesRawTable).values({
+      id: crypto.randomUUID(),
+      resource_id: newId,
+      storage_path: newKey,
+      original_filename,
+      mime_type: resource.mime_type,
+      file_size_bytes: resource.file_size_bytes,
+    })
+
+    if (newMessageId) {
+      const ids = resourceIdsByMessage.get(newMessageId) ?? []
+      ids.push(newId)
+      resourceIdsByMessage.set(newMessageId, ids)
+    }
+  }
+
+  // messages.resource_ids is empty on the current template — attachments hang off
+  // resources.message_id instead — but the column is part of the schema and is
+  // populated elsewhere, so keep the two representations consistent in the copy.
+  for (const [messageId, ids] of resourceIdsByMessage) {
+    await tx
+      .update(messagesTable)
+      .set({ resource_ids: ids })
+      .where(eq(messagesTable.id, messageId))
+  }
+}
 
 /**
  * Which project to clone. An explicit id wins; otherwise the newest non-deleted
@@ -244,23 +371,27 @@ export async function provisionSampleProject(
       )
     )
 
+  const messageMap = new Map<string, string>()
+
   for (const message of templateMessages) {
     const newChannelId = channelMap.get(message.channel_id)
     const newUnitId = unitMap.get(message.buildunit_id)
     if (!newChannelId || !newUnitId) continue
 
+    const newId = crypto.randomUUID()
     await tx.insert(messagesTable).values({
-      id: crypto.randomUUID(),
+      id: newId,
       text: message.text,
       channel_id: newChannelId,
       buildunit_id: newUnitId,
       project_id: project.id,
       createdby_id: ownerId,
-      // See the header: real user ids and cross-project resource ids must not
-      // travel into someone else's copy.
+      // See the header: real user ids must not travel into someone else's copy.
       mention_ids: [],
+      // Filled in below, once the cloned resources have ids to point at.
       resource_ids: [],
     })
+    messageMap.set(message.id, newId)
   }
 
   // Tasks. task_id links from messages are not carried across for the same
@@ -272,13 +403,16 @@ export async function provisionSampleProject(
       and(inArray(tasksTable.channel_id, templateChannelIds), isNull(tasksTable.deleted_at))
     )
 
+  const taskMap = new Map<string, string>()
+
   for (const task of templateTasks) {
     const newChannelId = channelMap.get(task.channel_id)
     const newUnitId = unitMap.get(task.buildunit_id)
     if (!newChannelId || !newUnitId) continue
 
+    const newId = crypto.randomUUID()
     await tx.insert(tasksTable).values({
-      id: crypto.randomUUID(),
+      id: newId,
       name: task.name,
       description: task.description,
       completed: task.completed,
@@ -289,7 +423,18 @@ export async function provisionSampleProject(
       // owner has no relationship with.
       assignee_id: ownerId,
     })
+    taskMap.set(task.id, newId)
   }
+
+  await cloneResources(tx, {
+    templateChannelIds,
+    projectId: project.id,
+    ownerId,
+    channelMap,
+    unitMap,
+    messageMap,
+    taskMap,
+  })
 
   return { status: "created", projectId: project.id }
 }

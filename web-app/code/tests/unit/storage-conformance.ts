@@ -69,6 +69,48 @@ export function runStorageConformance(label: string, getProvider: () => StorageP
       await expect(getProvider().delete(key)).resolves.toBeUndefined()
     })
 
+    it("copies an object to a new key, leaving the source intact", async () => {
+      const src = `${prefix}copy-src.bin`
+      const dest = `${prefix}copy-dest.bin`
+      const body = Buffer.from("copy me")
+      await getProvider().put(src, body, { contentType: "application/octet-stream" })
+
+      await getProvider().copy(src, dest)
+
+      const copied = await getProvider().get(dest)
+      expect(copied).not.toBeNull()
+      expect((await readAll(copied!.stream)).equals(body)).toBe(true)
+      // The source must survive — callers copy in order to keep both.
+      expect(await getProvider().get(src)).not.toBeNull()
+    })
+
+    it("produces INDEPENDENT objects, so deleting one leaves the other", async () => {
+      // The property the sample-project clone depends on. If a driver ever
+      // implemented copy as a link or an alias, deleting one user's attachment
+      // would destroy the template's file and every other copy of it.
+      const src = `${prefix}independent-src.bin`
+      const dest = `${prefix}independent-dest.bin`
+      await getProvider().put(src, Buffer.from("original"), {
+        contentType: "application/octet-stream",
+      })
+      await getProvider().copy(src, dest)
+
+      await getProvider().delete(dest)
+
+      expect(await getProvider().get(dest)).toBeNull()
+      const survivor = await getProvider().get(src)
+      expect(survivor).not.toBeNull()
+      expect((await readAll(survivor!.stream)).toString()).toBe("original")
+    })
+
+    it("throws when the source does not exist", async () => {
+      // Unlike delete, a missing source is a real failure: the caller is about to
+      // write rows that reference the destination.
+      await expect(
+        getProvider().copy(`${prefix}missing-${Math.random()}.bin`, `${prefix}nope.bin`)
+      ).rejects.toThrow()
+    })
+
     it("lists keys under a prefix", async () => {
       const key = `${prefix}listing/a.txt`
       await getProvider().put(key, Buffer.from("aa"), { contentType: "text/plain" })

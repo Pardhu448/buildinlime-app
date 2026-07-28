@@ -66,6 +66,20 @@ export class GcsStorage implements StorageProvider {
     await this.file(key).delete({ ignoreNotFound: true })
   }
 
+  async copy(srcKey: string, destKey: string): Promise<void> {
+    // Server-side copy: GCS duplicates the object within the bucket without the
+    // bytes passing through this process, so cloning a sample project costs a
+    // few API calls rather than a download plus an upload.
+    try {
+      await this.file(srcKey).copy(this.file(destKey))
+    } catch (err) {
+      if (isNotFound(err)) {
+        throw new Error(`storage: cannot copy missing object ${srcKey}`)
+      }
+      throw err
+    }
+  }
+
   async list(prefix: string): Promise<{ key: string; size: number; mtime: Date }[]> {
     // getFiles auto-paginates, returning every object under the prefix.
     const [files] = await this.storage.bucket(this.bucketName).getFiles({ prefix })

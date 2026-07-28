@@ -1,4 +1,7 @@
-import { describe, it, expect } from "vitest"
+import { promises as fs } from "node:fs"
+import os from "node:os"
+import path from "node:path"
+import { describe, it, expect, afterAll } from "vitest"
 import { and, eq, inArray } from "drizzle-orm"
 import { usersRouter } from "%/infrastructure/trpc/routers/users"
 import { provisionSampleProject } from "%/infrastructure/onboarding/sample-project"
@@ -9,6 +12,8 @@ import {
   membershipTable,
   messagesTable,
   tasksTable,
+  resourcesTable,
+  resourcesRawTable,
 } from "%/infrastructure/database/schema/admin-schema"
 import { db } from "./setup/db"
 import { makeCtx } from "./setup/ctx"
@@ -21,6 +26,14 @@ import { createUser, seedChannel, createMessage } from "./factories"
 // A member-only copy would show "add a build unit" and throw when pressed. And
 // because role is not enforced anywhere, a single SHARED sample would let every
 // user read and post over every other user's content.
+
+// getStorage() caches its driver on the FIRST call and reads these env vars only
+// then. That call happens inside cloneResources at test time, not at import time,
+// so setting them at module scope here is early enough — module bodies run before
+// any test does.
+const UPLOADS = path.join(os.tmpdir(), `sample-project-test-${process.pid}`)
+process.env.STORAGE_DRIVER = "local"
+process.env.LOCAL_STORAGE_DIR = UPLOADS
 
 const caller = async () => usersRouter.createCaller(makeCtx(await createUser()))
 
@@ -245,6 +258,180 @@ describe("sample project cloning", () => {
     const newcomer = await createUser()
     const result = await provisionSampleProject(db, newcomer.id)
     expect(result.status).toBe("skipped")
+  })
+})
+
+afterAll(async () => {
+  await fs.rm(UPLOADS, { recursive: true, force: true })
+})
+
+/** A template attachment: resources row, resources_raw row, and real bytes on disk. */
+async function seedTemplateResource(
+  template: Awaited<ReturnType<typeof seedTemplate>>,
+  opts: { messageId?: string; taskId?: string; bytes: string }
+) {
+  const id = crypto.randomUUID()
+  const key = `resources/${id}/photo.jpg`
+  const full = path.join(UPLOADS, key)
+  await fs.mkdir(path.dirname(full), { recursive: true })
+  await fs.writeFile(full, opts.bytes)
+
+  await db.insert(resourcesTable).values({
+    id,
+    name: "Site photo",
+    file_location: `/api/resources/${id}/file`,
+    mime_type: "image/jpeg",
+    file_size_bytes: opts.bytes.length,
+    message_id: opts.messageId ?? null,
+    task_id: opts.taskId ?? null,
+    channel_id: template.channel.id,
+    buildunit_id: template.buildUnit.id,
+    project_id: template.project.id,
+    createdby_id: template.owner.id,
+  })
+  await db.insert(resourcesRawTable).values({
+    id: crypto.randomUUID(),
+    resource_id: id,
+    storage_path: key,
+    original_filename: "photo.jpg",
+    mime_type: "image/jpeg",
+    file_size_bytes: opts.bytes.length,
+  })
+  return { id, key }
+}
+
+describe("cloning attachments", () => {
+  it("gives the copy its own resource row, its own key, and its own bytes", async () => {
+    // The critical property. Storage keys derive from the resource id, so reusing
+    // the template's storage_path would point two rows at ONE object — and the
+    // purge job would reclaim it on behalf of whichever copy was deleted first,
+    // breaking the image for the template and every other user at once.
+    const template = await seedTemplate()
+    const message = await createMessage({
+      channelId: template.channel.id,
+      buildUnitId: template.buildUnit.id,
+      projectId: template.project.id,
+      createdById: template.owner.id,
+      text: "here is the site photo",
+    })
+    const original = await seedTemplateResource(template, {
+      messageId: message.id,
+      bytes: "PHOTO-BYTES",
+    })
+
+    const newcomer = await createUser()
+    const result = await provisionSampleProject(db, newcomer.id)
+    if (result.status === "skipped") throw new Error("template not found")
+
+    const [copy] = await db
+      .select({ resource: resourcesTable, storage_path: resourcesRawTable.storage_path })
+      .from(resourcesTable)
+      .innerJoin(resourcesRawTable, eq(resourcesRawTable.resource_id, resourcesTable.id))
+      .where(eq(resourcesTable.project_id, result.projectId))
+
+    expect(copy).toBeDefined()
+    expect(copy.resource.id).not.toBe(original.id)
+    expect(copy.storage_path).not.toBe(original.key)
+    // The URL is derived from the new id, not carried over.
+    expect(copy.resource.file_location).toBe(`/api/resources/${copy.resource.id}/file`)
+    expect(copy.resource.createdby_id).toBe(newcomer.id)
+
+    // Both objects exist independently, with identical content.
+    const originalBytes = await fs.readFile(path.join(UPLOADS, original.key), "utf8")
+    const copyBytes = await fs.readFile(path.join(UPLOADS, copy.storage_path), "utf8")
+    expect(originalBytes).toBe("PHOTO-BYTES")
+    expect(copyBytes).toBe("PHOTO-BYTES")
+
+    // Deleting the copy's object must leave the template's intact — the thing a
+    // shared storage_path would have broken.
+    await fs.rm(path.join(UPLOADS, copy.storage_path))
+    await expect(
+      fs.readFile(path.join(UPLOADS, original.key), "utf8")
+    ).resolves.toBe("PHOTO-BYTES")
+  })
+
+  it("reattaches the copy to the cloned message, both ways", async () => {
+    const template = await seedTemplate()
+    const message = await createMessage({
+      channelId: template.channel.id,
+      buildUnitId: template.buildUnit.id,
+      projectId: template.project.id,
+      createdById: template.owner.id,
+      text: "attachment carrier",
+    })
+    await seedTemplateResource(template, { messageId: message.id, bytes: "A" })
+
+    const newcomer = await createUser()
+    const result = await provisionSampleProject(db, newcomer.id)
+    if (result.status === "skipped") throw new Error("template not found")
+
+    const [copy] = await db
+      .select()
+      .from(resourcesTable)
+      .where(eq(resourcesTable.project_id, result.projectId))
+
+    const [carrier] = await db
+      .select()
+      .from(messagesTable)
+      .where(
+        and(
+          eq(messagesTable.project_id, result.projectId),
+          eq(messagesTable.text, "attachment carrier")
+        )
+      )
+
+    // resources.message_id points at the CLONED message, not the template's...
+    expect(copy.message_id).toBe(carrier.id)
+    expect(copy.message_id).not.toBe(message.id)
+    // ...and the denormalised array agrees with it.
+    expect(carrier.resource_ids).toEqual([copy.id])
+  })
+
+  it("skips an attachment whose parent message was not cloned", async () => {
+    // Deleted messages are filtered out of the copy. A resource still pointing at
+    // one would land with a dangling message_id.
+    const template = await seedTemplate()
+    const message = await createMessage({
+      channelId: template.channel.id,
+      buildUnitId: template.buildUnit.id,
+      projectId: template.project.id,
+      createdById: template.owner.id,
+      text: "doomed",
+    })
+    await db
+      .update(messagesTable)
+      .set({ deleted_at: new Date() })
+      .where(eq(messagesTable.id, message.id))
+    await seedTemplateResource(template, { messageId: message.id, bytes: "B" })
+
+    const newcomer = await createUser()
+    const result = await provisionSampleProject(db, newcomer.id)
+    if (result.status === "skipped") throw new Error("template not found")
+
+    const copied = await db
+      .select()
+      .from(resourcesTable)
+      .where(eq(resourcesTable.project_id, result.projectId))
+    expect(copied).toHaveLength(0)
+  })
+
+  it("does not clone a soft-deleted attachment", async () => {
+    const template = await seedTemplate()
+    const res = await seedTemplateResource(template, { bytes: "C" })
+    await db
+      .update(resourcesTable)
+      .set({ deleted_at: new Date() })
+      .where(eq(resourcesTable.id, res.id))
+
+    const newcomer = await createUser()
+    const result = await provisionSampleProject(db, newcomer.id)
+    if (result.status === "skipped") throw new Error("template not found")
+
+    const copied = await db
+      .select()
+      .from(resourcesTable)
+      .where(eq(resourcesTable.project_id, result.projectId))
+    expect(copied).toHaveLength(0)
   })
 })
 

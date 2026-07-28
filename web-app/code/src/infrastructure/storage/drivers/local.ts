@@ -53,6 +53,23 @@ export class LocalFsStorage implements StorageProvider {
     return { stream, size: stat.size }
   }
 
+  async copy(srcKey: string, destKey: string): Promise<void> {
+    const src = this.resolve(srcKey)
+    const dest = this.resolve(destKey)
+    await fs.mkdir(path.dirname(dest), { recursive: true })
+    // A real copy, never a link: the two objects have independent lifecycles and
+    // the purge job deletes one without regard for the other.
+    try {
+      await fs.copyFile(src, dest)
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code === "ENOENT") {
+        throw new Error(`storage: cannot copy missing object ${srcKey}`)
+      }
+      throw err
+    }
+  }
+
   async delete(key: string): Promise<void> {
     const full = this.resolve(key)
     await fs.unlink(full).catch(() => {})
