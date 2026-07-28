@@ -49,7 +49,24 @@ export default defineConfig({
     trace: "retain-on-failure",
     ignoreHTTPSErrors: true,
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // The sync specs are slow and serial, so the two projects are split by
+  // testMatch rather than left to run every spec twice.
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      testIgnore: /desktop-notice\.spec\.ts/,
+    },
+    // The desktop-recommended notice is gated on a sub-`lg` viewport, so the only
+    // way to exercise it is a mobile context that is ALSO signed in — the
+    // responsive suite has the viewports but is deliberately unauthenticated,
+    // and this suite has the session but was desktop-only.
+    {
+      name: "mobile",
+      use: { ...devices["Pixel 7"] },
+      testMatch: /desktop-notice\.spec\.ts/,
+    },
+  ],
   webServer: {
     command: "pnpm dev",
     url: BASE_URL,

@@ -99,9 +99,9 @@ export function MobileMenu({
  * These are plain links. The desktop-recommended notice used to be raised from
  * here by intercepting the click, which covered only this one route to /login —
  * the hero's "Start Building" CTA reaches it through the _authenticated
- * redirect, and never touched this code. The notice now gates the /login page
- * itself (see DesktopRecommendedNotice), which covers every route in and let
- * this go back to being ordinary markup.
+ * redirect, and never touched this code. The notice now fires after sign-in from
+ * AuthenticatedLayout (see DesktopRecommendedNotice), so nothing on the way to
+ * /login needs to raise it and this is ordinary markup again.
  */
 export function MarketingMobileMenu({ returnTo = "/" }: { returnTo?: string }) {
   const actionClass =

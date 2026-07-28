@@ -1,14 +1,12 @@
 import { LoginHeader, LoginDecorativeImage , LoginForm , LoginTerms, Footer  } from "../components/buildInlime";
-import { DesktopRecommendedNoticeGate } from "../components/buildInlime/shared/DesktopRecommendedNotice";
 
 export default function LoginPage2() {
   return (
     <div className="bg-white flex flex-col min-h-screen">
-      {/* Gated on viewport width and a session flag — see the component. Mounted
-          here rather than on the Login button because /login is reached several
-          ways that never touch it (the hero CTA via the _authenticated redirect,
-          session expiry, bookmarks). */}
-      <DesktopRecommendedNoticeGate />
+      {/* The narrow-viewport notice used to be raised here. It now fires after
+          sign-in, from AuthenticatedLayout: the warning is about the workspace
+          layout, so it belongs where the workspace appears rather than in front
+          of a form that works fine on a phone. */}
 
       <LoginHeader />
 
