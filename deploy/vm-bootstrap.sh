@@ -178,6 +178,20 @@ opt() { gcloud secrets versions access latest --secret="$1" 2>/dev/null || true;
     echo "PLAY_REVIEW_EMAIL=$play_review_email"
     echo "PLAY_REVIEW_OTP=$play_review_otp"
   fi
+
+  # Which project new signups get a copy of (infrastructure/onboarding/sample-project.ts).
+  # NOT a secret — it is a project id — but it lives here rather than in compose.env
+  # because compose.env values are substitution variables that reach a container only
+  # if docker-compose.prod.yaml also names them in an `environment:` block, whereas
+  # `env_file: .env` forwards everything. Putting it here keeps it deployable without
+  # a compose change, and survives the regeneration that would wipe a hand-edited .env.
+  #
+  # Optional on purpose: unset means the code falls back to finding the project by
+  # name, and an environment with no such project simply skips provisioning.
+  sample_template=$(opt sample-template-project-id)
+  if [ -n "$sample_template" ]; then
+    echo "SAMPLE_TEMPLATE_PROJECT_ID=$sample_template"
+  fi
 } >"$TMP"
 # Atomic replace so a failed fetch never leaves a half-written .env behind.
 mv "$TMP" "$OUT"
