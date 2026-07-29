@@ -14,7 +14,11 @@ export function LoginForm() {
 
   const [view, setView] = useState<AuthView>("otp");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  // Seeded from ?email= so the mobile handoff does not ask for the address a
+  // second time. Initial value only — this is ordinary form state afterwards, so
+  // typing over it works and the mode toggles below (which preserve `email`)
+  // keep whatever is in the field.
+  const [email, setEmail] = useState(search.email || "");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -158,10 +162,13 @@ export function LoginForm() {
             <div className="p-3 bg-red-50 border border-red-200 rounded-[10px]">
               <p className="font-['Instrument_Sans',sans-serif] text-[14px] text-red-600">{error}</p>
             </div>
+            {/* Carries `email` so the address survives the mode switch even if
+                the route change remounts this form — this button appears
+                precisely when one has just been typed and not found. */}
             {showSignupPrompt && (
               <button
                 type="button"
-                onClick={() => router.navigate({ to: '/login', search: { mode: 'signup', returnTo } })}
+                onClick={() => router.navigate({ to: '/login', search: { mode: 'signup', returnTo, email } })}
                 className="mt-2 w-full bg-white hover:bg-card-surface border border-primary text-primary rounded-[10px] h-[44px] font-['Instrument_Sans',sans-serif] font-medium text-[15px] flex items-center justify-center gap-2 transition-colors"
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
@@ -250,7 +257,7 @@ export function LoginForm() {
               <div className="text-center">
                 <button
                   type="button"
-                  onClick={() => router.navigate({ to: '/login', search: { mode: 'login', returnTo } })}
+                  onClick={() => router.navigate({ to: '/login', search: { mode: 'login', returnTo, email } })}
                   className="font-['Instrument_Sans',sans-serif] text-[14px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 mx-auto"
                 >
                   <ArrowLeft className="w-4 h-4" />

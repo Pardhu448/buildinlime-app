@@ -7,9 +7,22 @@ export const Route = createFileRoute('/login')({
   head: () => ({
     meta: [{ title: 'Login - BuildInLime' }],
   }),
-  validateSearch: (search: Record<string, unknown>) => ({
+  // `email` is OPTIONAL, and the return type says so explicitly. Inferring it as
+  // a required string would make every existing Link to /login a type error for
+  // omitting it — the header, the mobile menu, and the _authenticated bounce all
+  // navigate here with only returnTo + mode, and none of them has an address to
+  // offer.
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { returnTo: string; mode: 'signup' | 'login'; email?: string } => ({
     returnTo: (search.returnTo as string) || '/',
     mode: (search.mode as string) === 'signup' ? 'signup' : 'login',
+    // Carried over by the mobile app when its sign-in finds no account for the
+    // address (mobile-app/app/(auth)/login.tsx) — signup is web-only, so the
+    // handoff brings the address across rather than making it be typed twice.
+    // Prefill only: the form still validates and submits it like any other
+    // input, so a hand-crafted value gets no special treatment.
+    ...((search.email as string) ? { email: search.email as string } : {}),
   }),
   component: LoginRoute,
 })
