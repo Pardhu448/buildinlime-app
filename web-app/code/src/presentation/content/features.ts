@@ -42,7 +42,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       {
         name: "Projects and BuildUnits",
         description:
-          "Break a build into the units that get built and signed off separately — a foundation, a room, a roof. Everything else hangs off them.",
+          "Break a build into the pieces you want to track as one thing — a room, a roof, a crew's work like plastering, or the overlap. You draw the edges; everything else hangs off them.",
         platform: "both",
         note: "Created on web; mobile browses the hierarchy rather than editing it.",
       },

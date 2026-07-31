@@ -8,8 +8,9 @@ import { signOutAndDispose, useRequireAuth } from "../../infrastructure/auth/cli
  */
 
 /**
- * The eight BuildUnits the sample house breaks into. Rendered as the "how would
- * I model this" answer before the steps that build it.
+ * One way the sample house breaks into BuildUnits — by room, which suits this
+ * brief. Rendered as a worked "how would I model this" answer before the steps
+ * that build it, not as the only shape a unit can take.
  */
 const SAMPLE_BUILD_UNITS: { name: string; scope: string }[] = [
   {
@@ -80,10 +81,11 @@ const SAMPLE_PROJECT_STEPS: Step[] = [
   {
     title: "Break the house into BuildUnits",
     detail:
-      "Open the project and add a BuildUnit for each of the eight pieces above. A BuildUnit is the shared address that drawings, budgets, materials and site updates all hang off — so split by what gets built and signed off as a unit, not by trade.",
+      "Open the project and add a BuildUnit for each piece you want to track as one thing. A BuildUnit is the shared address that drawings, budgets, materials and site updates hang off, and you decide where its edges are — the eight above split this house by room, which suits this brief.",
     points: [
-      "Flooring and plastering are deliberately not their own BuildUnits — they run inside each room, as tasks in that room's Execution channel.",
-      "Rainwater Harvesting is its own unit because it has its own materials, its own budget and its own completion date.",
+      "A unit can follow a place, a team's work, or the overlap. Plastering on its own works if one crew owns it end to end; so does Kitchen Plastering, if that is what gets quoted and signed off separately.",
+      "Rainwater Harvesting is its own unit here because it has its own materials, its own budget and its own completion date.",
+      "The useful test is whether you can name what completes the unit and who needs to watch it. Something as broad as the whole ground floor fails the first half; a unit so narrow that the same conversation repeats in five places fails the second.",
     ],
   },
   {
@@ -128,7 +130,7 @@ function SampleBrief() {
           className="font-['Instrument_Sans',sans-serif] font-medium text-[15px] leading-[22px] text-black"
           style={{ fontVariationSettings: "'wdth' 100" }}
         >
-          How it breaks into BuildUnits
+          One way it breaks into BuildUnits
         </h4>
         <ul className="flex flex-col">
           {SAMPLE_BUILD_UNITS.map((unit) => (
