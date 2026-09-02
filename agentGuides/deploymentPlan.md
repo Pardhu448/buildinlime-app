@@ -30,11 +30,17 @@ pre-decision):
 
 | | |
 |---|---|
-| Host | `app.buildinlime.com` → `34.93.54.217` |
-| VM | `buildinlime-app`, **e2-medium**, `asia-south1-a` |
-| Cloud SQL | `buildinlime-db`, PG17, **db-g1-small, ENTERPRISE edition**, private IP `10.101.0.3` |
-| Electric disk | **20 GB** pd-ssd at `/var/lib/electric` |
-| Cost | ≈ $70/mo (≈ ₹5,930 + GST) |
+| Host | `app.buildinlime.com` → ~~`34.93.54.217`~~ **released 2026-09-02** |
+| VM | `buildinlime-app`, **e2-medium**, `asia-south1-a` — **TERMINATED** |
+| Cloud SQL | `buildinlime-db`, PG17, **db-g1-small, ENTERPRISE edition**, private IP `10.101.0.3` — **STOPPED** |
+| Electric disk | ~~**20 GB** pd-ssd at `/var/lib/electric`~~ **deleted 2026-09-02** |
+| Cost | ≈ $70/mo running; ≈ $11/mo paused |
+
+> **This deployment is paused and trimmed as of 2026-09-02.** The static IP and
+> the Electric disk no longer exist, so resuming is **not** just starting the VM
+> — DNS must be repointed and the Electric disk recreated. See
+> **`gcpCostReduction.md`** for what was released, why, and the full resume
+> checklist.
 
 §3's table and §4.6.2 still show the pre-decision `us-central1` / `e2-standard-2`
 / 50 GB values as the *reasoning*; the table above is what actually runs.
